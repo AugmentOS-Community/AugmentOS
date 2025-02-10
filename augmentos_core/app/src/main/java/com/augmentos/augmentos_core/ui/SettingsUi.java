@@ -18,8 +18,8 @@ import androidx.navigation.Navigation;
 
 import com.augmentos.augmentos_core.MainActivity;
 import com.augmentos.augmentos_core.R;
-import com.augmentos.smartglassesmanager.SmartGlassesAndroidService;
-import com.augmentos.smartglassesmanager.supportedglasses.AudioWearable;
+import com.augmentos.augmentos_core.smarterglassesmanager.smartglassesconnection.SmartGlassesAndroidService;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.AudioWearable;
 
 public class SettingsUi extends Fragment {
     private  final String TAG = "WearableAi_SettingsUIFragment";

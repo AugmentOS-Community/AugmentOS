@@ -100,7 +100,7 @@ public class AugmentosCoreUi extends Fragment {
 
     //trigger UI update
     if (((MainActivity)getActivity()).mService != null){
-       ((MainActivity)getActivity()).mService.sendUiUpdateFull();
+//       ((MainActivity)getActivity()).mService.sendUiUpdateFull();
     }
   }
 

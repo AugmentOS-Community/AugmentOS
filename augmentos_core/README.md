@@ -7,7 +7,7 @@ This is the Android code that runs on the Puck device.
 - Must use Java SDK 17
     - To set this, in Android Studio, go to Settings > Build, Execution, Deployment > Build Tools > Gradle, go to Gradle JDK and select version 17
 
-- AugmentOS_Core currently depends on the "SmartGlassesManager" repo being next to it. Eventually, this will be a typical library, but for now it must be manually installed. To do this, clone the "SmartGlassesManager" repository into the same parent directory as this `augmentos_core` directory.
+- AugmentOS_Core currently depends on the "SmartGlassesManager" repo being next to it. In the future, it will be fully merged with AugmentOS_Core and deleted.
 
 ##### Building OGG/Orbis C++ for ASP
 

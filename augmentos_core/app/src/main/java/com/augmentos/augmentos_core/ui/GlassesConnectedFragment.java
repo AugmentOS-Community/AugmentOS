@@ -17,7 +17,7 @@ import androidx.navigation.Navigation;
 
 import com.augmentos.augmentos_core.MainActivity;
 import com.augmentos.augmentos_core.R;
-import com.augmentos.smartglassesmanager.supportedglasses.SmartGlassesDevice;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.SmartGlassesDevice;
 
 public class GlassesConnectedFragment extends Fragment {
     private  final String TAG = "WearableAi_GlassesConnectedFragment";

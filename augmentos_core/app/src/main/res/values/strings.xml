@@ -56,4 +56,9 @@
     <string name="SHARED_PREF_SOURCE_LANGUAGE">shared_pref_source_language</string>
     <string name="SHARED_PREF_CURRENT_MODE">shared_pref_current_mode</string>
     <string name="SHARED_PREF_LIVE_CAPTIONS_TRANSLATION">shared_pref_live_captions</string>
+
+    <string name="SHARED_PREF_BRIGHTNESS">brightness</string>
+    <string name="PREFERRED_WEARABLE">preferred_wearable</string>
+    <string name="FORCE_CORE_ONBOARD_MIC">force_core_onboard_mic</string>
+    <string name="HEADUP_ANGLE">headUp_Angle</string>
 </resources>

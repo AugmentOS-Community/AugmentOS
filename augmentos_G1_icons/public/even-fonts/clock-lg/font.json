@@ -1,0 +1,71 @@
+{
+  "font": "clock-lg",
+  "glyphs": [
+    {
+      "code_point": 48,
+      "char": "0",
+      "width": 12,
+      "height": 32
+    },
+    {
+      "code_point": 49,
+      "char": "1",
+      "width": 4,
+      "height": 32
+    },
+    {
+      "code_point": 50,
+      "char": "2",
+      "width": 12,
+      "height": 32
+    },
+    {
+      "code_point": 51,
+      "char": "3",
+      "width": 12,
+      "height": 32
+    },
+    {
+      "code_point": 52,
+      "char": "4",
+      "width": 12,
+      "height": 32
+    },
+    {
+      "code_point": 53,
+      "char": "5",
+      "width": 12,
+      "height": 32
+    },
+    {
+      "code_point": 54,
+      "char": "6",
+      "width": 12,
+      "height": 32
+    },
+    {
+      "code_point": 55,
+      "char": "7",
+      "width": 12,
+      "height": 32
+    },
+    {
+      "code_point": 56,
+      "char": "8",
+      "width": 12,
+      "height": 32
+    },
+    {
+      "code_point": 57,
+      "char": "9",
+      "width": 12,
+      "height": 32
+    },
+    {
+      "code_point": 58,
+      "char": ":",
+      "width": 2,
+      "height": 32
+    }
+  ]
+}

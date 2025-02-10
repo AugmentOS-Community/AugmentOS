@@ -17,13 +17,13 @@ import androidx.navigation.Navigation;
 
 import com.augmentos.augmentos_core.MainActivity;
 import com.augmentos.augmentos_core.R;
-import com.augmentos.smartglassesmanager.supportedglasses.AudioWearable;
-import com.augmentos.smartglassesmanager.supportedglasses.InmoAirOne;
-import com.augmentos.smartglassesmanager.supportedglasses.MentraMach1;
-import com.augmentos.smartglassesmanager.supportedglasses.SmartGlassesDevice;
-import com.augmentos.smartglassesmanager.supportedglasses.TCLRayNeoXTwo;
-import com.augmentos.smartglassesmanager.supportedglasses.VuzixShield;
-import com.augmentos.smartglassesmanager.supportedglasses.VuzixUltralite;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.AudioWearable;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.InmoAirOne;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.MentraMach1;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.SmartGlassesDevice;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.TCLRayNeoXTwo;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.VuzixShield;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.VuzixUltralite;
 
 import java.util.ArrayList;
 

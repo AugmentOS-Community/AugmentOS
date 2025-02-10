@@ -18,6 +18,8 @@ import android.util.Log;
 import android.content.pm.PackageManager;
 import android.widget.Toast;
 
+import com.augmentos.augmentos_core.smarterglassesmanager.speechrecognition.AsrStreamKey;
+import com.augmentos.augmentoslib.enums.AsrStreamType;
 import com.google.gson.Gson;
 import com.augmentos.augmentoslib.AugmentOSCommand;
 import com.augmentos.augmentoslib.ThirdPartyApp;

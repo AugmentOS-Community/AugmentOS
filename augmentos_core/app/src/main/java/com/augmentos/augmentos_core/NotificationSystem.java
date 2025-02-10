@@ -3,14 +3,11 @@ package com.augmentos.augmentos_core;
 import static com.augmentos.augmentos_core.Constants.SEND_NOTIFICATIONS_ENDPOINT;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.util.Log;
-
-import androidx.preference.PreferenceManager;
 
 import com.augmentos.augmentoslib.PhoneNotification;
 import com.augmentos.augmentoslib.events.NotificationEvent;
-import com.augmentos.augmentos_core.augmentos_backend.BackendServerComms;
+import com.augmentos.augmentos_core.augmentos_backend.OldBackendServerComms;
 import com.augmentos.augmentos_core.augmentos_backend.VolleyJsonCallback;
 import com.augmentos.augmentos_core.events.GoogleAuthFailedEvent;
 
@@ -22,20 +19,19 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.UUID;
 
 public class NotificationSystem {
     private static final String TAG = "NotificationSystem";
 
     private final ArrayList<PhoneNotification> notificationQueue;
-    private BackendServerComms backendServerComms;
+    private OldBackendServerComms oldBackendServerComms;
     private long lastDataSentTime = 0;
     Context context;
     private final String userId;
 
     public NotificationSystem(Context context, String userId) {
         notificationQueue = new ArrayList<>();
-        backendServerComms = BackendServerComms.getInstance(context);
+        oldBackendServerComms = OldBackendServerComms.getInstance(context);
         this.userId = userId;
         EventBus.getDefault().register(this);
         this.context = context;
@@ -85,7 +81,7 @@ public class NotificationSystem {
             requestWrapper.put("notifications", notificationsArray);
             requestWrapper.put("userId", userId);
 
-            backendServerComms.restRequest(SEND_NOTIFICATIONS_ENDPOINT, requestWrapper, new VolleyJsonCallback() {
+            oldBackendServerComms.restRequest(SEND_NOTIFICATIONS_ENDPOINT, requestWrapper, new VolleyJsonCallback() {
                 @Override
                 public void onSuccess(JSONObject result) {
                     Log.d(TAG, "Request sent Successfully: " + result.toString());

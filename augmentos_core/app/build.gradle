@@ -71,6 +71,7 @@ dependencies {
     implementation 'joda-time:joda-time:2.12.2'
     implementation 'io.grpc:grpc-okhttp:1.53.0'
     implementation project(':AugmentOSLib')
+    implementation 'com.squareup.picasso:picasso:2.8'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
@@ -126,4 +127,17 @@ dependencies {
     implementation 'com.huaban:jieba-analysis:1.0.2'
 
     implementation 'com.posthog.java:posthog:1.+'
+
+    implementation 'io.reactivex.rxjava3:rxjava:3.0.0'
+    implementation "io.reactivex.rxjava3:rxandroid:3.0.0"
+
+    // SGM leftover for ASG connector
+    implementation "org.java-websocket:Java-WebSocket:1.5.2"
+
+    //for VAD (using Silero DNN)
+    implementation 'com.github.gkonovalov:android-vad:2.0.1'
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.15.0'
+
+    //Vuzix Ultralite OEM Platform / Vuzix Z100
+    implementation 'com.vuzix:ultralite-sdk-android:1.8'
 }

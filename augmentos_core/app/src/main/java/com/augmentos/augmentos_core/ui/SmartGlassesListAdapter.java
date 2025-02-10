@@ -9,8 +9,8 @@ import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.augmentos.smartglassesmanager.R;
-import com.augmentos.smartglassesmanager.supportedglasses.SmartGlassesDevice;
+import com.augmentos.augmentos_core.R;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.SmartGlassesDevice;
 
 import java.util.ArrayList;
 

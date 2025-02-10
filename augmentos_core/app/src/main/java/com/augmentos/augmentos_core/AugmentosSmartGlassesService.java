@@ -8,7 +8,7 @@ import android.util.Log;
 import com.augmentos.augmentos_core.events.AugmentosSmartGlassesDisconnectedEvent;
 import com.augmentos.augmentos_core.ui.AugmentosCoreUi;
 import com.augmentos.augmentoslib.events.DiarizationOutputEvent;
-import com.augmentos.augmentoslib.events.SmartGlassesConnectionStateChangedEvent;
+import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SmartGlassesConnectionStateChangedEvent;
 import com.augmentos.augmentoslib.events.SmartRingButtonOutputEvent;
 import com.augmentos.augmentoslib.events.SpeechRecOutputEvent;
 
@@ -16,11 +16,11 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import java.util.ArrayList;
 
-import com.augmentos.smartglassesmanager.SmartGlassesAndroidService;
-import com.augmentos.smartglassesmanager.smartglassescommunicators.SmartGlassesFontSize;
-import com.augmentos.smartglassesmanager.speechrecognition.ASR_FRAMEWORKS;
-import com.augmentos.smartglassesmanager.supportedglasses.SmartGlassesDevice;
-import com.augmentos.smartglassesmanager.utils.SmartGlassesConnectionState;
+import com.augmentos.augmentos_core.smarterglassesmanager.smartglassesconnection.SmartGlassesAndroidService;
+import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.SmartGlassesFontSize;
+import com.augmentos.augmentos_core.smarterglassesmanager.speechrecognition.ASR_FRAMEWORKS;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.SmartGlassesDevice;
+import com.augmentos.augmentos_core.smarterglassesmanager.utils.SmartGlassesConnectionState;
 
 public class AugmentosSmartGlassesService extends SmartGlassesAndroidService {
     public final String TAG = "AugmentOS_AugmentOSService";

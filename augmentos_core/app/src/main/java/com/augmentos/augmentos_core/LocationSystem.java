@@ -4,9 +4,13 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.os.Handler;
+import android.os.Looper;
+
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.augmentos.augmentos_core.augmentos_backend.ServerComms;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -18,8 +22,16 @@ public class LocationSystem {
     private Context context;
     public double lat = 0;
     public double lng = 0;
+
+    public double latestAccessedLat = 0;
+    public double latestAccessedLong = 0;
     private FusedLocationProviderClient fusedLocationProviderClient;
     private LocationCallback locationCallback;
+
+    private final Handler locationSendingLoopHandler = new Handler(Looper.getMainLooper());
+    private Runnable locationSendingRunnableCode;
+    private final long locationSendTime = 1000 * 10; // define in milliseconds
+
 
     public LocationSystem(Context context) {
         this.context = context;
@@ -71,6 +83,45 @@ public class LocationSystem {
         if (fusedLocationProviderClient != null && locationCallback != null) {
             fusedLocationProviderClient.removeLocationUpdates(locationCallback);
         }
+
+        locationSendingLoopHandler.removeCallbacks(locationSendingRunnableCode);
+        locationSendingLoopHandler.removeCallbacksAndMessages(null);
+    }
+
+    public double getNewLat() {
+        if (latestAccessedLat == lat) return -1;
+
+        latestAccessedLat = lat;
+        return latestAccessedLat;
+    }
+
+    public double getNewLng() {
+        if (latestAccessedLong == lng) return -1;
+
+        latestAccessedLong = lng;
+        return latestAccessedLong;
+    }
+
+    public void startLocationSending() {
+        locationSendingLoopHandler.removeCallbacksAndMessages(this);
+
+        locationSendingRunnableCode = new Runnable() {
+            @Override
+            public void run() {
+                    sendLocationToServer();
+                locationSendingLoopHandler.postDelayed(this, locationSendTime);
+            }
+        };
+        locationSendingLoopHandler.post(locationSendingRunnableCode);
+    }
+
+    private void sendLocationToServer(){
+        double latitude = getNewLat();
+        double longitude = getNewLng();
+
+        if(latitude == -1 && longitude == -1) return;
+
+        ServerComms.getInstance().sendLocationUpdate(latitude, longitude);
     }
 }
 

@@ -37,18 +37,14 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.navigation.NavController;
-import androidx.navigation.NavOptions;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.preference.PreferenceManager;
 
 // import com.firebase.ui.auth.AuthUI;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.Task;
 import com.augmentos.augmentos_core.events.SignOutEvent;
 import com.augmentos.augmentos_core.ui.UiUtils;
-import com.augmentos.smartglassesmanager.supportedglasses.SmartGlassesDevice;
-import com.augmentos.smartglassesmanager.utils.PermissionsUtils;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.SmartGlassesDevice;
+import com.augmentos.augmentos_core.smarterglassesmanager.utils.PermissionsUtils;
 import android.media.projection.MediaProjectionManager;
 
 import org.greenrobot.eventbus.Subscribe;
@@ -201,7 +197,7 @@ public class MainActivity extends AppCompatActivity {
 
       //ask the service to send us all the Augmentos responses
       if (mService != null) {
-        mService.sendUiUpdateFull();
+        //mService.sendUiUpdateFull();
       }
     }
   }
@@ -305,7 +301,7 @@ public class MainActivity extends AppCompatActivity {
       mBound = true;
 
       //get update for UI
-      mService.sendUiUpdateFull();
+     // mService.sendUiUpdateFull();
     }
     @Override
     public void onServiceDisconnected(ComponentName arg0) {
