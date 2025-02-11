@@ -24,6 +24,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Button from '../components/Button';
 import InstallApkModule from '../logic/InstallApkModule';
 import { fetchAppStoreData } from '../utils/backendUtils.ts';
+import BluetoothService from '../BluetoothService.tsx';
 
 interface SimulatedPuckOnboardProps {
   isDarkTheme: boolean;
@@ -44,6 +45,7 @@ const SimulatedPuckOnboard: React.FC<SimulatedPuckOnboardProps> = ({
 
   const { status } = useStatus();
   const navigation = useNavigation<NavigationProps>();
+    const bluetoothService = BluetoothService.getInstance();
 
   // Use a ref flag to ensure we only fetch the app store data once.
   const didFetchStoreData = useRef(false);
@@ -127,6 +129,7 @@ const SimulatedPuckOnboard: React.FC<SimulatedPuckOnboardProps> = ({
         // Re-check installation state quickly (no isLoading flip)
         const installed = await isAugmentOsCoreInstalled();
         setIsCoreInstalled(installed);
+        bluetoothService.sendRequestStatus();
         // If installed and no need to update => open permission screen
         if (installed && !isCoreOutdated) {
           openCorePermissionsActivity();

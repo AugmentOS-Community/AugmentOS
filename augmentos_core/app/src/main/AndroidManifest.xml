@@ -41,13 +41,14 @@
 
   <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
-  <application
-      android:usesCleartextTraffic="true"
-      android:icon="@mipmap/ic_launcher"
-      android:label="@string/app_name"
-      android:roundIcon="@mipmap/ic_launcher_round"
-      android:supportsRtl="true"
-      android:theme="@style/AppTheme">
+  <!-- Application node is not neccessary for libraries -->
+  <application>
+<!--      android:usesCleartextTraffic="true"-->
+<!--      android:icon="@mipmap/ic_launcher"-->
+<!--      android:label="@string/app_name"-->
+<!--      android:roundIcon="@mipmap/ic_launcher_round"-->
+<!--      android:supportsRtl="true"-->
+<!--      android:theme="@style/AppTheme">-->
 
     <receiver
         android:name=".BootReceiver"
@@ -59,7 +60,7 @@
     </receiver>
 
     <activity
-        android:name="com.augmentos.augmentos_core.MainActivity"
+        android:name="com.augmentos_core.MainActivity"
         android:exported="true"
         android:theme="@style/AppTheme">
       <intent-filter>

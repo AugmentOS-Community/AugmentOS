@@ -1,14 +1,22 @@
 plugins {
-    id 'com.android.application'
+    // id 'com.android.application'
+    id 'com.android.library'
     //id 'com.google.gms.google-services'
 }
+
+//apply plugin: 'com.android.library'
 
 android {
     namespace 'com.augmentos.augmentos_core'
     compileSdk 33
 
     defaultConfig {
-        applicationId "com.augmentos.augmentos_core"
+        // applicationId only belongs to an application plugin
+        // applicationId "com.augmentos.augmentos_core"
+
+        // namespace applies to libraries
+        namespace "com.augmentos.augmentos_core"
+
         minSdk 28
         targetSdk 33
         versionCode 1

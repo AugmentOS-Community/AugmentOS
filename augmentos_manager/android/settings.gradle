@@ -30,6 +30,12 @@ project(':react-native-vector-icons').projectDir = new File(rootProject.projectD
 include ':AugmentOSLib'
 project(':AugmentOSLib').projectDir = new File(rootProject.projectDir, '../../augmentos_android_library/AugmentOSLib')
 
+include ':augmentos_core'
+project(':augmentos_core').projectDir = new File(rootProject.projectDir, '../../augmentos_core/app')
+
+include ':SmartGlassesManager'
+project(':SmartGlassesManager').projectDir = new File(rootProject.projectDir, '../../SmartGlassesManager/SGM_android/SmartGlassesManager')
+
 // include ':@react-native-async-storage_async-storage'
 // project(':@react-native-async-storage_async-storage').projectDir = new File(rootProject.projectDir, '../node_modules/@react-native-async-storage/async-storage/android')
 

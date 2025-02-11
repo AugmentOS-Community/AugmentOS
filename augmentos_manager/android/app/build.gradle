@@ -61,6 +61,9 @@ android {
     packagingOptions {
         pickFirst '**/libjsc.so'
         pickFirst '**/libc++_shared.so'
+                resources {
+            excludes += ["META-INF/INDEX.LIST"]
+        }
     }
 }
 dependencies {
@@ -92,8 +95,12 @@ dependencies {
 
     // AugmentOSLib project dependency
     implementation project(path: ':AugmentOSLib')
+    implementation project(path: ":SmartGlassesManager")
     implementation "androidx.lifecycle:lifecycle-service:2.6.1"
     implementation("org.greenrobot:eventbus:3.3.1")
+
+
+    implementation project(path: ":augmentos_core")
 }
 
 // Include custom vector icons fonts from react-native-vector-icons
