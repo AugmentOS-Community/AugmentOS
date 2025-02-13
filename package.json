@@ -1,6 +1,7 @@
 {
   "dependencies": {
-    "@langchain/core": "^0.3.39",
+    "@langchain/community": "^0.3.30",
+    "@langchain/core": "^0.3.40",
     "@langchain/openai": "^0.4.3",
     "langchain": "^0.3.15"
   }

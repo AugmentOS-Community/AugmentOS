@@ -2,7 +2,7 @@ import { Agent } from './AgentInterface';
 import axios from 'axios';
 import { PromptTemplate } from "@langchain/core/prompts";
 import { JsonOutputFunctionsParser } from 'langchain/output_parsers';
-import { LLMProvider } from '../LLMProvider'; // Utility to easily swap LLMs
+import { LLMProvider } from '../utils/LLMProvider'; // Utility to easily swap LLMs
 
 /** 
  * Minimal interface for a news article as returned by NewsAPI.
@@ -26,6 +26,8 @@ interface NewsSummaries {
  */
 export class NewsAgent implements Agent {
   public agentId = 'news_summarize';
+  public agentName = 'News Summarizer';
+  public agentDescription = 'Fetches and summarizes recent news articles';
 
   /**
    * Main method from the `Agent` interface.

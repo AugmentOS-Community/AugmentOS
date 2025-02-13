@@ -38,7 +38,8 @@ import {
   PhoneNotificationEvent,
   CloudToTpaMessage,
   CloudAppStateChangeMessage,
-  UserSession
+  UserSession,
+  DashboardDisplayEventMessage
 } from '@augmentos/types';
 
 import sessionService, { ISessionService } from '../core/session.service';
@@ -553,6 +554,43 @@ export class WebSocketService implements IWebSocketService {
         }
 
         const displayMessage = message as DisplayRequest;
+        const connection = this.tpaConnections.get(currentSession);
+        if (!connection) return;
+
+        await this.displayService.handleDisplayEvent(
+          connection.userSessionId,
+          connection.packageName,
+          displayMessage.layout,
+          displayMessage.durationMs
+        );
+        break;
+      }
+ 
+      // case 'dashboard_display_event': {
+      //   if (!currentSession) {
+      //     ws.close(1008, 'No active session');
+      //     return;
+      //   }
+
+      //   const displayMessage = message as DashboardDisplayEventMessage;
+      //   const connection = this.tpaConnections.get(currentSession);
+      //   if (!connection) return;
+
+      //   this.sessionService.updateDisplay(
+      //     connection.userSessionId,
+      //     displayMessage
+      //   );
+
+      //   break;
+      // }
+ 
+      case 'dashboard_display_event': {
+        if (!currentSession) {
+          ws.close(1008, 'No active session');
+          return;
+        }
+
+        const displayMessage = message as DashboardDisplayEventMessage;
         const connection = this.tpaConnections.get(currentSession);
         if (!connection) return;
 

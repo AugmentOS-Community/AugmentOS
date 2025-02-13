@@ -108,6 +108,8 @@ export class TranscriptionService implements ITranscriptionService {
    * @throws Error if Azure credentials are missing
    */
   constructor(config: TranscriptionServiceConfig = {}) {
+    const AZURE_SPEECH_REGION='centralus';
+    const AZURE_SPEECH_KEY = "7ZV4RSmaAP3NgnvDW8R8mgvQpq2QDtNM7GMbQH0w4sJqzpDngK8PJQQJ99BAAC1i4TkXJ3w3AAAYACOGYFdi";
     //const AZURE_SPEECH_REGION = process.env.AZURE_SPEECH_REGION;
     if (!AZURE_SPEECH_KEY || !AZURE_SPEECH_REGION) {
       throw new Error('Azure Speech key and region are required for TranscriptionService.');

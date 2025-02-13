@@ -1,0 +1,11 @@
+{
+    "azure_speech": {
+        "key": "7ZV4RSmaAP3NgnvDW8R8mgvQpq2QDtNM7GMbQH0w4sJqzpDngK8PJQQJ99BAAC1i4TkXJ3w3AAAYACOGYFdi",
+        "region": "centralus"
+    },
+    "server": {
+        "host": "0.0.0.0",
+        "port": 8765,
+        "max_concurrent": 25
+    }
+}

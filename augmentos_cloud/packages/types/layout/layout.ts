@@ -11,10 +11,16 @@ export interface DoubleTextWall {
   bottomText: string;
 }
 
+export interface DashboardCard {
+  layoutType: 'dashboard_card';
+  leftText: string;
+  rightText: string;
+}
+
 export interface ReferenceCard {
   layoutType: 'reference_card';
   title: string;
   text: string;
 }
 
-export type Layout = TextWall | DoubleTextWall | ReferenceCard;
+export type Layout = TextWall | DoubleTextWall | DashboardCard | ReferenceCard;

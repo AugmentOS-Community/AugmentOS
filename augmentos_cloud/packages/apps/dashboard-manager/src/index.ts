@@ -8,9 +8,11 @@ import {
   TpaSubscriptionUpdateMessage,
   CloudDataStreamMessage,
   DashboardDisplayEventMessage,
+  DashboardCard,
 } from '@augmentos/types';
 
-import { NewsAgent } from './dashboard_modules/NewsAgent';  // lowercase 'n'
+import { NewsAgent } from '../../../agents/NewsAgent';  // lowercase 'n'
+import { WeatherModule } from './dashboard-modules/WeatherModule';
 // e.g. { languageLearning: LanguageLearningAgent, news: NewsAgent, ... }
 
 const app = express();
@@ -18,6 +20,7 @@ const PORT = 7012; // your Dashboard Manager port
 
 const PACKAGE_NAME = 'org.mentra.dashboard';
 const API_KEY = 'test_key'; // In production, store securely
+const LOCATION = 'New York'; // Hardcoded for now
 
 // For demonstration, we'll keep session-based info in-memory.
 // In real usage, you might store persistent data in a DB.
@@ -25,11 +28,26 @@ interface SessionInfo {
   userId: string;
   ws: WebSocket;
   // track last agent calls
-  lastNewsUpdate?: number; 
+  lastNewsUpdate?: number;
+  // cache for transcription data (could be an array to accumulate multiple transcriptions)
+  transcriptionCache?: any[];
+  // embed the dashboard card into session info
+  dashboard: DashboardCard;
   [key: string]: any;
 }
 
 const activeSessions = new Map<string, SessionInfo>();
+
+/**
+ * Creates the dashboard layout from the provided card.
+ */
+function createDashboardLayout(card: DashboardCard) {
+  return {
+    layoutType: card.layoutType,
+    leftText: card.leftText,
+    rightText: card.rightText,
+  };
+}
 
 // Parse JSON bodies
 app.use(express.json());
@@ -45,7 +63,23 @@ app.post('/webhook', async (req: express.Request, res: express.Response) => {
     // 1) Create a new WebSocket connection to the cloud
     const ws = new WebSocket('ws://localhost:7002/tpa-ws');
 
-    // 2) On open, send tpa_connection_init
+    // Create a new dashboard card
+    const dashboardCard: DashboardCard = {
+      layoutType: 'dashboard_card',
+      leftText: '02/12/2025 12:00 100%',
+      rightText: 'Meeting with John',
+    };
+
+    // Store session info, including the dashboard card.
+    activeSessions.set(sessionId, {
+      userId,
+      ws,
+      lastNewsUpdate: Date.now(), // start time for e.g. news
+      transcriptionCache: [],
+      dashboard: dashboardCard,
+    });
+
+    // 2) On open, send tpa_connection_init and initial dashboard display event
     ws.on('open', () => {
       console.log(`[Session ${sessionId}] Connected to augmentos-cloud`);
 
@@ -56,6 +90,18 @@ app.post('/webhook', async (req: express.Request, res: express.Response) => {
         apiKey: API_KEY,
       };
       ws.send(JSON.stringify(initMessage));
+
+      const dashboardLayout = createDashboardLayout(dashboardCard);
+
+      const displayEvent: DashboardDisplayEventMessage = {
+        type: 'dashboard_display_event',
+        packageName: PACKAGE_NAME,
+        sessionId,
+        layout: dashboardLayout,
+        durationMs: 4000,
+      };
+
+      ws.send(JSON.stringify(displayEvent));
     });
 
     // 3) On message, handle incoming data
@@ -72,13 +118,6 @@ app.post('/webhook', async (req: express.Request, res: express.Response) => {
     ws.on('close', () => {
       console.log(`[Session ${sessionId}] Disconnected`);
       activeSessions.delete(sessionId);
-    });
-
-    // Store session info
-    activeSessions.set(sessionId, {
-      userId,
-      ws,
-      lastNewsUpdate: Date.now(), // start time for e.g. news
     });
 
     // Respond to the cloud
@@ -100,23 +139,11 @@ function handleMessage(sessionId: string, message: any) {
   }
 
   switch (message.type) {
-    case 'tpa_connection_ack': {
-      // 1) Now that we're connected, we can subscribe to streams
-      const subMessage: TpaSubscriptionUpdateMessage = {
-        type: 'subscription_update',
-        packageName: PACKAGE_NAME,
-        sessionId,
-        subscriptions: ['transcription'], // e.g. 
-      };
-      sessionInfo.ws.send(JSON.stringify(subMessage));
-      console.log(`[Session ${sessionId}] Subscribed to streams`);
-      break;
-    }
-
     case 'data_stream': {
       const streamMessage = message as CloudDataStreamMessage;
       switch (streamMessage.streamType) {
         case 'transcription':
+          // Instead of immediately calling the NewsAgent, cache the transcription.
           handleTranscription(sessionId, streamMessage.data);
           break;
 
@@ -132,36 +159,17 @@ function handleMessage(sessionId: string, message: any) {
   }
 }
 
-// -----------------------------------
-// 3) Handle Transcription
-// -----------------------------------
-async function handleTranscription(sessionId: string, transcriptionData: any) {
-  // Create an instance of NewsAgent
-  const newsAgent = new NewsAgent();
-  try {
-    const sessionInfo = activeSessions.get(sessionId);
-    if (!sessionInfo) return;
-    
-    const result = await newsAgent.handleContext({});
 
-    // If you have something to display, send a display_event
-    if (result && result.translatedWords) {
-      const displayEvent: DashboardDisplayEventMessage = {
-        type: 'dashboard_display_event',
-        packageName: PACKAGE_NAME,
-        sessionId,
-        layout: {
-          layoutType: 'reference_card',
-          title: 'Language Learning Agent Output:',
-          text: JSON.stringify(result.translatedWords)
-        },
-        durationMs: 4000,
-      };
-      sessionInfo.ws.send(JSON.stringify(displayEvent));
-    }
-  } catch (err) {
-    console.error(`[Session ${sessionId}] handleTranscription error:`, err);
+function handleTranscription(sessionId: string, transcriptionData: any) {
+  const sessionInfo = activeSessions.get(sessionId);
+  if (!sessionInfo) return;
+  if (!sessionInfo.transcriptionCache) {
+    sessionInfo.transcriptionCache = [];
   }
+  sessionInfo.transcriptionCache.push(transcriptionData);
+  console.log(
+    `[Session ${sessionId}] Cached transcription. Total cached items: ${sessionInfo.transcriptionCache.length}`
+  );
 }
 
 // -----------------------------------
@@ -169,54 +177,73 @@ async function handleTranscription(sessionId: string, transcriptionData: any) {
 // -----------------------------------
 function handleSettings(sessionId: string, settingsData: any) {
   console.log(`[Session ${sessionId}] Received context_settings:`, settingsData);
-  // Optionally store them in session data, pass them to agents, etc.
   const sessionInfo = activeSessions.get(sessionId);
   if (sessionInfo) {
-    // maybe store these settings
     sessionInfo['currentSettings'] = settingsData;
   }
 }
 
 // -----------------------------------
-// 5) Periodic Checks (Internal Clock)
+// 7) Internal Dashboard Updater
 // -----------------------------------
-// For example, check every minute whether it's time to call the News Agent
 setInterval(async () => {
-  const now = Date.now();
-  console.log(`[Dashboard Manager] Checking for news updates at ${now}`);
-  for (const [sessionId, session] of activeSessions.entries()) {
-    const { lastNewsUpdate, ws } = session;
-    if (!ws || ws.readyState !== WebSocket.OPEN) continue;
+  // Use the hardcoded location to get the current time and date.
+  // Here we assume "New York" uses the "America/New_York" timezone.
+  const currentDateTime = new Date().toLocaleString("en-US", {
+    timeZone: "America/New_York", 
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'numeric',
+    day: 'numeric',
+  });
+  console.log(`\n[Dashboard Updater] Updating dashboard time to ${currentDateTime}\n`);
 
-    // Check if 1 hour (3600000 ms) has passed
-    if (now - (lastNewsUpdate ?? 0) >= 60 * 60 * 1000) {
-      // time for a news update
-      try {
-        const newsAgent = new NewsAgent(); // Create instance
-        const result = await newsAgent.handleContext({});
-        
-        if (result && result.text) {
-          const displayEvent: TpaDisplayEventMessage = {
-            type: 'display_event',
-            packageName: PACKAGE_NAME,
-            sessionId,
-            layout: {
-              layoutType: 'reference_card',
-              title: 'News Update:',
-              text: result.text
-            },
-            durationMs: 5000,
-          };
-          ws.send(JSON.stringify(displayEvent));
-        }
+  // Iterate through each active session.
+  for (const [sessionId, sessionInfo] of activeSessions.entries()) {
+    // Create dashboard card data
+    const dashboardData = {
+      layoutType: 'dashboard_card' as const,
+      leftText: '',
+      rightText: ''
+    };
 
-        session.lastNewsUpdate = now; // update timestamp
-      } catch (err) {
-        console.error(`[Session ${sessionId}] News Agent error:`, err);
-      }
+    // Update time and date
+    dashboardData.leftText = `${currentDateTime} 100%\n`;
+
+    // Update news
+    const newsAgent = new NewsAgent();
+    const context = { transcriptions: sessionInfo.transcriptionCache };
+    const newsResult = await newsAgent.handleContext(context);
+    sessionInfo.transcriptionCache = [];
+
+    if (newsResult && newsResult.news_summaries && newsResult.news_summaries.length > 0) {
+      dashboardData.rightText += newsResult.news_summaries.join(', ');
     }
+
+    // Add Weather Forecast Update
+    const newYorkLatitude = 40.7128;
+    const newYorkLongitude = -74.0060;
+    const weatherAgent = new WeatherModule();
+    const weather = await weatherAgent.fetchWeatherForecast(newYorkLatitude, newYorkLongitude);
+    if (weather) {
+      dashboardData.leftText += `Weather: ${weather.condition}, ${weather.avg_temp_f}°F`;
+    } else {
+      dashboardData.leftText += 'Weather: N/A';
+    }
+
+    // Create display event with the dashboard card layout
+    const displayEvent: DashboardDisplayEventMessage = {
+      type: 'dashboard_display_event',
+      packageName: PACKAGE_NAME,
+      sessionId,
+      layout: dashboardData,
+      durationMs: 10000,
+    };
+
+    console.log(`[Session ${sessionId}] Sending updated dashboard:`, displayEvent);
+    sessionInfo.ws.send(JSON.stringify(displayEvent));
   }
-}, 60 * 1000); // check once every minute
+}, 4000);
 
 // -----------------------------------
 // 6) Health Check & Static

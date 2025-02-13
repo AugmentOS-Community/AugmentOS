@@ -1,7 +1,15 @@
 // src/components/LayoutRenderer.tsx
 
 import React, { useMemo } from 'react';
-import { Layout, TextWall, DoubleTextWall, ReferenceCard } from '@augmentos/types';
+import { 
+  Layout,
+  TextWall,
+  DoubleTextWall,
+  TextRows,
+  TextLine,
+  ReferenceCard,
+  DashboardCard
+} from '@augmentos/types';
 
 interface LayoutRendererProps {
   layout: Layout;
@@ -20,6 +28,8 @@ export const LayoutRenderer: React.FC<LayoutRendererProps> = ({
         return <DoubleTextWallLayout layout={layout} />;
       case 'reference_card':
         return <ReferenceCardLayout layout={layout} />;
+      case 'dashboard_card':
+        return <DashboardCardLayout layout={layout} />;
       default:
         return <div className="text-red-500">Unsupported layout type</div>;
     }
@@ -32,7 +42,6 @@ export const LayoutRenderer: React.FC<LayoutRendererProps> = ({
   );
 };
 
-// Individual layout type components
 interface TextWallLayoutProps {
   layout: TextWall;
 }
@@ -69,6 +78,21 @@ const ReferenceCardLayout: React.FC<ReferenceCardLayoutProps> = ({ layout }) => 
     </h3>
     <div className="text-sm text-gray-300">
       {layout.text}
+    </div>
+  </div>
+);
+
+interface DashboardCardLayoutProps {
+  layout: DashboardCard;
+}
+
+const DashboardCardLayout: React.FC<DashboardCardLayoutProps> = ({ layout }) => (
+  <div className="flex justify-between">
+    <div className="text-wall whitespace-pre-wrap break-words w-1/2">
+      {layout.leftText}
+    </div>
+    <div className="text-wall whitespace-pre-wrap break-words w-1/2">
+      {layout.rightText}
     </div>
   </div>
 );

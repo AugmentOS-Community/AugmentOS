@@ -11,3 +11,13 @@ export interface DisplayRequest extends WebSocketMessage {
 }
 
 export type DisplayHistory = DisplayRequest[];
+
+export interface DashboardCard {
+  layoutType: 'dashboard_card';
+  timeDateAndBattery: string;
+  topRight: string;
+  bottomRight: string;
+  bottomLeft: string;
+}
+
+export type Layout = DashboardCard;
