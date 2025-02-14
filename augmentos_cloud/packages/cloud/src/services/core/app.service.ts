@@ -31,13 +31,13 @@ export const SYSTEM_TPAS: AppI[] = [
     webhookURL: "http://localhost:7011/webhook",
     logoURL: "http://localhost:7011/logo.png",
   },
-  {
-    packageName: "org.mentra.dashboard",
-    name: "Dashboard",
-    description: "Dashboard for managing your apps",
-    webhookURL: "http://localhost:7012/webhook",
-    logoURL: "http://localhost:7012/logo.png",
-  }
+  // {
+  //   packageName: "org.mentra.dashboard",
+  //   name: "Dashboard",
+  //   description: "Dashboard for managing your apps",
+  //   webhookURL: "http://localhost:7012/webhook",
+  //   logoURL: "http://localhost:7012/logo.png",
+  // }
 ];
 
 /**
