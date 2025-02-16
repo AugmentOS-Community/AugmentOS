@@ -10,25 +10,18 @@ import {
 } from '@augmentos/types'; // Reuse shared types if needed
 
 // Import the AgentGatekeeper and Agent interface (adjust the paths as needed)
-import { Agent } from '../../../agents/AgentInterface';
-import { AgentGatekeeper } from '../../../agents/AgentGateKeeper';
-import { ProactiveDefinerAgent } from '../../../agents/ProactiveDefinerAgent';
-import { QuestionAnswererAgent } from '../../../agents/QuestionAnswererAgent';
-
-
-const agents: Agent[] = [new QuestionAnswererAgent()];
-
-// Instantiate the AgentGatekeeper with the available agents.
-const gatekeeper = new AgentGatekeeper(agents);
+import { MiraAgent } from '../../../agents/MiraAgent';
 
 const app = express();
-const PORT = 7013; // Use a different port from your captions app
+const PORT = 7015; // Use a different port from your captions app
 
-const PACKAGE_NAME = 'org.mentra.agentgatekeeper';
+const PACKAGE_NAME = 'org.mentra.mira';
 const API_KEY = 'test_key'; // In production, secure this key
 
 // Parse JSON bodies
 app.use(express.json());
+
+const miraAgent = new MiraAgent();
 
 // Track active sessions
 const activeSessions = new Map<string, WebSocket>();
@@ -84,11 +77,11 @@ app.post('/webhook', async (req, res) => {
 app.use(express.static(path.join(__dirname, './public')));
 
 async function debug() {
-  console.log("Debugging...");
-  const inputData = { conversation_context: "How many people live in the USA?"};
-  const response = await gatekeeper.processContext(inputData);
-  console.log(response.output[0].insight);
-  return response.output;
+//   console.log("Debugging...");
+//   const inputData = { conversation_context: "How many people live in the USA?"};
+//   const response = await gatekeeper.processContext(inputData);
+//   console.log(response.output[0].insight);
+//   return response.output;
 }
 
 // Handle incoming WebSocket messages
@@ -123,7 +116,7 @@ async function handleMessage(sessionId: string, ws: WebSocket, message: any, con
 
 async function handleTranscription(sessionId: string, ws: WebSocket, transcriptionData: any) {
     const inputData = { conversation_context: transcriptionData.text };
-    const response = await gatekeeper.processContext(inputData);
+    const response = await miraAgent.handleContext(inputData);
 
     console.log(`[Session ${sessionId}]: ${JSON.stringify(!response.selectedAgents, null, 2)}`);
 

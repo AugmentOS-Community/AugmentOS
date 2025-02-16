@@ -38,6 +38,13 @@ export const SYSTEM_TPAS: AppI[] = [
     webhookURL: "http://localhost:7012/webhook",
     logoURL: "http://localhost:7012/logo.png",
   },
+  {
+    packageName: "org.mentra.mira",
+    name: "Mira AI",
+    description: "Mira is an intelligent assistant that is running on the smart glasses of a user. They sometimes directly talk to you by saying a wake word and then making query. Answer the User Query to the best of your ability. The query may contain some extra unrelated speech not related to the query - ignore any noise to answer just the user's intended query. Make your answer concise, leave out filler words, make the answer high entropy, answer in 10 words or less (no newlines), but don't be overly brief (e.g. for weather, give temp. and rain). Use telegraph style writing.",
+    webhookURL: "http://localhost:7015/webhook",
+    logoURL: "http://localhost:7015/logo.png",
+  },
 ];
 
 /**

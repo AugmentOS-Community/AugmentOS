@@ -70,8 +70,12 @@ export class AgentGatekeeper {
       description: agent.agentDescription,
     }));
 
+    // console.log(`[AgentGatekeeper] Agents: ${JSON.stringify(agentsData, null, 2)}`);
+
     // 3) Query the LLM (via LangChain) to determine which agents to invoke
     const selectedAgentIds = await this.llmSelectAgents(userContext, agentsData);
+
+    console.log(`[AgentGatekeeper] Selected Agents: ${JSON.stringify(selectedAgentIds, null, 2)}`);
 
     if (selectedAgentIds.length === 0) {
       console.log(`[AgentGatekeeper] No agents selected by LLM.`);
@@ -108,6 +112,8 @@ export class AgentGatekeeper {
         }
       })
     );
+
+    console.log(`[AgentGatekeeper] Results: ${JSON.stringify(results, null, 2)}`);
 
     // 6) Return the aggregated results
     return {
@@ -155,7 +161,7 @@ export class AgentGatekeeper {
       // Invoke the LLM.
       const response = await llm.invoke(formattedPrompt);
       const responseText = response.content.toString();
-
+      // console.log(`[AgentGatekeeper] Response: ${responseText}`);
       // Use LangChain's JSON output parser to force valid JSON output.
       const outputParser = new JsonOutputFunctionsParser({ argsOnly: true });
       const parsed = (await outputParser.parse(responseText)) as { [key: string]: any };

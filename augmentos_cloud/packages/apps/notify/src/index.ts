@@ -3,8 +3,8 @@ import WebSocket from 'ws';
 import path from 'path';
 import {
   TpaConnectionInitMessage,
-  TpaDisplayEventMessage,
   TpaSubscriptionUpdateMessage,
+  CloudDisplayEventMessage,
 } from '@augmentos/types'; // shared types for cloud TPA messages
 
 const app = express();

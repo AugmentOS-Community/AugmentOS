@@ -1,0 +1,27 @@
+{
+  "name": "mira-ai",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p .",
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
+    "dev": "ts-node-dev --respawn --pretty --transpile-only src/index.ts",
+    "start": "node dist/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build-ts": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@eslint/js": "^9.20.0",
+    "@types/bun": "latest",
+    "eslint": "^9.20.1",
+    "globals": "^15.15.0",
+    "typescript-eslint": "^8.24.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

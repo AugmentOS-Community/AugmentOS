@@ -17,6 +17,7 @@
     "tz-lookup": "^6.1.25"
   },
   "devDependencies": {
-    "@types/tz-lookup": "^6.1.2"
+    "@types/tz-lookup": "^6.1.2",
+    "eslint": "^8.57.1"
   }
 }
