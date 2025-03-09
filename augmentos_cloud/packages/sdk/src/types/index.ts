@@ -45,6 +45,7 @@ export {
   PhoneBatteryUpdate,
   GlassesConnectionState,
   LocationUpdate,
+  CalendarEvent,
   Vad,
   PhoneNotification,
   NotificationDismissed,

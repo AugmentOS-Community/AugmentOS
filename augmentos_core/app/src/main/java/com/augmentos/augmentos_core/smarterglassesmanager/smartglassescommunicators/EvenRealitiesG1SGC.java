@@ -2243,7 +2243,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     private List<byte[]> createDoubleTextWallChunks(String text1, String text2) {
         // Define column widths and positions
         final int LEFT_COLUMN_WIDTH = (int)(DISPLAY_WIDTH * 0.5);  // 40% of display for left column
-        final int RIGHT_COLUMN_START = (int)(DISPLAY_WIDTH * 0.6);  // Right column starts at 60%
+        final int RIGHT_COLUMN_START = (int)(DISPLAY_WIDTH * 0.55);  // Right column starts at 60%
 
         // Split texts into lines with specific width constraints
         List<String> lines1 = splitIntoLines(text1, LEFT_COLUMN_WIDTH);

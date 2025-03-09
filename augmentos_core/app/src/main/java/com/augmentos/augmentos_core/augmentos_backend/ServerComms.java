@@ -4,10 +4,9 @@ import android.content.Context;
 import android.util.Log;
 
 import com.augmentos.augmentos_core.BuildConfig;
-import com.augmentos.augmentos_core.augmentos_backend.WebSocketManager;
+import com.augmentos.augmentos_core.CalendarItem;
 import com.augmentos.augmentos_core.smarterglassesmanager.speechrecognition.AsrStreamKey;
 import com.augmentos.augmentos_core.smarterglassesmanager.speechrecognition.augmentos.SpeechRecAugmentos;
-import com.augmentos.augmentos_core.smarterglassesmanager.utils.EnvHelper;
 import com.augmentos.augmentoslib.enums.AsrStreamType;
 
 import org.json.JSONArray;
@@ -20,7 +19,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * ServerComms is the single facade for all WebSocket interactions in AugmentOS_Core.
@@ -369,6 +367,22 @@ public class ServerComms {
             wsManager.sendText(event.toString());
         } catch (JSONException e) {
             Log.e(TAG, "Error building location_update JSON", e);
+        }
+    }
+
+    public void sendCalendarEvent(CalendarItem calendarItem) {
+        try {
+            JSONObject event = new JSONObject();
+            event.put("type", "calendar_event");
+            event.put("title", calendarItem.getTitle());
+            event.put("eventId", calendarItem.getEventId());
+            event.put("dtStart", calendarItem.getDtStart());
+            event.put("dtEnd", calendarItem.getDtEnd());
+            event.put("timeZone", calendarItem.getTimeZone());
+            event.put("timestamp", System.currentTimeMillis());
+            wsManager.sendText(event.toString());
+        } catch (JSONException e) {
+            Log.e(TAG, "Error building calendar_update JSON", e);
         }
     }
 

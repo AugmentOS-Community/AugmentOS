@@ -13,6 +13,7 @@ import {
   TpaToCloudMessageType,
   ViewType,
   StreamType,
+  CalendarEvent,
 } from '@augmentos/sdk';
 import tzlookup from 'tz-lookup';
 import { NewsAgent } from '@augmentos/agents';
@@ -44,6 +45,8 @@ interface SessionInfo {
   latestLocation?: { latitude: number; longitude: number; timezone?: string };
   // weather cache per user
   weatherCache?: { timestamp: number; data: string };
+  // NEW: Cache for calendar events.
+  calendarEvent?: CalendarEvent;
   // NEW: Cache for news summaries and an index pointer.
   newsCache?: string[];
   newsIndex?: number;
@@ -178,7 +181,7 @@ function handleMessage(sessionId: string, ws: WebSocket, message: any) {
         packageName: PACKAGE_NAME,
         sessionId: sessionId,
         // subscriptions: ['phone_notification', 'location_update', 'head_position', 'glasses_battery_update']
-        subscriptions: [StreamType.PHONE_NOTIFICATION, StreamType.LOCATION_UPDATE, StreamType.HEAD_POSITION, StreamType.GLASSES_BATTERY_UPDATE]
+        subscriptions: [StreamType.PHONE_NOTIFICATION, StreamType.LOCATION_UPDATE, StreamType.HEAD_POSITION, StreamType.GLASSES_BATTERY_UPDATE, StreamType.CALENDAR_EVENT]
       };
       ws.send(JSON.stringify(subMessage));
       console.log(`Session ${sessionId} connected and subscribed`);
@@ -187,12 +190,18 @@ function handleMessage(sessionId: string, ws: WebSocket, message: any) {
 
     case 'data_stream': {
       const streamMessage = message as DataStream;
+      console.log(`[Session ${sessionId}] Received data stream:`, streamMessage);
+
       switch (streamMessage.streamType) {
         // case 'phone_notification':
         case StreamType.PHONE_NOTIFICATION:
           // Instead of immediately handling the notification,
           // cache it and send the entire list to the NotificationFilterAgent.
           handlePhoneNotification(sessionId, streamMessage.data);
+          break;
+
+        case StreamType.CALENDAR_EVENT:
+          handleCalendarEvent(sessionId, streamMessage.data);
           break;
 
         // case 'location_update':
@@ -262,6 +271,17 @@ function handleLocationUpdate(sessionId: string, locationData: any) {
   );
 
   // Call updateDashboard if this was the first location update
+  updateDashboard(sessionId);
+}
+
+function handleCalendarEvent(sessionId: string, calendarEvent: any) {
+  console.log(`[Session ${sessionId}] Received calendar event:`, calendarEvent);
+  const sessionInfo = activeSessions.get(sessionId);
+  if (!sessionInfo) return;
+
+  // Add the calendar event to the session's cache.
+  sessionInfo.calendarEvent = calendarEvent;
+  
   updateDashboard(sessionId);
 }
 
@@ -425,6 +445,34 @@ async function updateDashboard(sessionId?: string) {
 
   // Define right modules.
   const rightModules = [
+    {
+      name: "calendar",
+      async run(context: any) {
+        const session: SessionInfo = context.session;
+        if (!session.calendarEvent) return '-';
+        
+        const event = session.calendarEvent;
+        const eventDate = new Date(event.dtStart);
+        const today = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(today.getDate() + 1);
+        
+        // Format the time portion
+        const timeOptions = { hour: "2-digit" as const, minute: "2-digit" as const, hour12: true };
+        const formattedTime = eventDate.toLocaleTimeString('en-US', timeOptions).replace(" ", "");
+        
+        // Check if event is today or tomorrow
+        if (eventDate.toDateString() === today.toDateString()) {
+          const title = event.title.length > 10 ? event.title.substring(0, 10).trim() + '...' : event.title;
+          return `${title} @ ${formattedTime}`;
+        } else if (eventDate.toDateString() === tomorrow.toDateString()) {
+          const title = event.title.length > 6 ? event.title.substring(0, 6).trim() + '...' : event.title;
+          return `${title} tmr @ ${formattedTime}`;
+        } else {
+          return "-";
+        }
+      }
+    },
     // {
     //   name: "news",
     //   async run(context: any) {
@@ -492,7 +540,7 @@ async function updateDashboard(sessionId?: string) {
           const rankedNotifications = sessionInfo.phoneNotificationRanking || [];
           // The NotificationFilterAgent returns notifications sorted by importance (rank=1 first).
           const topTwoNotifications = rankedNotifications.slice(0, 2);
-          // console.log(`[Session ${sessionId}] Ranked Notifications:`, topTwoNotifications);
+          console.log(`[Session ${sessionId}] Ranked Notifications:`, topTwoNotifications);
           return topTwoNotifications
             .map(notification => wrapText(notification.summary, 25))
             .join('\n');
@@ -514,7 +562,7 @@ async function updateDashboard(sessionId?: string) {
     const rightPromises = rightModules.map(module => module.run(context));
     const rightResults = await Promise.all(rightPromises);
     let rightText = rightResults.filter(text => text.trim()).join('\n');
-    rightText = wrapText(rightText, 22);
+    rightText = wrapText(rightText, 30);
 
     // Create display event.
     const displayRequest: DisplayRequest = {
@@ -593,7 +641,7 @@ function handlePhoneNotification(sessionId: string, notificationData: any) {
 
   // Add the new notification to the cache.
   sessionInfo.phoneNotificationCache.push(newNotification);
-  // console.log(`[Session ${sessionId}] Received phone notification:`, notificationData);
+  console.log(`[Session ${sessionId}] Received phone notification:`, notificationData);
 
   // Instantiate the NotificationFilterAgent.
   const notificationFilterAgent = new NotificationFilterAgent();

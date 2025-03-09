@@ -18,7 +18,8 @@ import {
   LocationUpdate,
   Vad,
   NotificationDismissed,
-  AudioChunk
+  AudioChunk,
+  CalendarEvent
 } from '../../types';
 
 /** 🎯 Type-safe event handler function */
@@ -46,6 +47,7 @@ interface StreamDataTypes {
   [StreamType.PHONE_BATTERY_UPDATE]: PhoneBatteryUpdate;
   [StreamType.GLASSES_CONNECTION_STATE]: GlassesConnectionState;
   [StreamType.LOCATION_UPDATE]: LocationUpdate;
+  [StreamType.CALENDAR_EVENT]: CalendarEvent;
   [StreamType.VAD]: Vad;
   [StreamType.NOTIFICATION_DISMISSED]: NotificationDismissed;
   [StreamType.AUDIO_CHUNK]: AudioChunk;
@@ -105,6 +107,10 @@ export class EventManager {
 
   onLocation(handler: Handler<LocationUpdate>) {
     return this.addHandler(StreamType.LOCATION_UPDATE, handler);
+  }
+
+  onCalendarEvent(handler: Handler<CalendarEvent>) {
+    return this.addHandler(StreamType.CALENDAR_EVENT, handler);
   }
 
   /**

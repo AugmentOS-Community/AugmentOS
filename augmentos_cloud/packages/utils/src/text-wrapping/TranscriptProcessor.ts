@@ -4,12 +4,17 @@ export class TranscriptProcessor {
   private lines: string[];
   private partialText: string;
   private lastUserTranscript: string;
-  constructor(maxCharsPerLine: number, maxLines: number) {
+  private finalTranscriptHistory: string[]; // Array to store history of final transcripts
+  private maxFinalTranscripts: number; // Max number of final transcripts to keep
+  
+  constructor(maxCharsPerLine: number, maxLines: number, maxFinalTranscripts: number = 3) {
     this.maxCharsPerLine = maxCharsPerLine;
     this.maxLines = maxLines;
     this.lastUserTranscript = "";
     this.lines = [];
     this.partialText = "";
+    this.finalTranscriptHistory = []; // Initialize empty history
+    this.maxFinalTranscripts = maxFinalTranscripts; // Default to 3 if not specified
   }
 
   public processString(newText: string | null, isFinal: boolean): string {
@@ -24,16 +29,93 @@ export class TranscriptProcessor {
       // We have a final text -> clear out the partial text to avoid duplication
       this.partialText = "";
 
-      // Wrap this final text
-      const wrapped = this.wrapText(newText, this.maxCharsPerLine);
-      for (const chunk of wrapped) {
-        this.appendToLines(chunk);
-      }
+      // Add to transcript history when it's a final transcript
+      this.addToTranscriptHistory(newText);
 
-      this.lastUserTranscript = newText;
-      // Return only the finalized lines
-      return this.getTranscript();
+      // Return a formatted version of the full transcript history
+      return this.getFormattedTranscriptHistory();
     }
+  }
+
+  // New method to get formatted transcript history
+  public getFormattedTranscriptHistory(): string {
+    if (this.finalTranscriptHistory.length === 0) {
+      return "";
+    }
+
+    // Combine all transcripts in history
+    const combinedText = this.finalTranscriptHistory.join(" ");
+    
+    // Wrap this combined text
+    const wrapped = this.wrapText(combinedText, this.maxCharsPerLine);
+    
+    // Take only the last maxLines lines if there are more
+    const displayLines = wrapped.length > this.maxLines 
+      ? wrapped.slice(wrapped.length - this.maxLines) 
+      : wrapped;
+    
+    // Add padding to ensure exactly maxLines are displayed
+    const linesToPad = this.maxLines - displayLines.length;
+    for (let i = 0; i < linesToPad; i++) {
+      displayLines.push(""); // Add empty lines at the end
+    }
+    
+    return displayLines.join("\n");
+  }
+
+  // Method to format partial transcript with history
+  public getFormattedPartialTranscript(combinedText: string): string {
+    // Wrap the combined text
+    const wrapped = this.wrapText(combinedText, this.maxCharsPerLine);
+    
+    // Take only the last maxLines lines if there are more
+    const displayLines = wrapped.length > this.maxLines 
+      ? wrapped.slice(wrapped.length - this.maxLines) 
+      : wrapped;
+    
+    // Add padding to ensure exactly maxLines are displayed
+    const linesToPad = this.maxLines - displayLines.length;
+    for (let i = 0; i < linesToPad; i++) {
+      displayLines.push(""); // Add empty lines at the end
+    }
+    
+    return displayLines.join("\n");
+  }
+
+  // Add to transcript history
+  private addToTranscriptHistory(transcript: string): void {
+    if (transcript.trim() === "") return; // Don't add empty transcripts
+    
+    this.finalTranscriptHistory.push(transcript);
+    
+    // Ensure we don't exceed maxFinalTranscripts
+    while (this.finalTranscriptHistory.length > this.maxFinalTranscripts) {
+      this.finalTranscriptHistory.shift(); // Remove oldest transcript
+    }
+  }
+
+  // Get the transcript history
+  public getFinalTranscriptHistory(): string[] {
+    return [...this.finalTranscriptHistory]; // Return a copy to prevent external modification
+  }
+
+  // Get combined transcript history as a single string
+  public getCombinedTranscriptHistory(): string {
+    return this.finalTranscriptHistory.join(" ");
+  }
+
+  // Method to set max final transcripts
+  public setMaxFinalTranscripts(maxFinalTranscripts: number): void {
+    this.maxFinalTranscripts = maxFinalTranscripts;
+    // Trim history if needed after changing the limit
+    while (this.finalTranscriptHistory.length > this.maxFinalTranscripts) {
+      this.finalTranscriptHistory.shift();
+    }
+  }
+
+  // Get max final transcripts
+  public getMaxFinalTranscripts(): number {
+    return this.maxFinalTranscripts;
   }
 
   private buildPreview(partial: string): string {
@@ -129,6 +211,7 @@ export class TranscriptProcessor {
   public clear(): void {
     this.lines = [];
     this.partialText = "";
+    this.finalTranscriptHistory = [];
   }
 
   public getMaxCharsPerLine(): number {

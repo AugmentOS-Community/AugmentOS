@@ -9,8 +9,6 @@ import {
   DisplayRequest,
   TpaSubscriptionUpdate,
   TpaToCloudMessageType,
-  StreamType,
-  CloudToGlassesMessageType,
   CloudToTpaMessageType,
   ViewType,
   LayoutType,
@@ -26,9 +24,9 @@ const PORT =  process.env.PORT ? parseInt(process.env.PORT) : 80; // Default htt
 const CLOUD_URL = process.env.CLOUD_URL || "http://localhost:8002"; 
 const PACKAGE_NAME = systemApps.liveTranslation.packageName;
 const API_KEY = 'test_key'; // In production, store this securely
+const MAX_FINAL_TRANSCRIPTS = 3; // Hardcoded to 3 final transcripts
 
 // Maps to track state
-const userFinalTranscripts: Map<string, string> = new Map();
 const userTranscriptProcessors: Map<string, TranscriptProcessor> = new Map();
 const userSessions = new Map<string, Set<string>>(); // userId -> Set<sessionId>
 
@@ -100,7 +98,7 @@ async function fetchAndApplySettings(sessionId: string, userId: string) {
 
     const numberOfLines = numberOfLinesSetting ? Number(numberOfLinesSetting.value) : 3;
     
-    // Determine languages: default source is en-US; default target can be set (here defaulting to es-ES)
+    // Determine languages: default source is zh-CN; default target is en-US
     const sourceLang = transcribeLanguageSetting?.value ? languageToLocale(transcribeLanguageSetting.value) : 'zh-CN';
     const targetLang = translateLanguageSetting?.value ? languageToLocale(translateLanguageSetting.value) : 'en-US';
     
@@ -111,7 +109,7 @@ async function fetchAndApplySettings(sessionId: string, userId: string) {
     const isChineseLanguage = targetLang.toLowerCase().startsWith('zh-') || targetLang.toLowerCase().startsWith('ja-');
 
     const lineWidth = lineWidthSetting ? convertLineWidth(lineWidthSetting.value, isChineseLanguage) : 30;
-    const transcriptProcessor = new TranscriptProcessor(lineWidth, numberOfLines);
+    const transcriptProcessor = new TranscriptProcessor(lineWidth, numberOfLines, MAX_FINAL_TRANSCRIPTS);
     userTranscriptProcessors.set(userId, transcriptProcessor);
 
     // Update subscription for the session to use translation stream.
@@ -121,7 +119,7 @@ async function fetchAndApplySettings(sessionId: string, userId: string) {
   } catch (err) {
     console.error(`Error fetching settings for session ${sessionId}:`, err);
     // Fallback defaults
-    const transcriptProcessor = new TranscriptProcessor(30, 3);
+    const transcriptProcessor = new TranscriptProcessor(30, 3, MAX_FINAL_TRANSCRIPTS);
     userTranscriptProcessors.set(userId, transcriptProcessor);
     usertranscribeLanguageSettings.set(userId, 'zh-CN');
     userTranslateLanguageSettings.set(userId, 'en-US');
@@ -156,10 +154,9 @@ function updateSubscriptionForSession(sessionId: string, userId: string) {
  * Handles a transcription/translation result message and sends it to the display.
  */
 function handleTranslation(sessionId: string, userId: string, ws: WebSocket, translationData: any) {
-  let userFinalTranscript = userFinalTranscripts.get(userId) || "";
   let transcriptProcessor = userTranscriptProcessors.get(userId);
   if (!transcriptProcessor) {
-    transcriptProcessor = new TranscriptProcessor(30, 3);
+    transcriptProcessor = new TranscriptProcessor(30, 3, MAX_FINAL_TRANSCRIPTS);
     userTranscriptProcessors.set(userId, transcriptProcessor);
   }
 
@@ -171,14 +168,32 @@ function handleTranslation(sessionId: string, userId: string, ws: WebSocket, tra
 
   console.log(`[Session ${sessionId}]: Received translation (${sourceLanguage}->${targetLanguage})`);
 
-  const text = transcriptProcessor.processString(userFinalTranscript + " " + newText, isFinal);
-  console.log(`[Session ${sessionId}]: ${text} (isFinal=${isFinal})`);
+  // Process the new transcript - this will add it to history if it's final
+  transcriptProcessor.processString(newText, isFinal);
+
+  let textToDisplay;
 
   if (isFinal) {
-    const finalLiveCaption = newText.length > 100 ? newText.substring(newText.length - 100) : newText;
-    userFinalTranscripts.set(userId, finalLiveCaption);
+    // For final transcripts, get the combined history of all final transcripts
+    const finalTranscriptsHistory = transcriptProcessor.getCombinedTranscriptHistory();
+    
+    // Process this combined history to format it properly
+    textToDisplay = transcriptProcessor.getFormattedTranscriptHistory();
+    
+    console.log(`[Session ${sessionId}]: finalTranscriptCount=${transcriptProcessor.getFinalTranscriptHistory().length}`);
+  } else {
+    // For non-final, get the combined history and add the current partial transcript
+    const combinedTranscriptHistory = transcriptProcessor.getCombinedTranscriptHistory();
+    const textToProcess = `${combinedTranscriptHistory} ${newText}`;
+    
+    // Process this combined text for display
+    textToDisplay = transcriptProcessor.getFormattedPartialTranscript(textToProcess);
   }
-  debounceAndShowTranscript(sessionId, userId, ws, text, isFinal);
+
+  console.log(`[Session ${sessionId}]: ${textToDisplay}`);
+  console.log(`[Session ${sessionId}]: isFinal=${isFinal}`);
+
+  debounceAndShowTranscript(sessionId, userId, ws, textToDisplay, isFinal);
 }
 
 /**
@@ -226,7 +241,7 @@ function showTranscriptsToUser(sessionId: string, ws: WebSocket, transcript: str
       text: transcript
     },
     timestamp: new Date(),
-    durationMs: 20 * 1000
+    durationMs: 20 * 1000  // Use 20 seconds for all displays for consistency
   };
 
   ws.send(JSON.stringify(displayRequest));
@@ -322,7 +337,6 @@ app.post('/webhook', async (req, res) => {
     }
     userSessions.get(userId)!.add(sessionId);
     activeSessions.set(sessionId, ws);
-    userFinalTranscripts.set(userId, "");
     transcriptDebouncers.set(sessionId, { lastSentTime: 0, timer: null });
 
     res.status(200).json({ status: 'connecting' });
@@ -395,27 +409,37 @@ app.post('/settings', async (req, res) => {
     
     console.log(`Updating settings for user ${userIdForSettings}: lineWidth=${lineWidth}, numberOfLines=${numberOfLines}, source=${sourceLanguage}, target=${targetLanguage}`);
     
-    // Determine what to do with the transcript based on language change
-    let lastUserTranscript = "";
-    if (!languageChanged) {
-      // Only keep the previous transcript if language hasn't changed
-      lastUserTranscript = userTranscriptProcessors.get(userIdForSettings)?.getLastUserTranscript() || "";
+    // Create a new processor
+    const newProcessor = new TranscriptProcessor(lineWidth, numberOfLines, MAX_FINAL_TRANSCRIPTS);
+    
+    // Important: Only preserve transcript history if language DIDN'T change
+    if (!languageChanged && userTranscriptProcessors.has(userIdForSettings)) {
+      // Get the previous transcript history
+      const previousTranscriptHistory = userTranscriptProcessors.get(userIdForSettings)?.getFinalTranscriptHistory() || [];
+      
+      // Add each previous transcript to the new processor
+      for (const transcript of previousTranscriptHistory) {
+        newProcessor.processString(transcript, true);
+      }
+      
+      console.log(`Preserved ${previousTranscriptHistory.length} transcripts after settings change`);
+    } else if (languageChanged) {
+      console.log(`Cleared transcript history due to language change`);
     }
     
-    const newProcessor = new TranscriptProcessor(lineWidth, numberOfLines);
+    // Replace the old processor with the new one
     userTranscriptProcessors.set(userIdForSettings, newProcessor);
-    userFinalTranscripts.set(userIdForSettings, lastUserTranscript);
-
-    // Process string will give empty result when lastUserTranscript is empty
-    const newUserTranscript = languageChanged ? "" : 
-      userTranscriptProcessors.get(userIdForSettings)?.processString(lastUserTranscript, true) || "";
+    
+    // Get transcript to display
+    const newUserTranscript = newProcessor.getCombinedTranscriptHistory() || "";
     
     const sessionsRefreshed = refreshUserSessions(userIdForSettings, newUserTranscript);
     
     res.json({ 
       status: 'Settings updated successfully',
       sessionsRefreshed,
-      languageChanged
+      languageChanged,
+      transcriptsPreserved: !languageChanged
     });
   } catch (error) {
     console.error('Error updating settings:', error);
