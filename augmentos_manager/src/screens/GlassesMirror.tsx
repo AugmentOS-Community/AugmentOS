@@ -6,6 +6,7 @@ import {
   Image,
   TouchableOpacity,
   StatusBar,
+  SafeAreaView,
   Platform,
   PermissionsAndroid,
   BackHandler,
@@ -96,7 +97,7 @@ const GlassesMirror: React.FC<GlassesMirrorProps> = ({isDarkTheme}) => {
   };
 
   return (
-    <View
+    <SafeAreaView
       style={[
         styles.container,
         isFullScreen ? styles.fullscreenContainer : (isDarkTheme ? styles.darkContainer : styles.lightContainer),
@@ -214,7 +215,7 @@ const GlassesMirror: React.FC<GlassesMirrorProps> = ({isDarkTheme}) => {
       {!isFullScreen && (
         <NavigationBar isDarkTheme={isDarkTheme} toggleTheme={() => {}} />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -315,8 +316,6 @@ const styles = StyleSheet.create({
   titleContainer: {
     paddingVertical: 15,
     paddingHorizontal: 20,
-    marginHorizontal: -20,
-    marginTop: -20,
     marginBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',

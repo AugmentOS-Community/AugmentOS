@@ -4,7 +4,8 @@ interface Glasses {
   model_name: string;
   battery_life: number;
   is_searching: boolean;
-  brightness: string | null; // 0-100
+  brightness: number | null; // 0-100
+  auto_brightness: boolean;
   headUp_angle: number | null; // 0-60
 }
 
@@ -103,6 +104,7 @@ export class AugmentOSParser {
       battery_life: 60,
       is_searching: false,
       brightness: "87%",
+      auto_brightness: false,
       headUp_angle: 20,
     },
     wifi: { is_connected: true, ssid: 'TP-LINK69', signal_strength: 100 },
@@ -208,27 +210,31 @@ export class AugmentOSParser {
     if (MOCK_CONNECTION) {return AugmentOSParser.mockStatus;}
     if (data && 'status' in data) {
       let status = data.status;
+      let coreInfo = status.core_info ?? {};
+      let glassesInfo = status.connected_glasses ?? {};
+      let authInfo = status.auth ?? {};
 
       return {
         core_info: {
-          augmentos_core_version: status.core_info.augmentos_core_version ?? null,
-          core_token: status.core_info.core_token ?? null,
-          cloud_connection_status: status.core_info.cloud_connection_status ?? 'DISCONNECTED',
+          augmentos_core_version: coreInfo.augmentos_core_version ?? null,
+          core_token: coreInfo.core_token ?? null,
+          cloud_connection_status: coreInfo.cloud_connection_status ?? 'DISCONNECTED',
           puck_connected: true,
-          puck_battery_life: status.core_info.puck_battery_life ?? null,
-          puck_charging_status: status.core_info.charging_status ?? false,
-          sensing_enabled: status.core_info.sensing_enabled ?? false,
-          force_core_onboard_mic: status.core_info.force_core_onboard_mic ?? false,
-          contextual_dashboard_enabled: status.core_info.contextual_dashboard_enabled ?? true,
-          default_wearable: status.core_info.default_wearable ?? null,
+          puck_battery_life: coreInfo.puck_battery_life ?? null,
+          puck_charging_status: coreInfo.charging_status ?? false,
+          sensing_enabled: coreInfo.sensing_enabled ?? false,
+          force_core_onboard_mic: coreInfo.force_core_onboard_mic ?? false,
+          contextual_dashboard_enabled: coreInfo.contextual_dashboard_enabled ?? true,
+          default_wearable: coreInfo.default_wearable ?? null,
         },
         glasses_info: status.connected_glasses
           ? {
-            model_name: status.connected_glasses.model_name,
-            battery_life: status.connected_glasses.battery_life,
-            is_searching: status.connected_glasses.is_searching ?? false,
-            brightness: status.connected_glasses.brightness,
-            headUp_angle: status.connected_glasses.headUp_angle,
+            model_name: glassesInfo.model_name,
+            battery_life: glassesInfo.battery_life,
+            is_searching: glassesInfo.is_searching ?? false,
+            brightness: glassesInfo.brightness,
+            auto_brightness: glassesInfo.auto_brightness,
+            headUp_angle: glassesInfo.headUp_angle,
           }
           : null,
         wifi: status.wifi ?? AugmentOSParser.defaultStatus.wifi,
@@ -244,9 +250,9 @@ export class AugmentOSParser {
           type: app.type || 'APP',
         })) || [],
         auth: {
-          core_token_owner: status.auth.core_token_owner,
-          core_token_status: status.auth.core_token_status,
-          last_verification_timestamp: status.auth.last_verification_timestamp,
+          core_token_owner: authInfo.core_token_owner,
+          core_token_status: authInfo.core_token_status,
+          last_verification_timestamp: authInfo.last_verification_timestamp,
         },
       };
     }

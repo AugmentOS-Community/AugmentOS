@@ -58,6 +58,7 @@ export const doesHaveAllPermissions = async () => {
 
     return allGranted;
   } else if (Platform.OS === 'ios') {
+    // console.error('ios Perm check!');
     // TODO: ios Perm check
     return true;
   }

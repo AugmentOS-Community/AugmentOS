@@ -115,10 +115,6 @@ export default class BackendServerComms {
     try {
       const response = await axios(config);
       if (response.status === 200 && response.data) {
-        console.log("GOT A RESPONSE!!!")
-        console.log("\n\n");
-        console.log(JSON.stringify(response.data));
-        console.log("\n\n\n\n");
         return response.data.coreToken;
       } else {
         throw new Error(`Bad response: ${response.statusText}`);
