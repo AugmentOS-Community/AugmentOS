@@ -14,23 +14,45 @@ export const DEBUGGER_PORT = 6173;
 export const systemApps = {
   captions: {
     port: BASE_PORT + 10,
-    packageName: 'org.augmentos.live-captions',
+    packageName: "com.augmentos.livecaptions",
+    name: "Live Captions",
+    description: "Live closed captions.",
   },
   flash: {
     port: BASE_PORT + 11,
     packageName: 'org.augmentos.flash',
+    name: 'Flash ⚡️',
+    description: "⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️",
   },
   dashboard: {
     port: BASE_PORT + 12,
-    packageName: 'org.augmentos.dashboard',
-  },
-  merge: {
-    port: BASE_PORT + 13,
-    packageName: 'org.augmentos.agentgatekeeper',
+    packageName: 'com.augmentos.dashboard',
+    name: 'Dashboard',
+    description: "Dashboard",
   },
   notify: {
     port: BASE_PORT + 14,
-    packageName: 'org.augmentos.shownotifications',
+    packageName: 'com.augmentos.notify',
+    name: 'Notify',
+    description: "See your phone notifications on your smart glasses",
+  },
+  mira: {
+    port: BASE_PORT + 15,
+    packageName: 'com.augmentos.miraai',
+    name: 'Mira AI',
+    description: "The AugmentOS AI Assistant. Say 'Hey Mira...' followed by a question or command.",
+  },
+  merge: {
+    port: BASE_PORT + 16,
+    packageName: 'com.mentra.merge',
+    name: 'Merge',
+    description: "Proactive AI that helps you during conversations. Turn it on, have a conversation, and let Merge agents enhance your convo.",
+  },
+  liveTranslation: {
+    port: BASE_PORT + 17,
+    packageName: 'com.augmentos.livetranslation',
+    name: 'Live Translation',
+    description: "Live language translation."
   },
 };
 

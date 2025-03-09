@@ -823,6 +823,11 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     }
 
     private void connectToGatt(BluetoothDevice device) {
+        if (device == null) {
+            Log.e(TAG, "Cannot connect to GATT: device is null");
+            return;
+        }
+
         Log.d(TAG, "connectToGatt called for device: " + device.getName() + " (" + device.getAddress() + ")");
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
@@ -1001,6 +1006,103 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         }
     };
 
+    private void resetAllBondsAndState() {
+        Log.d(TAG, "Resetting ALL bonds and internal state for complete fresh start");
+
+        // Remove both bonds if devices exist
+        if (leftDevice != null) {
+            removeBond(leftDevice);
+        }
+
+        if (rightDevice != null) {
+            removeBond(rightDevice);
+        }
+
+        // Reset all internal state
+        isLeftBonded = false;
+        isRightBonded = false;
+        isLeftPairing = false;
+        isRightPairing = false;
+        isLeftConnected = false;
+        isRightConnected = false;
+
+        // Clear saved device names
+        pendingSavedG1LeftName = null;
+        pendingSavedG1RightName = null;
+
+        // Close any existing GATT connections
+        if (leftGlassGatt != null) {
+            leftGlassGatt.disconnect();
+            leftGlassGatt.close();
+            leftGlassGatt = null;
+        }
+
+        if (rightGlassGatt != null) {
+            rightGlassGatt.disconnect();
+            rightGlassGatt.close();
+            rightGlassGatt = null;
+        }
+
+        // Wait briefly for bond removal to complete
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            Log.d(TAG, "Restarting scan after complete bond/state reset");
+            connectionState = SmartGlassesConnectionState.SCANNING;
+            connectionEvent(connectionState);
+            startScan();
+        }, 2000);
+    }
+
+    /**
+     * Handles a device with a valid bond
+     */
+    private void handleValidBond(BluetoothDevice device, boolean isLeft) {
+        Log.d(TAG, "Handling valid bond for " + (isLeft ? "left" : "right") + " glass");
+
+        // Update state
+        if (isLeft) {
+            isLeftBonded = true;
+        } else {
+            isRightBonded = true;
+        }
+
+        // If both glasses are bonded, connect to GATT
+        if (leftDevice != null && rightDevice != null && isLeftBonded && isRightBonded) {
+            Log.d(TAG, "Both glasses have valid bonds - ready to connect to GATT");
+
+            connectHandler.postDelayed(() -> {
+                attemptGattConnection(leftDevice);
+            }, 0);
+
+            connectHandler.postDelayed(() -> {
+                attemptGattConnection(rightDevice);
+            }, 2000);
+        } else {
+            // Continue scanning for the other glass
+            Log.d(TAG, "Still need to find " + (isLeft ? "right" : "left") + " glass - resuming scan");
+            startScan();
+        }
+    }
+
+    /**
+     * Removes an existing bond with a Bluetooth device to force fresh pairing
+     */
+    private boolean removeBond(BluetoothDevice device) {
+        try {
+            if (device == null) {
+                Log.e(TAG, "Cannot remove bond: device is null");
+                return false;
+            }
+
+            Method method = device.getClass().getMethod("removeBond");
+            boolean result = (Boolean) method.invoke(device);
+            Log.d(TAG, "Removing bond for device " + device.getName() + ", result: " + result);
+            return result;
+        } catch (Exception e) {
+            Log.e(TAG, "Error removing bond: " + e.getMessage(), e);
+            return false;
+        }
+    }
+
     @Override
     public void connectToSmartGlasses() {
         // Register bonding receiver
@@ -1070,7 +1172,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     private static final long RIGHT_CONNECTION_RETRY_DELAY = 1000; // 1 second
 
     private void attemptGattConnection(BluetoothDevice device) {
-        if (!isKilled)
+//        if (!isKilled)
 
         if (device == null) {
             Log.d(TAG, "Cannot connect to GATT: Device is null");

@@ -4,8 +4,11 @@ import webSocketService from '../services/core/websocket.service';
 import sessionService from '../services/core/session.service';
 import appService from '../services/core/app.service';
 import { User } from '../models/user.model';
-import { CLOUD_VERSION } from '@augmentos/config';
-import { get } from 'http';
+
+export const CLOUD_VERSION = process.env.CLOUD_VERSION;
+if (!CLOUD_VERSION) {
+  console.error('CLOUD_VERSION is not set');
+}
 
 const router = express.Router();
 

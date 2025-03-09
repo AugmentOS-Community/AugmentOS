@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,11 @@ import {
   Image,
   TouchableOpacity,
   StatusBar,
+  Platform,
+  PermissionsAndroid,
+  BackHandler,
 } from 'react-native';
+import { RNCamera } from 'react-native-camera';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { useStatus } from '../providers/AugmentOSStatusProvider.tsx';
 import { useGlassesMirror } from '../providers/GlassesMirrorContext.tsx';
@@ -15,16 +19,68 @@ interface GlassesMirrorProps {
   isDarkTheme: boolean;
 }
 
+// Request camera permission for Android SDK 33
+const requestCameraPermission = async () => {
+  if (Platform.OS === 'android' && Platform.Version >= 33) {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        {
+          title: 'Camera Permission',
+          message: 'This app needs access to your camera for the fullscreen mirror mode.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn('Camera permission error:', err);
+      return false;
+    }
+  }
+  return true; // iOS handles permissions through Info.plist
+};
+
 const GlassesMirror: React.FC<GlassesMirrorProps> = ({isDarkTheme}) => {
   const { status } = useStatus();
   const { events } = useGlassesMirror(); // From context
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState(false);
+  const cameraRef = useRef<RNCamera | null>(null);
 
   // Helper to check if we have a glasses model name
   const isGlassesConnected = !!status.glasses_info?.model_name;
   
   // Get only the last event
   const lastEvent = events.length > 0 ? events[events.length - 1] : null;
+  
+  // Check camera permission when entering fullscreen
+  const checkCameraPermission = async () => {
+    const hasPermission = await requestCameraPermission();
+    setHasCameraPermission(hasPermission);
+    return hasPermission;
+  };
+  
+  // Setup back button handling
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isFullScreen) {
+        toggleFullScreen();
+        return true;
+      }
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [isFullScreen]);
+  
+  // Check permission when entering fullscreen
+  useEffect(() => {
+    if (isFullScreen) {
+      checkCameraPermission();
+    }
+  }, [isFullScreen]);
   
   // Function to toggle fullscreen mode
   const toggleFullScreen = () => {
@@ -78,8 +134,28 @@ const GlassesMirror: React.FC<GlassesMirrorProps> = ({isDarkTheme}) => {
       {/* Fullscreen mode */}
       {isFullScreen && isGlassesConnected && lastEvent ? (
         <View style={styles.fullscreenContainer}>
-          {/* Dark background for better contrast */}
-          <View style={styles.fullscreenBackground} />
+          {/* Camera feed */}
+          {hasCameraPermission ? (
+            <RNCamera
+              ref={cameraRef}
+              style={styles.cameraBackground}
+              type={RNCamera.Constants.Type.front}
+              captureAudio={false}
+              // ratio='1:1' this works on flipped razr 2024?
+              androidCameraPermissionOptions={{
+                title: 'Camera Permission',
+                message: 'This app needs access to your camera for the fullscreen mirror mode.',
+                buttonPositive: 'OK',
+                buttonNegative: 'Cancel',
+              }}
+            />
+          ) : (
+            <View style={styles.fullscreenBackground}>
+              <Text style={styles.cameraPermissionText}>
+                Camera permission needed for fullscreen mode
+              </Text>
+            </View>
+          )}
           
           {/* Overlay the glasses display content */}
           <View style={styles.fullscreenOverlay}>
@@ -229,6 +305,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1000,
   },
+  cameraBackground: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    aspectRatio: 1, // Force a square aspect ratio
+    alignSelf: 'center',
+  },
   titleContainer: {
     paddingVertical: 15,
     paddingHorizontal: 20,
@@ -347,6 +430,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1a1a', // Dark background for contrast with green text
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraPermissionText: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'Montserrat-Regular',
+    textAlign: 'center',
   },
   fullscreenOverlay: {
     position: 'absolute',

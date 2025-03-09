@@ -22,6 +22,9 @@ import it.innove.BleManagerPackage
 import kjd.reactnative.bluetooth.RNBluetoothClassicPackage
 import com.reactnativecommunity.slider.ReactSliderPackage
 import com.lugg.RNCConfig.RNCConfigPackage
+import org.reactnative.camera.RNCameraPackage
+import com.augmentos.augmentos_manager.logcapture.LogcatCapturePackage
+import com.reactnativecommunity.webview.RNCWebViewPackage
 
 // import com.augmentos.augmentos_manager.NotificationServicePackage
 
@@ -54,6 +57,9 @@ class MainApplication : Application(), ReactApplication {
                 TpaHelpersPackage(),
                 FetchConfigHelperPackage(),
                 RNCConfigPackage(),
+                RNCameraPackage(),
+                LogcatCapturePackage(),
+                RNCWebViewPackage(),
             )
         }
 

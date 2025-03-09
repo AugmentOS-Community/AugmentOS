@@ -6,3 +6,4 @@ export * from './text-wrapping/wrapText';
 export * from './languageLocale';
 export * from './lc3/LC3Service3';
 export * from "./audio/AudioProcessor";
+export * from "./logger";

@@ -35,7 +35,6 @@ import {
   AudioChunk,
   isAudioChunk
 } from '../../types';
-// import { CLOUD_PORT } from '@augmentos/config';
 
 /**
  * ⚙️ Configuration options for TPA Session

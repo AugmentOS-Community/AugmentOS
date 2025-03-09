@@ -14,6 +14,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Button from '../components/Button';
 import InstallApkModule from '../bridge/InstallApkModule.tsx';
+import { saveSetting } from '../logic/SettingsHelper';
 
 interface VersionUpdateScreenProps {
   route: {
@@ -152,8 +153,8 @@ const VersionUpdateScreen: React.FC<VersionUpdateScreenProps> = ({
         isDarkTheme ? styles.darkBackground : styles.lightBackground,
       ]}
     >
-      <ScrollView style={styles.scrollViewContainer}>
-        <View style={styles.contentContainer}>
+      <View style={styles.mainContainer}>
+        <View style={styles.infoContainer}>
           <View style={styles.iconContainer}>
             {connectionError ? (
               <Icon
@@ -195,36 +196,50 @@ const VersionUpdateScreen: React.FC<VersionUpdateScreenProps> = ({
               isDarkTheme ? styles.lightSubtext : styles.darkSubtext,
             ]}
           >
-            {/*{connectionError*/}
-            {/*  ? 'Could not connect to the server. Please check your connection and try again.'*/}
-            {/*  : isVersionMismatch*/}
-            {/*    ? `Your AugmentOS (${localVersion}) is outdated. The latest version is ${cloudVersion}. Please update to continue.`*/}
-            {/*    : 'Your AugmentOS is up to date. Returning to home...'}*/}
             {connectionError
               ? 'Could not connect to the server. Please check your connection and try again.'
               : isVersionMismatch
                 ? 'Your AugmentOS is outdated. Please update to continue.'
                 : 'Your AugmentOS is up to date. Returning to home...'}
           </Text>
+        </View>
 
-          {(connectionError || isVersionMismatch) && (
-            <View style={styles.setupContainer}>
+        {(connectionError || isVersionMismatch) && (
+          <View style={styles.setupContainer}>
+            <Button
+              onPress={connectionError ? checkCloudVersion : handleUpdate}
+              isDarkTheme={isDarkTheme}
+              disabled={isUpdating}
+              iconName={connectionError ? 'reload' : 'download'}
+            >
+              {isUpdating
+                ? 'Updating...'
+                : connectionError
+                  ? 'Retry Connection'
+                  : 'Update AugmentOS'}
+            </Button>
+            
+            <View style={styles.skipButtonContainer}>
               <Button
-                onPress={connectionError ? checkCloudVersion : handleUpdate}
+                onPress={() => {
+                  // Save setting to ignore version checks until next app restart
+                  saveSetting('ignoreVersionCheck', true);
+                  console.log('Version check skipped until next app restart');
+                  // Skip directly to Home screen
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Home' }],
+                  });
+                }}
                 isDarkTheme={isDarkTheme}
-                disabled={isUpdating}
-                iconName={connectionError ? 'reload' : 'download'}
-              >
-                {isUpdating
-                  ? 'Updating...'
-                  : connectionError
-                    ? 'Retry Connection'
-                    : 'Update AugmentOS'}
+                iconName="skip-next"
+                disabled={false}>
+                Skip Update
               </Button>
             </View>
-          )}
-        </View>
-      </ScrollView>
+          </View>
+        )}
+      </View>
     </View>
   );
 };
@@ -241,15 +256,17 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
   },
-  scrollViewContainer: {
+  mainContainer: {
     flex: 1,
-  },
-  contentContainer: {
-    flex: 1,
+    flexDirection: 'column',
+    justifyContent: 'space-between',
     padding: 24,
+  },
+  infoContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: '100%',
+    paddingTop: 60,
   },
   iconContainer: {
     marginBottom: 32,
@@ -271,7 +288,17 @@ const styles = StyleSheet.create({
   setupContainer: {
     width: '100%',
     alignItems: 'center',
+    paddingBottom: 40,
+  },
+  skipButtonContainer: {
     marginTop: 16,
+    width: '100%',
+    alignItems: 'center',
+  },
+  skipButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#666',
   },
   darkBackground: {
     backgroundColor: '#1c1c1c',

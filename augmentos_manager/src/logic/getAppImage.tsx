@@ -8,11 +8,11 @@ export const getAppImage = (packageName: string) => {
         case 'com.mentra.adhdaid':
             return require('../assets/app-icons/ADHD-aid.png');
         case 'com.augmentos.live-translation':
+        case 'com.augmentos.livetranslation':
             return require('../assets/app-icons/translation.png');
         case 'com.example.placeholder':
         case 'com.augmentos.screenmirror':
             return require('../assets/app-icons/screen-mirror.png');
-        case 'com.augmentos.live-captions':
         case 'com.augmentos.livecaptions':
             return require('../assets/app-icons/captions.png');
         case 'com.augmentos.miraai':

@@ -397,7 +397,7 @@ public class ServerComms {
         JSONArray installedApps;
         JSONArray activeAppPackageNames;
 
-        Log.d(TAG, "Received message of type: " + msg);
+//        Log.d(TAG, "Received message of type: " + msg);
 
         switch (type) {
             case "connection_ack":

@@ -93,16 +93,20 @@ export class LC3Service {
     if (!this.initialized || !this.decoder) {
       await this.initialize();
     }
+    
+    let localInputData: Uint8Array | null = null;
+    
     try {
       const numFrames = Math.floor(audioData.byteLength / this.frameBytes);
       const totalSamples = numFrames * this.frameSamples;
       const outputBuffer = new ArrayBuffer(totalSamples * 2); // 16-bit PCM
       const outputView = new DataView(outputBuffer);
-      const inputData = new Uint8Array(audioData);
+      localInputData = new Uint8Array(audioData);
       let outputOffset = 0;
+      
       for (let i = 0; i < numFrames; i++) {
         this.decoder!.frame.set(
-          inputData.subarray(i * this.frameBytes, (i + 1) * this.frameBytes)
+          localInputData.subarray(i * this.frameBytes, (i + 1) * this.frameBytes)
         );
         this.decoder!.decode();
         for (let j = 0; j < this.frameSamples; j++) {
@@ -114,17 +118,46 @@ export class LC3Service {
           outputOffset += 2;
         }
       }
+      
+      // Update last used timestamp
+      if (this.decoder) {
+        this.decoder.lastUsed = Date.now();
+      }
+      
       return outputBuffer;
     } catch (error) {
       console.error('❌ Error decoding LC3 audio:', error);
       return null;
+    } finally {
+      // Release references to input data to help GC
+      // This is safe even if there was an error
+      localInputData = null;
     }
   }
 
   cleanup(): void {
-    this.initialized = false;
-    this.lc3Exports = null;
-    this.decoder = null;
+    try {
+      if (this.decoder && this.lc3Exports) {
+        // Force garbage collection of the ArrayBuffer views
+        this.decoder.samples = new Float32Array(0);
+        this.decoder.frame = new Uint8Array(0);
+        
+        // If WebAssembly instances support explicit cleanup in future, add it here
+        
+        // Log memory usage before clearing references
+        if (global.gc) {
+          console.log('🧹 Running garbage collection for LC3Service cleanup');
+          global.gc();
+        }
+      }
+    } catch (error) {
+      console.error('Error during LC3Service cleanup:', error);
+    } finally {
+      // Clear all references to allow garbage collection
+      this.initialized = false;
+      this.lc3Exports = null;
+      this.decoder = null;
+    }
   }
 }
 

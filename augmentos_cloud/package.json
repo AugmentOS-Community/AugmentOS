@@ -4,33 +4,31 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n \"utils,agents,sdk,config,dashboard,flash,live-captions,miraai,notify,cloud\" -c \"bgBlue.bold,bgBlue.bold,bgGreen.bold,bgMagenta.bold,bgYellow.bold,bgCyan.bold,bgRed.bold,bgBlue.bold,bgGreen.bold,bgMagenta.bold,bgYellow.bold\" \"cd packages/utils && bun run dev\" \"cd packages/agents && bun run dev\" \"cd packages/sdk && bun run dev\" \"cd packages/config && bun run dev\" \"cd packages/apps/dashboard-manager && bun run dev\" \"cd packages/apps/flash && bun run dev\" \"cd packages/apps/live-captions && bun run dev\" \"cd packages/apps/miraai && bun run dev\" \"cd packages/apps/notify && bun run dev\" \"cd packages/cloud && bun run dev\"",
-    "build": "concurrently \"cd packages/sdk && bun run build\" \"cd packages/config && bun run build\" \"cd packages/utils && bun run build\" \"cd packages/agents && bun run build\"  \"cd packages/apps/dashboard-manager && bun run build\" \"cd packages/apps/flash && bun run build\" \"cd packages/apps/live-captions && bun run build\" \"cd packages/apps/miraai && bun run build\" \"cd packages/apps/notify && bun run build\" \"cd packages/cloud && bun run build\"",
+    "build": "concurrently \"cd packages/sdk && bun run build\" \"cd packages/config && bun run build\" \"cd packages/utils && bun run build\" \"cd packages/agents && bun run build\"  \"cd packages/apps/dashboard-manager && bun run build\" \"cd packages/apps/flash && bun run build\" \"cd packages/apps/livecaptions && bun run build\" \"cd packages/apps/miraai && bun run build\" \"cd packages/apps/notify && bun run build\" \"cd packages/cloud && bun run build\"",
 
-    "start:prod": "pm2 start ecosystem.config.js",
-    "stop:prod": "pm2 delete ecosystem.config.js",
-    "logs:prod": "pm2 logs ecosystem.config.js",
-    "restart:prod": "pm2 restart ecosystem.config.js",
-    "monitor:prod": "pm2 monit",
-    "deploy:prod": "bun run stop:prod && bun run build && bun run start:prod",
-    "start:dev": "pm2 start dev-ecosystem.config.js",
-    "stop:dev": "pm2 delete dev-ecosystem.config.js",
-    "logs:dev": "pm2 logs dev-ecosystem.config.js",
-    "restart:dev": "pm2 restart dev-ecosystem.config.js",
-    "monitor:dev": "pm2 monit",
-    "deploy:dev": "bun run stop:dev && bun run build && bun run start:dev",
-    "start:staging": "pm2 start staging-ecosystem.config.js",
-    "stop:staging": "pm2 delete staging-ecosystem.config.js",
-    "logs:staging": "pm2 logs staging-ecosystem.config.js",
-    "restart:staging": "pm2 restart staging-ecosystem.config.js",
-    "monitor:staging": "pm2 monit",
-    "deploy:staging": "bun run stop:staging && bun run build && bun run start:staging",
+    "dev": "ENV=development docker-compose -f docker-compose.dev.yml up -d",
+    "dev:stop": "docker-compose -f docker-compose.dev.yml down --timeout 5 || docker kill $(docker ps -q)",
 
-    "deploy:isaiah": "bun run stop:isaiah && bun run build && bun run start:isaiah",
-    "deploy:israelov": "bun run stop:israelov && bun run build && bun run start:israelov",
-    "deploy:nicolo": "bun run stop:nicolo && bun run build && bun run start:nicolo",
-    "deploy:cayden": "bun run stop:cayden && bun run build && bun run start:cayden"
+    "staging": "ENV=staging docker-compose -f docker-compose.staging.yml up -d",
+    "staging:stop": "ENV=staging docker-compose -f docker-compose.staging.yml down",
+
+    "prod": "ENV=production docker-compose -f docker-compose.yml up -d",
+    "prod:stop": "ENV=production docker-compose -f docker-compose.yml down",
+
+    "docker:logs": "docker-compose logs -f",
+
+    "logs:dev": "docker-compose -f docker-compose.dev.yml logs -f",
+    "logs:staging": "docker-compose -f docker-compose.yml logs -f",
+    "logs:prod": "docker-compose -f docker-compose.yml logs -f",
+
+    "logs:dev:cloud": "docker-compose -f docker-compose.dev.yml logs -f cloud",
+    "logs:staging:cloud": "ENV=staging docker-compose -f docker-compose.staging.yml logs -f cloud",
+    "logs:prod:cloud": "ENV=production docker-compose -f docker-compose.yml logs -f cloud",
+
+    "docker:setup-links": "docker-compose -f docker-compose.dev.yml up --no-deps setup",
+    "local:setup-links": "cd packages/utils && bun link && cd ../sdk && bun link && cd ../config && bun link && cd ../agents && bun link && cd ../cloud && bun link @augmentos/utils @augmentos/sdk @augmentos/config @augmentos/agents && for app in dashboard-manager flash isaiah live-captions live-translation miraai notify; do cd ../apps/$app && bun link @augmentos/utils @augmentos/sdk @augmentos/config @augmentos/agents; done"
   },
+
   "dependencies": {
     "@langchain/anthropic": "^0.3.13",
     "@langchain/community": "^0.3.31",

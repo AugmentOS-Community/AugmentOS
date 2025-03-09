@@ -6,6 +6,9 @@ old/
 # Ignore the .env file
 .env
 .env.local
+.env.development
+.env.production
+.env.staging
 ./node_modules
 ./env
 .ssh

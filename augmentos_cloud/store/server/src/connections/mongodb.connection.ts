@@ -1,6 +1,9 @@
 import dotenv from "dotenv";
 import mongoose from 'mongoose';
-import { MONGO_URL } from '@augmentos/config';
+// import { MONGO_URL } from '@augmentos/config';
+
+export const MONGO_URL = process.env.MONGO_URL;
+if (!MONGO_URL) throw "MONGO_URL is undefined";
 
 dotenv.config();
 // const MONGO_URL: string | undefined = process.env.MONGO_URL;

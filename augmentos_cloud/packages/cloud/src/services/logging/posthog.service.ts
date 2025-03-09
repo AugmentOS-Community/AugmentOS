@@ -1,6 +1,10 @@
 // posthog.service.ts
+import { logger } from '@augmentos/utils';
 import { PostHog } from 'posthog-node';
-import { POSTHOG_PROJECT_API_KEY, POSTHOG_HOST } from '@augmentos/config';
+// import { POSTHOG_PROJECT_API_KEY, POSTHOG_HOST } from '@augmentos/config';
+
+export const POSTHOG_PROJECT_API_KEY = process.env.POSTHOG_PROJECT_API_KEY || "";
+export const POSTHOG_HOST = process.env.POSTHOG_HOST || "https://app.posthog.com";
 
 // Initialize PostHog client if API key is provided
 let posthogClient: PostHog | null = null;
@@ -39,7 +43,7 @@ async function trackEvent(
     });
   } catch (err) {
     // Log any errors to avoid failing the main application flow
-    console.error('PostHog tracking error:', err);
+    logger.error('PostHog tracking error:', err);
   }
 }
 

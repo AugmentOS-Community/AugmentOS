@@ -1,6 +1,5 @@
-import { GlassesToCloudMessage, AppI } from '@augmentos/types';
+import { GlassesToCloudMessage, AppI } from '@augmentos/sdk';
 import { useState, useEffect, useCallback } from 'react';
-import { CLOUD_PORT } from '@augmentos/config';
 
 interface ActiveApp {
   packageName: string;
@@ -20,7 +19,7 @@ export const useAppManagement = (
   useEffect(() => {
     const fetchApps = async () => {
       try {
-        const response = await fetch(`http://localhost:${CLOUD_PORT}/apps`);
+        const response = await fetch(`http://localhost:8002/apps`);
         const apps = await response.json();
         setAvailableApps(apps);
       } catch (error) {
@@ -44,7 +43,7 @@ export const useAppManagement = (
       ]);
 
       console.log(`Starting app ${packageName}... sessionId: ${sessionId}`);
-      const response = await fetch(`http://localhost:${CLOUD_PORT}/apps/${packageName}/start`, {
+      const response = await fetch(`http://localhost:8002/apps/${packageName}/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
