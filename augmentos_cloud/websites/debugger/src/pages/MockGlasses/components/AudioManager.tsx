@@ -16,7 +16,7 @@ export const AudioManager: React.FC<AudioManagerProps> = ({
 }) => {
   // Handle audio data from the recording hook
   const handleAudioData = useCallback((audioData: ArrayBuffer) => {
-    if (websocket?.readyState === WebSocket.OPEN) {
+    if (websocket?.readyState === 1) {
       websocket.send(audioData);
     }
   }, [websocket]);

@@ -54,6 +54,8 @@
 
     "react-native-bluetooth-classic": "^1.73.0-rc.12",
 
+    "react-native-camera": "^4.2.1",
+
     "react-native-config": "^1.5.5",
 
     "react-native-elements": "^3.4.3",
@@ -81,6 +83,8 @@
     "react-native-url-polyfill": "^2.0.0",
 
     "react-native-vector-icons": "^10.2.0",
+
+    "react-native-webview": "^13.13.2",
 
     "text-encoding": "^0.7.0"
 

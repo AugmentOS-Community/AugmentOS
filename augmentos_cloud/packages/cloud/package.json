@@ -9,14 +9,14 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "postbuild": "cp -r src/public dist/public",
-    "start": "NODE_ENV=production node dist/index.js",
+    "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "isaiah": "NODE_ENV=isaiah-dev tsx watch src/index.ts",
     "staging": "NODE_ENV=staging tsx watch src/index.ts",
     "deploy": "bun run build && bun run start",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org pierce-50 --project augmentos-cloud-dev ./dist && sentry-cli sourcemaps upload --org pierce-50 --project augmentos-cloud-dev ./dist"
+    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org pierce-50 --project augmentos-cloud-dev ./dist && sentry-cli sourcemaps upload --org pierce-50 --project augmentos-cloud-dev ./dist",
+    "use-linked": "bun link @augmentos/utils @augmentos/sdk @augmentos/agents @augmentos/config"
   },
   "author": "Isaiah Ballah",
   "devDependencies": {

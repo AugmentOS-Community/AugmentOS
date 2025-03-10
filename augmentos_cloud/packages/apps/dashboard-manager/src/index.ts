@@ -13,15 +13,17 @@ import {
   TpaToCloudMessageType,
   ViewType,
   StreamType,
+  CalendarEvent,
 } from '@augmentos/sdk';
 import tzlookup from 'tz-lookup';
 import { NewsAgent } from '@augmentos/agents';
 import { NotificationFilterAgent } from '@augmentos/agents'; // <-- added import
-import { CLOUD_PORT, systemApps } from '@augmentos/config';
+import { systemApps } from '@augmentos/config';
 import { WeatherModule } from './dashboard-modules/WeatherModule';
 
 const app = express();
-const PORT =  systemApps.dashboard.port;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 80; // Default http port.
+const CLOUD_URL = process.env.CLOUD_URL || "http://localhost:8002";
 const PACKAGE_NAME = systemApps.dashboard.packageName;
 const API_KEY = 'test_key'; // In production, store securely
 
@@ -43,6 +45,8 @@ interface SessionInfo {
   latestLocation?: { latitude: number; longitude: number; timezone?: string };
   // weather cache per user
   weatherCache?: { timestamp: number; data: string };
+  // NEW: Cache for calendar events.
+  calendarEvent?: CalendarEvent;
   // NEW: Cache for news summaries and an index pointer.
   newsCache?: string[];
   newsIndex?: number;
@@ -67,7 +71,7 @@ app.post('/webhook', async (req: express.Request, res: express.Response) => {
     console.log(`\n[Webhook] Session start for user ${userId}, session ${sessionId}\n`);
 
     // 1) Create a new WebSocket connection to the cloud
-    const ws = new WebSocket(`ws://localhost:${CLOUD_PORT}/tpa-ws`);
+    const ws = new WebSocket(`ws://${CLOUD_URL}/tpa-ws`);
 
     // Create a new dashboard card
     const dashboardCard: DoubleTextWall = {
@@ -177,7 +181,7 @@ function handleMessage(sessionId: string, ws: WebSocket, message: any) {
         packageName: PACKAGE_NAME,
         sessionId: sessionId,
         // subscriptions: ['phone_notification', 'location_update', 'head_position', 'glasses_battery_update']
-        subscriptions: [StreamType.PHONE_NOTIFICATION, StreamType.LOCATION_UPDATE, StreamType.HEAD_POSITION, StreamType.GLASSES_BATTERY_UPDATE]
+        subscriptions: [StreamType.PHONE_NOTIFICATION, StreamType.LOCATION_UPDATE, StreamType.HEAD_POSITION, StreamType.GLASSES_BATTERY_UPDATE, StreamType.CALENDAR_EVENT]
       };
       ws.send(JSON.stringify(subMessage));
       console.log(`Session ${sessionId} connected and subscribed`);
@@ -186,12 +190,18 @@ function handleMessage(sessionId: string, ws: WebSocket, message: any) {
 
     case 'data_stream': {
       const streamMessage = message as DataStream;
+      console.log(`[Session ${sessionId}] Received data stream:`, streamMessage);
+
       switch (streamMessage.streamType) {
         // case 'phone_notification':
         case StreamType.PHONE_NOTIFICATION:
           // Instead of immediately handling the notification,
           // cache it and send the entire list to the NotificationFilterAgent.
           handlePhoneNotification(sessionId, streamMessage.data);
+          break;
+
+        case StreamType.CALENDAR_EVENT:
+          handleCalendarEvent(sessionId, streamMessage.data);
           break;
 
         // case 'location_update':
@@ -235,31 +245,43 @@ function handleLocationUpdate(sessionId: string, locationData: any) {
     return;
   }
 
-  // Determine the timezone for any given coordinates.
-  let timezone: string;
+  // Try to determine the timezone for the coordinates
+  let timezone: string | undefined;
   try {
     timezone = tzlookup(lat, lng);
   } catch (error) {
     console.error(`[Session ${sessionId}] Error looking up timezone for lat=${lat}, lng=${lng}:`, error);
-    // Fallback to a default timezone if lookup fails.
-    timezone = "America/New_York";
+    // No default timezone - just keep the previous one if it exists
   }
 
   // Check if this is the first location update for the session.
   const isFirstLocationUpdate = !sessionInfo.latestLocation;
 
-  // Cache the location update in the session with the determined timezone.
+  // Cache the location update in the session
+  // If we couldn't determine a timezone, preserve the previous one if it exists
   sessionInfo.latestLocation = { 
     latitude: lat, 
-    longitude: lng, 
-    timezone, 
+    longitude: lng,
+    // Only update timezone if we found one, otherwise keep previous
+    timezone: timezone || (sessionInfo.latestLocation?.timezone)
   };
 
   console.log(
-    `[Session ${sessionId}] Cached location update: lat=${lat}, lng=${lng}, timezone=${timezone}`
+    `[Session ${sessionId}] Cached location update: lat=${lat}, lng=${lng}, timezone=${timezone || 'not determined'}`
   );
 
   // Call updateDashboard if this was the first location update
+  updateDashboard(sessionId);
+}
+
+function handleCalendarEvent(sessionId: string, calendarEvent: any) {
+  console.log(`[Session ${sessionId}] Received calendar event:`, calendarEvent);
+  const sessionInfo = activeSessions.get(sessionId);
+  if (!sessionInfo) return;
+
+  // Add the calendar event to the session's cache.
+  sessionInfo.calendarEvent = calendarEvent;
+  
   updateDashboard(sessionId);
 }
 
@@ -384,23 +406,30 @@ async function updateDashboard(sessionId?: string) {
     {
       name: "time",
       async run(sessionInfo: SessionInfo) {
-        // Use the timezone from the latest location update if available; else default.
-        let timezone = "America/New_York";
-        if (sessionInfo.latestLocation && sessionInfo.latestLocation.timezone) {
-          timezone = sessionInfo.latestLocation.timezone;
+        // Check if we have a valid timezone from location
+        if (!sessionInfo.latestLocation?.timezone) {
+          return "◌ -"; // No timezone available
         }
+        
+        const timezone = sessionInfo.latestLocation.timezone;
         console.log(`[Session ${sessionInfo.userId}] Using timezone: ${timezone}`);
-        const options = {
-          timeZone: timezone,
-          hour: "2-digit" as const,
-          minute: "2-digit" as const,
-          month: "numeric" as const,
-          day: "numeric" as const,
-          hour12: true
-        };
-        let formatted = new Date().toLocaleString("en-US", options);
-        formatted = formatted.replace(/ [AP]M/, "");
-        return `◌ ${formatted}`;
+        
+        try {
+          const options = {
+            timeZone: timezone,
+            hour: "2-digit" as const,
+            minute: "2-digit" as const,
+            month: "numeric" as const,
+            day: "numeric" as const,
+            hour12: true
+          };
+          let formatted = new Date().toLocaleString("en-US", options);
+          formatted = formatted.replace(/ [AP]M/, "");
+          return `◌ ${formatted}`;
+        } catch (error) {
+          console.error(`[Session ${sessionInfo.userId}] Error formatting time with timezone ${timezone}:`, error);
+          return "◌ -"; // Error formatting time
+        }
       }
     },
     { 
@@ -416,6 +445,34 @@ async function updateDashboard(sessionId?: string) {
 
   // Define right modules.
   const rightModules = [
+    {
+      name: "calendar",
+      async run(context: any) {
+        const session: SessionInfo = context.session;
+        if (!session.calendarEvent) return '';
+        
+        const event = session.calendarEvent;
+        const eventDate = new Date(event.dtStart);
+        const today = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(today.getDate() + 1);
+        
+        // Format the time portion
+        const timeOptions = { hour: "2-digit" as const, minute: "2-digit" as const, hour12: true };
+        const formattedTime = eventDate.toLocaleTimeString('en-US', timeOptions).replace(" ", "");
+        
+        // Check if event is today or tomorrow
+        if (eventDate.toDateString() === today.toDateString()) {
+          const title = event.title.length > 10 ? event.title.substring(0, 10).trim() + '...' : event.title;
+          return `${title} @ ${formattedTime}`;
+        } else if (eventDate.toDateString() === tomorrow.toDateString()) {
+          const title = event.title.length > 6 ? event.title.substring(0, 6).trim() + '...' : event.title;
+          return `${title} tmr @ ${formattedTime}`;
+        } else {
+          return "";
+        }
+      }
+    },
     // {
     //   name: "news",
     //   async run(context: any) {
@@ -441,7 +498,7 @@ async function updateDashboard(sessionId?: string) {
         const session: SessionInfo = context.session;
         if (
           session.weatherCache &&
-          (Date.now() - session.weatherCache.timestamp) < 6 * 60 * 60 * 1000 // 6 hours
+          (Date.now() - session.weatherCache.timestamp) < 1 * 60 * 60 * 1000 // 1 hour
         ) {
           console.log(`[Session ${session.userId}][Weather] Returning cached weather data.`);
           return session.weatherCache.data;
@@ -449,7 +506,7 @@ async function updateDashboard(sessionId?: string) {
         // Otherwise, fetch new weather data.
         const weatherAgent = new WeatherModule();
         const weather = await weatherAgent.fetchWeatherForecast(latitude, longitude);
-        const result = weather ? `${weather.condition}, ${weather.avg_temp_f}°F` : '-';
+        const result = weather ? `${weather.condition}, ${weather.temp_f}°F` : '-';
         // Cache the result on the session.
         session.weatherCache = { timestamp: Date.now(), data: result };
         return result;
@@ -483,7 +540,7 @@ async function updateDashboard(sessionId?: string) {
           const rankedNotifications = sessionInfo.phoneNotificationRanking || [];
           // The NotificationFilterAgent returns notifications sorted by importance (rank=1 first).
           const topTwoNotifications = rankedNotifications.slice(0, 2);
-          // console.log(`[Session ${sessionId}] Ranked Notifications:`, topTwoNotifications);
+          console.log(`[Session ${sessionId}] Ranked Notifications:`, topTwoNotifications);
           return topTwoNotifications
             .map(notification => wrapText(notification.summary, 25))
             .join('\n');
@@ -504,8 +561,8 @@ async function updateDashboard(sessionId?: string) {
     // Run right modules concurrently.
     const rightPromises = rightModules.map(module => module.run(context));
     const rightResults = await Promise.all(rightPromises);
-    let rightText = rightResults.filter(text => text.trim()).join('\n');
-    rightText = wrapText(rightText, 22);
+    let rightText = rightResults.filter(text => text.trim() !== '').join('\n');
+    rightText = wrapText(rightText, 30);
 
     // Create display event.
     const displayRequest: DisplayRequest = {
@@ -584,7 +641,7 @@ function handlePhoneNotification(sessionId: string, notificationData: any) {
 
   // Add the new notification to the cache.
   sessionInfo.phoneNotificationCache.push(newNotification);
-  // console.log(`[Session ${sessionId}] Received phone notification:`, notificationData);
+  console.log(`[Session ${sessionId}] Received phone notification:`, notificationData);
 
   // Instantiate the NotificationFilterAgent.
   const notificationFilterAgent = new NotificationFilterAgent();
@@ -619,7 +676,7 @@ app.use(express.static(path.join(__dirname, './public')));
 // Listen
 // -----------------------------------
 app.listen(PORT, () => {
-  console.log(`Dashboard Manager TPA running at http://localhost:${PORT}`);
+  console.log(`Dashboard Manager TPA running`);
 });
 
 // -----------------------------------
@@ -629,5 +686,5 @@ setTimeout(() => {
   // Run updateDashboard 5 seconds after the file runs.
   updateDashboard();
   // Then, schedule it to run every 5 seconds.
-  setInterval(() => updateDashboard(), 5000);
-}, 60000);
+  setInterval(() => updateDashboard(), 60000);
+}, 5000);

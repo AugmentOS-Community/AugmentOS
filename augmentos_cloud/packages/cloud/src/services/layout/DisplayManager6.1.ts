@@ -28,7 +28,7 @@ class DisplayManager implements DisplayManagerI {
   private readonly LOCK_INACTIVE_TIMEOUT = 2000; // Release lock if no display for 2s
 
   private readonly THROTTLE_DELAY = 300;
-  private readonly BOOT_DURATION = 3000;
+  private readonly BOOT_DURATION = 1500;
   private lastDisplayTime = 0;
   private userSession: UserSession | null = null;
   private mainApp: string = systemApps.captions.packageName; // Hardcode captions as core app
@@ -151,7 +151,7 @@ class DisplayManager implements DisplayManagerI {
 
   private showDisplay(activeDisplay: ActiveDisplay): boolean {
     // Check throttle
-    if (Date.now() - this.lastDisplayTime < this.THROTTLE_DELAY) {
+    if (Date.now() - this.lastDisplayTime < this.THROTTLE_DELAY && !activeDisplay.displayRequest.forceDisplay) {
       console.log(`[DisplayManager] - [${this.userSession?.userId}] ⏳ Throttled display request`);
       return false;
     }
@@ -366,7 +366,8 @@ class DisplayManager implements DisplayManagerI {
   }
 
   private sendToWebSocket(displayRequest: DisplayRequest, webSocket?: WebSocket): boolean {
-    if (!webSocket || webSocket.readyState !== WebSocket.OPEN) {
+    // console.log('####### webSocket', WebSocket?.OPEN);
+    if (!webSocket || webSocket?.readyState !== 1) {
       console.log(`[DisplayManager] - [${this.userSession?.userId}] ❌ WebSocket not ready`);
       return false;
     }

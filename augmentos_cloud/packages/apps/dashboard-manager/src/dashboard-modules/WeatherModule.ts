@@ -2,7 +2,7 @@ import axios from 'axios';
 
 export interface WeatherSummary {
   condition: string;
-  avg_temp_f: number;
+  temp_f: number;
 }
 
 export class WeatherModule {
@@ -10,32 +10,29 @@ export class WeatherModule {
   private baseUrl: string;
 
   constructor() {
-    // Use the provided API key or fallback to the default one.
-    this.apiKey = "370253c709614bcfb45192606251502";
-    this.baseUrl = 'http://api.weatherapi.com/v1';
+    this.apiKey = "53394e85a9b325c2f46e7e097859a7b8";
+    this.baseUrl = 'https://api.openweathermap.org';
   }
 
   /**
-   * Given a latitude and longitude, fetch the current day's forecast.
-   * Returns a WeatherSummary object with the weather condition and average temperature.
+   * Fetch the current weather condition and temperature in Fahrenheit.
    */
   public async fetchWeatherForecast(latitude: number, longitude: number): Promise<WeatherSummary | null> {
-    const url = `${this.baseUrl}/forecast.json?key=${this.apiKey}&q=${latitude},${longitude}&days=1&aqi=no&alerts=no`;
+    const url = `${this.baseUrl}/data/3.0/onecall?lat=${latitude}&lon=${longitude}&exclude=minutely,hourly,daily,alerts&units=imperial&appid=${this.apiKey}`;
     try {
       const response = await axios.get(url);
       const data = response.data;
-      if (!data || !data.forecast || !data.forecast.forecastday || !data.forecast.forecastday[0]) {
+      if (!data || !data.current || !data.current.weather || data.current.weather.length === 0) {
         console.error('Unexpected weather API response structure:', data);
         return null;
       }
-      const dayForecast = data.forecast.forecastday[0].day;
-      const summary: WeatherSummary = {
-        condition: dayForecast.condition.text.trim(),
-        avg_temp_f: dayForecast.avgtemp_f,
+
+      return {
+        condition: data.current.weather[0].main,
+        temp_f: Math.round(data.current.temp),
       };
-      return summary;
     } catch (error) {
-      console.error('Error fetching weather forecast:', error);
+      console.error('Error fetching weather data:', error);
       return null;
     }
   }

@@ -10,7 +10,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -w -p tsconfig.json",
-    "prepare": "bun run build"
+    "prepare": "bun run build",
+    "link-pkg": "bun link"
   },
   "dependencies": {
     "axios": "^1.8.1",

@@ -14,7 +14,7 @@ mongoConnection.init();
 dotenv.config();
 
 // Get environment variables with defaults
-const PORT = Number(process.env.PORT || 7010);
+const PORT = Number(process.env.PORT || 8042);
 const PACKAGE_NAME = process.env.PACKAGE_NAME || 'io.augmentos.system.appstore';
 const API_KEY = process.env.API_KEY || '';
 const SECRET_KEY = process.env.SECRET_KEY || '';

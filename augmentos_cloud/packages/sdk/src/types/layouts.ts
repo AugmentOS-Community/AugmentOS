@@ -55,4 +55,5 @@ export interface DisplayRequest extends BaseMessage {
     view: ViewType;
     layout: Layout;
     durationMs?: number;
+    forceDisplay?: boolean;
 }

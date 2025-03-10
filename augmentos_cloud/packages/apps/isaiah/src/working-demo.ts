@@ -1,6 +1,5 @@
 import path from 'path';
 import { TpaServer, TpaSession, StreamType } from '@augmentos/sdk';
-import { CLOUD_PORT } from '@augmentos/config';
 
 // Configuration
 const PACKAGE_NAME = "dev.augmentos.isaiah";
@@ -444,7 +443,7 @@ const server = new ActuallyIsaiahServer({
   packageName: PACKAGE_NAME,
   apiKey: API_KEY,
   port: PORT,
-  augmentOSWebsocketUrl: `ws://localhost:${CLOUD_PORT}/tpa-ws`,
+  augmentOSWebsocketUrl: `ws://staging.augmentos.org/tpa-ws`,
   webhookPath: '/webhook',
   // Uncomment if you have static assets to serve
   // publicDir: path.join(__dirname, './public')

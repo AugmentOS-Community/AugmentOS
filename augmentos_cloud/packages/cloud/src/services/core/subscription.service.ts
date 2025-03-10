@@ -203,6 +203,29 @@ import { StreamType, ExtendedStreamType, isLanguageStream, UserSession, parseLan
         console.log(`Removed all subscriptions for ${packageName} in session ${userSession.sessionId}`);
       }
     }
+    
+    /**
+     * Removes all subscription history for a session
+     * Used when a session is being killed to free memory
+     * @param sessionId - User session identifier
+     */
+    removeSessionSubscriptionHistory(sessionId: string): void {
+      // Find all keys that start with this session ID
+      const keysToRemove: string[] = [];
+      
+      for (const key of this.history.keys()) {
+        if (key.startsWith(`${sessionId}:`)) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      // Remove all history entries for this session
+      keysToRemove.forEach(key => {
+        this.history.delete(key);
+      });
+      
+      console.log(`Removed subscription history for session ${sessionId} (${keysToRemove.length} entries)`);
+    }
   
     /**
      * Checks if a TPA has a specific subscription

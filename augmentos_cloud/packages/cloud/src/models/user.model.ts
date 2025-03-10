@@ -1,6 +1,7 @@
 // cloud/src/models/user.model.ts
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { AppSettingType, type AppSetting } from '@augmentos/sdk';
+import { MongoSanitizer } from '../utils/mongoSanitizer';
 
 interface Location {
   lat: number;
@@ -224,8 +225,13 @@ UserSchema.methods.updateAppSettings = async function(
 ): Promise<void> {
   console.log('Settings update payload (before saving):', JSON.stringify(settings));
 
+  // Sanitize the appName since it's used as a Map key
+  const sanitizedAppName = MongoSanitizer.sanitizeKey(appName);
+
+  console.log('App name:', sanitizedAppName);
+
   // Retrieve existing settings and convert subdocuments to plain objects.
-  const existingSettings = this.appSettings.get(appName);
+  const existingSettings = this.appSettings.get(sanitizedAppName);
   let existingSettingsPlain: { key: string; value: any }[] = [];
   if (existingSettings && Array.isArray(existingSettings)) {
     existingSettingsPlain = existingSettings.map((s: any) =>
@@ -248,16 +254,18 @@ UserSchema.methods.updateAppSettings = async function(
     ([key, value]) => ({ key, value })
   );
 
-  this.appSettings.set(appName, settings);
+  this.appSettings.set(sanitizedAppName, settings);
   await this.save();
 
   console.log('Updated settings:', JSON.stringify(updatedSettingsArray));
-  const afterUpdate = this.appSettings.get(appName);
+  const afterUpdate = this.appSettings.get(sanitizedAppName);
   console.log('Settings retrieved after save:', JSON.stringify(afterUpdate));
 };
 
 UserSchema.methods.getAppSettings = function (this: UserDocument, appName: string): AppSetting[] | undefined {
-  return this.appSettings.get(appName);
+  const sanitizedAppName = MongoSanitizer.sanitizeKey(appName);
+  const settings = this.appSettings.get(sanitizedAppName);
+  return settings;
 };
 
 UserSchema.methods.isAppRunning = function (this: UserDocument, appName: string): boolean {

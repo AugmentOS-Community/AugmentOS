@@ -1,10 +1,10 @@
 import path from 'path';
 import { TpaServer, TpaSession } from '@augmentos/sdk';
-import { CLOUD_PORT } from '@augmentos/config';
 
 const PACKAGE_NAME = "dev.augmentos.isaiah";
 const API_KEY = 'test_key'; // In production, this would be securely stored
 const PORT = 42022;
+const CLOUD_URL = process.env.CLOUD_URL || "http://localhost:8002"; 
 
 const isaiahUserId = "isaiah@mentra.glass";
 const appSessions = new Map<string, TpaSession>();
@@ -53,7 +53,7 @@ const server = new ActuallyIsaiahServer({
   packageName: PACKAGE_NAME,
   apiKey: API_KEY,
   port: PORT,
-  augmentOSWebsocketUrl: `ws://localhost:${CLOUD_PORT}/tpa-ws`,
+  augmentOSWebsocketUrl: `ws://${CLOUD_URL}/tpa-ws`,
   webhookPath: '/webhook',
   // publicDir: path.join(__dirname, './public')
 });

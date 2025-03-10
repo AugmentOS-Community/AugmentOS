@@ -94,5 +94,5 @@ export const getAndroidPermissions = (): Permission[] => {
     list.push(PermissionsAndroid.PERMISSIONS.WRITE_CALENDAR);
     list.push(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
   }
-  return list as Permission[];
+  return list.filter(permission => permission != null) as Permission[];
 }

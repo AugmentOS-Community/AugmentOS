@@ -22,10 +22,6 @@
                     "value": "Russian"
                 },
                 {
-                    "label": "Chinese (Pinyin)",
-                    "value": "Chinese (Pinyin)"
-                },
-                {
                     "label": "Chinese (Hanzi)",
                     "value": "Chinese (Hanzi)"
                 },
@@ -84,10 +80,6 @@
               {
                 "label": "Russian",
                 "value": "Russian"
-              },
-              {
-                "label": "Chinese (Pinyin)",
-                "value": "Chinese (Pinyin)"
               },
               {
                 "label": "Chinese (Hanzi)",

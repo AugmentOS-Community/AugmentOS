@@ -1,5 +1,5 @@
 {
-  "name": "@augmentos/live-captions",
+  "name": "@augmentos/livetranslation",
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
@@ -10,7 +10,7 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
-    "@augmentos/sdk": "workspace:*",
+    "@augmentos/types": "workspace:*",
     "@augmentos/config": "workspace:*",
     "@augmentos/utils": "workspace:*"
   },

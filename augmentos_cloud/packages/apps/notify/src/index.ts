@@ -12,10 +12,10 @@ import {
   TpaSession,
   TpaServer,
 } from '@augmentos/sdk'; // shared types for cloud TPA messages
-import { CLOUD_PORT, systemApps } from '@augmentos/config';
+import { systemApps } from '@augmentos/config';
 import { wrapText } from '@augmentos/utils';
-
-const PORT = systemApps.notify.port;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 80; // Default http port.
+const CLOUD_URL = process.env.CLOUD_URL || "http://localhost:8002";
 const PACKAGE_NAME = systemApps.notify.packageName;
 const API_KEY = 'test_key'; // In production, this would be securely stored
 
@@ -251,14 +251,14 @@ const server = new NotifyServer({
   packageName: PACKAGE_NAME,
   apiKey: API_KEY,
   port: PORT,
-  augmentOSWebsocketUrl: `ws://localhost:${CLOUD_PORT}/tpa-ws`,
+  augmentOSWebsocketUrl: `ws://${CLOUD_URL}/tpa-ws`,
   webhookPath: '/webhook',
   publicDir: path.join(__dirname, './public')
 });
 
 server.start()
   .then(() => {
-    console.log(`${PACKAGE_NAME} server running at http://localhost:${PORT}`);
+    console.log(`${PACKAGE_NAME} server running`);
   })
   .catch(error => {
     console.error('Failed to start server:', error);

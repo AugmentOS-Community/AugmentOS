@@ -40,6 +40,7 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
         { modelName: 'Mentra Mach1', key: 'mentra_mach1' },
         { modelName: 'Even Realities G1', key: 'evenrealities_g1' },
         { modelName: 'Audio Wearable', key: 'Audio Wearable' },
+        { modelName: 'Virtual Wearable', key: 'Virtual Wearable' },
     ];
 
     React.useEffect(() => { }, [status]);

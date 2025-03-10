@@ -18,6 +18,7 @@ import { displayPermissionDeniedWarning, doesHaveAllPermissions, requestGrantPer
 import Button from '../components/Button';
 import { checkNotificationPermission } from '../logic/NotificationServiceUtils';
 import { checkAndRequestNotificationAccessSpecialPermission, checkNotificationAccessSpecialPermission } from "../utils/NotificationServiceUtils";
+import { openCorePermissionsActivity } from '../bridge/CoreServiceStarter';
 
 interface GrantPermissionsScreenProps {
   isDarkTheme: boolean;
@@ -75,6 +76,7 @@ const GrantPermissionsScreen: React.FC<GrantPermissionsScreenProps> = ({
           console.log('App has come to foreground!');
 
           if (await doesHaveAllPermissions()) {
+            openCorePermissionsActivity();
             navigation.reset({
               index: 0,
               routes: [{ name: 'SplashScreen' }],
@@ -103,6 +105,7 @@ const GrantPermissionsScreen: React.FC<GrantPermissionsScreenProps> = ({
 
     if ((await doesHaveAllPermissions())) {
       console.log("WE SUPPOSEDLY HAVE ALL THE PERMSSS");
+      openCorePermissionsActivity();
       navigation.reset({
         index: 0,
         routes: [{ name: 'SplashScreen' }],

@@ -3,11 +3,12 @@ import express from 'express';
 
 import jwt from 'jsonwebtoken';
 import { Request, Response } from 'express';
-import { AUGMENTOS_AUTH_JWT_SECRET, SUPABASE_JWT_SECRET } from '@augmentos/config';
 
 const router = express.Router();
 
-//const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
+export const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || "";
+export const AUGMENTOS_AUTH_JWT_SECRET = process.env.AUGMENTOS_AUTH_JWT_SECRET || "";
+export const JOE_MAMA_USER_JWT = process.env.JOE_MAMA_USER_JWT || "";
 
 router.post('/exchange-token', async (req: Request, res: Response) => {
   const { supabaseToken } = req.body;

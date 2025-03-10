@@ -21,6 +21,11 @@ router.get('/api/transcripts/:appSessionId', async (req, res) => {
     const startTime = req.query.startTime;
     const endTime = req.query.endTime;
 
+    // console.log('\n\n\nreq.params:', req.params, "\n\n\n");
+    // console.log('\n\n\nreq.query:', req.query.duration, "\n\n\n");
+    // console.log('\n\n\nreq.query:', req.query.startTime, "\n\n\n");
+    // console.log('\n\n\nreq.query:', req.query.endTime, "\n\n\n");
+  
     if (!duration && !startTime && !endTime) {
       return res.status(400).json({ error: 'duration, startTime, or endTime is required' });
     }
@@ -32,7 +37,7 @@ router.get('/api/transcripts/:appSessionId', async (req, res) => {
     }
 
     const transcriptSegments = userSession.transcript.segments;
-    // console.log('\n\n\ntranscriptSegments:', userSession, "\n\n\n");
+    // console.log('\n\n\ntranscriptSegments:', transcriptSegments, "\n\n\n");
 
     const filteredTranscriptSegments = transcriptSegments.filter((segment: TranscriptSegment) => {
       const startTime = new Date(segment.timestamp);

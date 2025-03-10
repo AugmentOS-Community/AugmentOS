@@ -7,7 +7,10 @@ import * as SentryNode from "@sentry/node";
 import { mongooseIntegration as mongooseIntegrationBun } from "@sentry/bun";
 import { mongooseIntegration as mongooseIntegrationNode } from "@sentry/node";
 
-import { NODE_ENV, SENTRY_DSN } from "@augmentos/config";
+// import { NODE_ENV, SENTRY_DSN } from "@augmentos/config";
+
+export const NODE_ENV = process.env.NODE_ENV || "development";
+export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
 // Choose the integration based on the runtime.
 if (typeof Bun !== "undefined") {

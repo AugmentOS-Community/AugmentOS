@@ -399,6 +399,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           </View>
         </View>
 
+        {/* Bug Report */}
+        <TouchableOpacity style={styles.settingItem} onPress={() => {
+            navigation.navigate('ErrorReportScreen');
+        }}>
+          <View style={styles.settingTextContainer}>
+            <Text style={[styles.label, styles.redText]}>Report an Issue</Text>
+          </View>
+        </TouchableOpacity>
+
         {/* Forget Glasses */}
         <TouchableOpacity
           style={styles.settingItem}

@@ -163,6 +163,7 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
     Runnable cachedDashboardDisplayRunnable;
     List<ThirdPartyCloudApp> cachedThirdPartyAppList;
     private WebSocketManager.IncomingMessageHandler.WebSocketStatus webSocketStatus = WebSocketManager.IncomingMessageHandler.WebSocketStatus.DISCONNECTED;
+    private final Handler serverCommsHandler = new Handler(Looper.getMainLooper());
 
     private WebSocketLifecycleManager webSocketLifecycleManager;
 
@@ -861,9 +862,8 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
         ServerComms.getInstance().setServerCommsCallback(new ServerCommsCallback() {
             @Override
             public void onConnectionAck() {
-                locationSystem.sendLocationToServer();
+                serverCommsHandler.postDelayed(() -> locationSystem.sendLocationToServer(), 15000);
             }
-
             @Override
             public void onAppStateChange(List<ThirdPartyCloudApp> appList) {
                 cachedThirdPartyAppList = appList;

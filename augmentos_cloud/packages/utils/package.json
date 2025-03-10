@@ -10,7 +10,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "postbuild": "cp src/lc3/liblc3.wasm dist/lc3/liblc3.wasm",
-    "dev": "tsc -w -p tsconfig.json"
+    "dev": "tsc -w -p tsconfig.json",
+    "link-pkg": "bun link"
   },
   "dependencies": {
     "@augmentos/sdk": "workspace:*",

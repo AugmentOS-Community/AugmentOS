@@ -10,6 +10,7 @@ import {
   PushAudioInputStream,
 } from 'microsoft-cognitiveservices-speech-sdk';
 import { ExtendedStreamType, StreamType } from './streams';
+import winston from 'winston';
 
 /**
  * Session for an application
@@ -74,6 +75,9 @@ export interface UserSession {
   userId: string;
   startTime: Date;
   disconnectedAt: Date | null;
+
+  // Logger.
+  logger: winston.Logger;
 
   // App Sessions and App State
   installedApps: AppI[];

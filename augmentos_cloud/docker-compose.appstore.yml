@@ -1,0 +1,70 @@
+services:
+  # Cloud service
+  appstore:
+    stop_grace_period: 10s
+    init: true
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 0.5G
+        reservations:
+          memory: 256M
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8042:80"
+    environment:
+      - NODE_ENV=development
+      - HOST=0.0.0.0
+      - SERVICE_NAME=appstore
+    env_file:
+      - .env
+    volumes:
+      - ./:/app
+      - node_modules:/app/node_modules
+    command: bash -c "cd store/server && bun install && bun run dev"
+    networks:
+      - augmentos-network-dev
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "cloud", "service": "cloud"}]'
+
+  # Datadog agent
+  datadog:
+    image: datadog/agent:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+    env_file:
+      - .env
+    environment:
+      - DD_API_KEY=${DATADOG_API_KEY}
+      - DD_SITE=us5.datadoghq.com
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_APM_ENABLED=true
+      - DD_PROCESS_AGENT_ENABLED=true
+      - DD_LOGS_CONFIG_PROCESSING_RULES=[{"type":"exclude_at_match","name":"exclude_debug_logs","pattern":"\\[debug\\]"}]
+      - DD_LOGS_CONFIG_OPEN_FILES_LIMIT=200
+      - DD_CONTAINER_EXCLUDE_LOGS=name:datadog-agent
+      - DD_LOGS_CONFIG_BATCH_WAIT=1  # Wait only 1 second before sending (default is 5)
+      - DD_LOGS_CONFIG_BATCH_MAX_SIZE=1000  # Send after 100 logs batched (default is 1000)
+      - DD_LOGS_CONFIG_BATCH_MAX_CONTENT_SIZE=100000  # Send after reaching ~100KB
+      - DD_LOGS_CONFIG_USE_HTTP=true  # Use HTTP instead of TCP (more reliable)
+      - DD_LOGS_CONFIG_USE_COMPRESSION=true  # Enable compression for faster transfers
+      - DD_LOGS_CONFIG_FORCE_USE_HTTP=true  # Force using HTTP even for small payloads
+    restart: unless-stopped
+    networks:
+      - augmentos-network-dev
+
+networks:
+  augmentos-network-dev:
+    driver: bridge
+    external: true
+    name: augmentos-network-dev
+
+volumes:
+  node_modules:

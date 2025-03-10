@@ -346,7 +346,7 @@ class DisplayManager implements DisplayManagerI {
   }
 
   private sendToWebSocket(displayRequest: DisplayRequest, webSocket?: WebSocket): boolean {
-    if (!webSocket || webSocket.readyState !== WebSocket.OPEN) {
+    if (!webSocket || webSocket.readyState !== 1) {
       console.log(`[DisplayManager] - [${this.userSession?.userId}] ❌ WebSocket not ready`);
       return false;
     }

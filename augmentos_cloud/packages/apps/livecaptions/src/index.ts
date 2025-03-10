@@ -17,18 +17,21 @@ import {
   ExtendedStreamType,
 } from '@augmentos/sdk';
 import { TranscriptProcessor, languageToLocale } from '@augmentos/utils';
-import { systemApps, CLOUD_PORT } from '@augmentos/config';
+import { systemApps } from '@augmentos/config';
 import axios from 'axios';
 
 const app = express();
-const PORT = systemApps.captions.port;
+// const PORT = systemApps.captions.port;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 80; // Default http port.
+const CLOUD_URL = process.env.CLOUD_URL || "http://localhost:8002"; 
 const PACKAGE_NAME = systemApps.captions.packageName;
 const API_KEY = 'test_key'; // In production, this would be securely stored
 
-const userFinalTranscripts: Map<string, string> = new Map();
+// No longer need userFinalTranscripts map as we store history in the TranscriptProcessor
 const userTranscriptProcessors: Map<string, TranscriptProcessor> = new Map();
 const userSessions = new Map<string, Set<string>>(); // userId -> Set<sessionId>
 const userLanguageSettings: Map<string, string> = new Map(); // userId -> language code
+const MAX_FINAL_TRANSCRIPTS = 5; // Hardcoded to 3 final transcripts
 
 // For debouncing transcripts per session
 interface TranscriptDebouncer {
@@ -45,7 +48,6 @@ app.use(express.static(path.join(__dirname, './public')));
 
 // Track active sessions
 const activeSessions = new Map<string, WebSocket>();
-
 
 function convertLineWidth(width: string | number, isHanzi: boolean): number {
   if (typeof width === 'number') return width;
@@ -73,7 +75,7 @@ function convertLineWidth(width: string | number, isHanzi: boolean): number {
 
 async function fetchAndApplySettings(sessionId: string, userId: string) {
   try {
-    const response = await axios.get(`http://localhost:${CLOUD_PORT}/tpasettings/user/${PACKAGE_NAME}`, {
+    const response = await axios.get(`http://${CLOUD_URL}/tpasettings/user/${PACKAGE_NAME}`, {
       headers: { Authorization: `Bearer ${userId}` }
     });
     const settings = response.data.settings;
@@ -81,13 +83,11 @@ async function fetchAndApplySettings(sessionId: string, userId: string) {
     const lineWidthSetting = settings.find((s: any) => s.key === 'line_width');
     const numberOfLinesSetting = settings.find((s: any) => s.key === 'number_of_lines');
     const transcribeLanguageSetting = settings.find((s: any) => s.key === 'transcribe_language');
-
     
     // Store the language setting for this user (default to en-US if not specified)
     const language = transcribeLanguageSetting?.value || 'en-US';
     const locale = languageToLocale(language);
     const numberOfLines = numberOfLinesSetting ? Number(numberOfLinesSetting.value) : 3; // fallback default
-    
     
     const isChineseLanguage = locale.startsWith('zh-') || locale.startsWith('ja-');
     
@@ -99,7 +99,7 @@ async function fetchAndApplySettings(sessionId: string, userId: string) {
     userLanguageSettings.set(userId, locale);
     console.log(`Language setting for user ${userId}: ${locale}`);
 
-    const transcriptProcessor = new TranscriptProcessor(lineWidth, numberOfLines);
+    const transcriptProcessor = new TranscriptProcessor(lineWidth, numberOfLines, MAX_FINAL_TRANSCRIPTS);
     userTranscriptProcessors.set(userId, transcriptProcessor);
     
     // Update subscription if websocket is already open
@@ -109,7 +109,7 @@ async function fetchAndApplySettings(sessionId: string, userId: string) {
   } catch (err) {
     console.error(`Error fetching settings for session ${sessionId}:`, err);
     // Fallback to default values.
-    const transcriptProcessor = new TranscriptProcessor(30, 3);
+    const transcriptProcessor = new TranscriptProcessor(30, 3, MAX_FINAL_TRANSCRIPTS);
     userTranscriptProcessors.set(userId, transcriptProcessor);
     userLanguageSettings.set(userId, 'en-US'); // Default language
     return 'en-US';
@@ -119,7 +119,7 @@ async function fetchAndApplySettings(sessionId: string, userId: string) {
 // Function to update subscription based on current language settings
 function updateSubscriptionForSession(sessionId: string, userId: string) {
   const ws = activeSessions.get(sessionId);
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (!ws || ws.readyState !== 1) return;
   
   const language = userLanguageSettings.get(userId) || 'en-US';
   const transcriptionStream = createTranscriptionStream(language);
@@ -145,7 +145,7 @@ app.post('/webhook', async (req, res) => {
     console.log(`\n\n🗣️🗣️🗣️Received session request for user ${userId}, session ${sessionId}\n\n`);
 
     // Start WebSocket connection to cloud
-    const ws = new WebSocket(`ws://localhost:${CLOUD_PORT}/tpa-ws`);
+    const ws = new WebSocket(`ws://${CLOUD_URL}/tpa-ws`);
 
     ws.on('open', async () => {
       console.log(`\n[Session ${sessionId}]\n connected to augmentos-cloud\n`);
@@ -198,7 +198,7 @@ app.post('/webhook', async (req, res) => {
     userSessions.get(userId)!.add(sessionId);
 
     activeSessions.set(sessionId, ws);
-    userFinalTranscripts.set(userId, "");
+    
     // Initialize debouncer for the session
     transcriptDebouncers.set(sessionId, { lastSentTime: 0, timer: null });
 
@@ -247,15 +247,9 @@ function handleMessage(sessionId: string, userId: string, ws: WebSocket, message
  * Processes the transcription, applies debouncing, and then sends a display event.
  */
 function handleTranscription(sessionId: string, userId: string, ws: WebSocket, transcriptionData: any) {
-  let userFinalTranscript = userFinalTranscripts.get(userId);
-  if (userFinalTranscript === undefined) {
-    userFinalTranscript = "";
-    userFinalTranscripts.set(userId, userFinalTranscript);
-  }
-
   let transcriptProcessor = userTranscriptProcessors.get(userId);
   if (!transcriptProcessor) {
-    transcriptProcessor = new TranscriptProcessor(30, 3);
+    transcriptProcessor = new TranscriptProcessor(30, 3, MAX_FINAL_TRANSCRIPTS);
     userTranscriptProcessors.set(userId, transcriptProcessor);
   }
 
@@ -266,20 +260,32 @@ function handleTranscription(sessionId: string, userId: string, ws: WebSocket, t
   // Log language information from the transcription
   console.log(`[Session ${sessionId}]: Received transcription in language: ${language}`);
 
-  const text = transcriptProcessor.processString(userFinalTranscript + " " + newTranscript, isFinal);
+  // Process the new transcript - this will add it to history if it's final
+  transcriptProcessor.processString(newTranscript, isFinal);
 
-  console.log(`[Session ${sessionId}]: ${text}`);
-  console.log(`[Session ${sessionId}]: isFinal=${isFinal}`);
+  let textToDisplay;
 
   if (isFinal) {
-    const finalLiveCaption = newTranscript.length > 100 ? newTranscript.substring(newTranscript.length - 100) : newTranscript;
-
-    userFinalTranscripts.set(userId, finalLiveCaption);
+    // For final transcripts, get the combined history of all final transcripts
+    const finalTranscriptsHistory = transcriptProcessor.getCombinedTranscriptHistory();
+    
+    // Process this combined history to format it properly
+    textToDisplay = transcriptProcessor.getFormattedTranscriptHistory();
+    
+    console.log(`[Session ${sessionId}]: finalTranscriptCount=${transcriptProcessor.getFinalTranscriptHistory().length}`);
+  } else {
+    // For non-final, get the combined history and add the current partial transcript
+    const combinedTranscriptHistory = transcriptProcessor.getCombinedTranscriptHistory();
+    const textToProcess = `${combinedTranscriptHistory} ${newTranscript}`;
+    
+    // Process this combined text for display
+    textToDisplay = transcriptProcessor.getFormattedPartialTranscript(textToProcess);
   }
 
-  console.log(`[Session ${sessionId}]: finalLiveCaption=${isFinal}`);
+  console.log(`[Session ${sessionId}]: ${textToDisplay}`);
+  console.log(`[Session ${sessionId}]: isFinal=${isFinal}`);
 
-  debounceAndShowTranscript(sessionId, userId, ws, text, isFinal);
+  debounceAndShowTranscript(sessionId, userId, ws, textToDisplay, isFinal);
 }
 
 /**
@@ -324,6 +330,8 @@ function debounceAndShowTranscript(sessionId: string, userId: string, ws: WebSoc
  * Sends a display event (transcript) to the cloud.
  */
 function showTranscriptsToUser(sessionId: string, ws: WebSocket, transcript: string, isFinal: boolean) {
+  console.log(`[Session ${sessionId}]: Transcript to show: \n${transcript}`);
+
   const displayRequest: DisplayRequest = {
     type: TpaToCloudMessageType.DISPLAY_REQUEST,
     view: ViewType.MAIN,
@@ -335,8 +343,8 @@ function showTranscriptsToUser(sessionId: string, ws: WebSocket, transcript: str
     },
     timestamp: new Date(),
     // Use a fixed duration for final transcripts; non-final ones omit the duration
-    // durationMs: isFinal ? 3000 : undefined
-    durationMs: 20 * 1000 // 20 seconds. If no other transcript is received it will be cleared after this time.
+    durationMs: 20 * 1000, // 20 seconds. If no other transcript is received it will be cleared after this time.
+    forceDisplay: isFinal
   };
 
   ws.send(JSON.stringify(displayRequest));
@@ -359,7 +367,7 @@ function refreshUserSessions(userId: string, newUserTranscript: string) {
   // Refresh each session
   for (const sessionId of sessionIds) {
     const ws = activeSessions.get(sessionId);
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (ws && ws.readyState === 1) {
       console.log(`Refreshing session ${sessionId}`);
       
       // Update subscription for new language settings
@@ -428,30 +436,36 @@ app.post('/settings', (req, res) => {
         (typeof lineWidthSetting.value === 'number' ? lineWidthSetting.value : 30);
     }
 
-    console.log(`Language setting for user ${lineWidth}`);
+    console.log(`Line width setting: ${lineWidth}`);
     
     if (languageChanged) {
       console.log(`Language changed for user ${userIdForSettings}: ${previousLanguage} -> ${language}`);
       userLanguageSettings.set(userIdForSettings, language);
     }
     
-    // Update processor and transcript
-    console.log(`Updating settings for user ${userIdForSettings}: lineWidth=${lineWidth}, numberOfLines=${numberOfLines}, language=${language}`);
+    // Create a new processor
+    const newProcessor = new TranscriptProcessor(lineWidth, numberOfLines, MAX_FINAL_TRANSCRIPTS);
     
-    // Determine what to do with the transcript based on language change
-    let lastUserTranscript = "";
-    if (!languageChanged) {
-      // Only keep the previous transcript if language hasn't changed
-      lastUserTranscript = userTranscriptProcessors.get(userIdForSettings)?.getLastUserTranscript() || "";
+    // Important: Only preserve transcript history if language DIDN'T change
+    if (!languageChanged && userTranscriptProcessors.has(userIdForSettings)) {
+      // Get the previous transcript history
+      const previousTranscriptHistory = userTranscriptProcessors.get(userIdForSettings)?.getFinalTranscriptHistory() || [];
+      
+      // Add each previous transcript to the new processor
+      for (const transcript of previousTranscriptHistory) {
+        newProcessor.processString(transcript, true);
+      }
+      
+      console.log(`Preserved ${previousTranscriptHistory.length} transcripts after settings change`);
+    } else if (languageChanged) {
+      console.log(`Cleared transcript history due to language change`);
     }
     
-    const newProcessor = new TranscriptProcessor(lineWidth, numberOfLines);
+    // Replace the old processor with the new one
     userTranscriptProcessors.set(userIdForSettings, newProcessor);
-    userFinalTranscripts.set(userIdForSettings, lastUserTranscript);
-
-    // Process string will give empty result when lastUserTranscript is empty
-    const newUserTranscript = languageChanged ? "" : 
-      userTranscriptProcessors.get(userIdForSettings)?.processString(lastUserTranscript, true) || "";
+    
+    // Get transcript to display
+    const newUserTranscript = newProcessor.getCombinedTranscriptHistory() || "";
 
     // Refresh active sessions
     const sessionsRefreshed = refreshUserSessions(userIdForSettings, newUserTranscript);
@@ -459,7 +473,8 @@ app.post('/settings', (req, res) => {
     res.json({ 
       status: 'Settings updated successfully',
       sessionsRefreshed: sessionsRefreshed,
-      languageChanged: languageChanged
+      languageChanged: languageChanged,
+      transcriptsPreserved: !languageChanged
     });
   } catch (error) {
     console.error('Error updating settings:', error);
@@ -473,5 +488,5 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`${PACKAGE_NAME} server running at http://localhost:${PORT}`);
+  console.log(`${PACKAGE_NAME} server running`);
 });

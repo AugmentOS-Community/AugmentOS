@@ -107,6 +107,16 @@ export interface LocationUpdate extends BaseMessage {
   lng: number;
 }
 
+export interface CalendarEvent extends BaseMessage {
+  type: GlassesToCloudMessageType.CALENDAR_EVENT | StreamType.CALENDAR_EVENT;
+  eventId: string;
+  title: string;
+  dtStart: string;
+  dtEnd: string;
+  timezone: string;
+  timeStamp: string;
+}
+
 /**
  * Voice activity detection from glasses
  */
@@ -150,6 +160,7 @@ export type GlassesToCloudMessage =
   | PhoneBatteryUpdate
   | GlassesConnectionState
   | LocationUpdate
+  | CalendarEvent
   | Vad
   | PhoneNotification
   | NotificationDismissed;
@@ -201,6 +212,10 @@ export function isGlassesConnectionState(message: GlassesToCloudMessage): messag
 
 export function isLocationUpdate(message: GlassesToCloudMessage): message is LocationUpdate {
   return message.type === GlassesToCloudMessageType.LOCATION_UPDATE;
+}
+
+export function isCalendarEvent(message: GlassesToCloudMessage): message is CalendarEvent {
+  return message.type === GlassesToCloudMessageType.CALENDAR_EVENT;
 }
 
 export function isVad(message: GlassesToCloudMessage): message is Vad {

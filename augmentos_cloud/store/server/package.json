@@ -9,7 +9,7 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
-    "@augmentos/sdk": "^1.0.6",
+    "@augmentos/sdk": "^1.0.9",
     "@supabase/supabase-js": "^2.49.1",
     "axios": "^1.8.1"
   },
