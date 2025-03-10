@@ -53,9 +53,9 @@ const GlassesPairingGuidePreparationScreen: React.FC<GlassesPairingGuidePreparat
       case 'Vuzix Z100':
         return <VuzixZ100PairingGuide isDarkTheme={isDarkTheme} />;
       case 'Mentra Live':
-        return <MentraLivePairingGuide isDarkTheme={isDarkTheme} />;
+        return <MentraLivePairingGuide isDarkTheme={isDarkTheme} />;        
       default:
-        return <View />;
+        return <PairingDeviceInfo glassesModelName={glassesModelName} isDarkTheme={isDarkTheme} />;
     }
   };
 
@@ -74,7 +74,6 @@ const GlassesPairingGuidePreparationScreen: React.FC<GlassesPairingGuidePreparat
     <View style={[styles.container, isDarkTheme ? styles.darkBackground : styles.lightBackground]}>
       <ScrollView style={styles.scrollViewContainer}>
         <View style={styles.contentContainer}>
-          <PairingDeviceInfo glassesModelName={glassesModelName} isDarkTheme={isDarkTheme} />
           {getPairingGuide(glassesModelName)}
         </View>
       </ScrollView>

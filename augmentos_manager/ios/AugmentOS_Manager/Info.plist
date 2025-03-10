@@ -37,10 +37,41 @@
 		<string>This app uses Bluetooth to connect to external devices.</string>
 		<key>NSBluetoothPeripheralUsageDescription</key>
 		<string>This app requires Bluetooth access to connect to devices.</string>
+		<!-- Bluetooth in the background -->
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>external-accessory</string>
+			<string>audio</string>
+			<string>fetch</string>
+			<string>bluetooth-central</string>
+		</array>
+		<!-- MFi -->
+		<key>UISupportedExternalAccessoryProtocols</key>
+		<array>
+			<string>com.augmentos</string>
+			<!-- Add more protocol strings as needed -->
+		</array>
 
 		<!-- Location Permission (required for Bluetooth scanning on iOS) -->
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>This app needs location access to discover nearby Bluetooth devices.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>This app needs location access to discover nearby Bluetooth devices.</string>
+		<!-- <key>NSLocationTemporaryUsageDescriptionDictionary</key>
+		<dict>
+			<key>YOUR-PURPOSE-KEY</key>
+			<string>[REASON]</string>
+		</dict> -->
+
+		<!-- Purpose Strings -->
+		<key>NSCalendarsUsageDescription</key>
+		<string>AugmentOS needs access to your calendar to schedule and manage device-related events and notifications.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>AugmentOS needs access to your photo library to save and manage device-related media and documentation.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>AugmentOS needs access to your microphone for voice commands and communication with connected devices.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>AugmentOS needs access to your camera to capture and manage device-related images and videos.</string>
 
 		<key>UILaunchStoryboardName</key>
 		<string>LaunchScreen</string>
@@ -60,6 +91,9 @@
 		<array>
 			<string>Montserrat-Bold.ttf</string>
 			<string>Montserrat-Regular.ttf</string>
+  		<string>MaterialIcons.ttf</string>
+  		<string>MaterialCommunityIcons.ttf</string>
+			<string>FontAwesome.ttf</string>
 		</array>
 		<key>CFBundleURLTypes</key>
 		<array>

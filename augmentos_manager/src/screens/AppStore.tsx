@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
+  SafeAreaView,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -154,7 +155,7 @@ const AppStore: React.FC<AppStoreProps> = ({ isDarkTheme }) => {
   // );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       {/* Conditionally render Header and Search Bar when there is no error and not loading */}
       {!isError && !isLoading && (
         <View
@@ -273,7 +274,7 @@ const AppStore: React.FC<AppStoreProps> = ({ isDarkTheme }) => {
       >
         <NavigationBar toggleTheme={() => {}} isDarkTheme={isDarkTheme} />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

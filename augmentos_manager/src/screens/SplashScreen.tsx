@@ -10,43 +10,46 @@ interface SplashScreenProps {
   //navigation: any;
 }
 
-const SplashScreen: React.FC<SplashScreenProps> = ({}) => {
+const SplashScreen: React.FC<SplashScreenProps> = ({ }) => {
   const navigation = useNavigation<NavigationProps>();
   const { user, loading } = useAuth();
   const { status, startBluetoothAndCore } = useStatus();
 
   useEffect(() => {
     const initializeApp = async () => {
-      
-
       /*
       The purpose of SplashScreen is to route the user wherever the user needs to be
       If they're not logged in => login screen
       If they're logged in, but no perms => perm screen
       If they're logged in + perms => SimulatedPucK setup
       */
-     if (!user) {
+      if (!user) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+        return;
+      }
+
+      try {
+
+        if (!(await doesHaveAllPermissions())) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'GrantPermissionsScreen' }],
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking permissions:', error);
+      }
+      
+      startBluetoothAndCore();
+
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Login' }],
+        routes: [{ name: 'ConnectingToPuck' }],
       });
-      return;
-     }
-
-     if (!(await doesHaveAllPermissions())){
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'GrantPermissionsScreen' }],
-      });
-      return;
-     }
-
-     startBluetoothAndCore();
-
-     navigation.reset({
-      index: 0,
-      routes: [{ name: 'ConnectingToPuck' }],
-    });
     };
 
     if (!loading) {

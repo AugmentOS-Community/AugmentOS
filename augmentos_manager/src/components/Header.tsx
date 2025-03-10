@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     minHeight: 60,
     ...Platform.select({
       ios: {
-        paddingTop: 44, // Additional padding for iOS status bar
+        paddingTop: 16,
       },
       android: {
         paddingTop: 16,

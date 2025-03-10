@@ -59,8 +59,8 @@ const AppDetails: React.FC<AppDetailsProps> = ({
   };
 
   const fetchVersionFromStatus = (): string | null => {
-    console.log('AugmentOS Core Version:', status.core_info.augmentos_core_version);
-    return status?.core_info.augmentos_core_version ?? '0.0.0';
+    console.log('AugmentOS Core Version:', status?.core_info?.augmentos_core_version);
+    return status?.core_info?.augmentos_core_version ?? '0.0.0';
   };
 
   const checkVersionAndSetState = useCallback(async () => {
@@ -352,8 +352,8 @@ const AppDetails: React.FC<AppDetailsProps> = ({
             </View>
           </View>
         </ScrollView>
-        <NavigationBar isDarkTheme={isDarkTheme} toggleTheme={toggleTheme} />
       </View>
+      <NavigationBar isDarkTheme={isDarkTheme} toggleTheme={toggleTheme} />
     </SafeAreaView>
   );
 };

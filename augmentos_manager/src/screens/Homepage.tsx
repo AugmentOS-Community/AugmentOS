@@ -5,7 +5,8 @@ import React, {
   useState,
   useEffect,
 } from 'react';
-import { View, StyleSheet, Animated, Text } from 'react-native';
+import { View, StyleSheet, Animated, Text, Button, Switch } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import Header from '../components/Header';
@@ -21,6 +22,9 @@ import { Config } from 'react-native-config';
 import CloudConnection from '../components/CloudConnection.tsx';
 import { loadSetting, saveSetting } from '../logic/SettingsHelper';
 
+import { NativeModules, NativeEventEmitter } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 interface HomepageProps {
   isDarkTheme: boolean;
   toggleTheme: () => void;
@@ -32,7 +36,7 @@ interface AnimatedSectionProps extends PropsWithChildren {
 
 const Homepage: React.FC<HomepageProps> = ({ isDarkTheme, toggleTheme }) => {
   const navigation = useNavigation<NavigationProp<any>>();
-  const { status } = useStatus();
+  const { status, startBluetoothAndCore } = useStatus();
   const [isSimulatedPuck, setIsSimulatedPuck] = React.useState(false);
   const [isCheckingVersion, setIsCheckingVersion] = useState(false);
 
@@ -174,68 +178,83 @@ const Homepage: React.FC<HomepageProps> = ({ isDarkTheme, toggleTheme }) => {
   const currentThemeStyles = isDarkTheme ? darkThemeStyles : lightThemeStyles;
 
   return (
-    <View style={currentThemeStyles.container}>
-      <ScrollView style={currentThemeStyles.contentContainer}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={currentThemeStyles.container}>
         <AnimatedSection>
           <Header isDarkTheme={isDarkTheme} navigation={navigation} />
         </AnimatedSection>
+        <ScrollView style={currentThemeStyles.contentContainer}>
+          {status.core_info.cloud_connection_status !== 'CONNECTED' &&
+            <AnimatedSection>
+              <CloudConnection isDarkTheme={isDarkTheme} />
+            </AnimatedSection>
+          }
 
-        {status.core_info.cloud_connection_status !== 'CONNECTED' &&
           <AnimatedSection>
-            <CloudConnection isDarkTheme={isDarkTheme} />
+            <ConnectedDeviceInfo isDarkTheme={isDarkTheme} />
           </AnimatedSection>
-        }
 
-        <AnimatedSection>
-          <ConnectedDeviceInfo isDarkTheme={isDarkTheme} />
-        </AnimatedSection>
+          {status.core_info.puck_connected && (
+            <>
+              {status.apps.length > 0 ? (
+                <>
+                  <AnimatedSection>
+                    <RunningAppsList isDarkTheme={isDarkTheme} />
+                  </AnimatedSection>
 
-        {status.core_info.puck_connected && (
-          <>
-            {status.apps.length > 0 ? (
-              <>
+                  <AnimatedSection>
+                    <YourAppsList
+                      isDarkTheme={isDarkTheme}
+                      key={`apps-list-${status.apps.length}`}
+                    />
+                  </AnimatedSection>
+                </>
+              ) : (
                 <AnimatedSection>
-                  <RunningAppsList isDarkTheme={isDarkTheme} />
+                  <Text style={currentThemeStyles.noAppsText}>
+                    No apps found. Visit the AugmentOS App Store to explore and
+                    download apps for your device.
+                  </Text>
                 </AnimatedSection>
-
-                <AnimatedSection>
-                  <YourAppsList
-                    isDarkTheme={isDarkTheme}
-                    key={`apps-list-${status.apps.length}`}
-                  />
-                </AnimatedSection>
-              </>
-            ) : (
-              <AnimatedSection>
-                <Text style={currentThemeStyles.noAppsText}>
-                  No apps found. Visit the AugmentOS App Store to explore and
-                  download apps for your device.
-                </Text>
-              </AnimatedSection>
-            )}
-          </>
-        )}
-      </ScrollView>
+              )}
+            </>
+          )}
+        </ScrollView>
+      </View>
       <NavigationBar toggleTheme={toggleTheme} isDarkTheme={isDarkTheme} />
-    </View>
+    </SafeAreaView>
   );
 };
 
 const lightThemeStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    paddingBottom: 55,
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingBottom: 55,
   },
   noAppsText: {
     marginTop: 10,
     color: '#000000',
     fontFamily: 'Montserrat-Regular',
+  },
+  brightnessContainer: {
+    marginTop: 15,
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+  },
+  brightnessText: {
+    color: '#000000',
+    marginBottom: 5,
+    fontFamily: 'Montserrat-Regular',
+  },
+  brightnessRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });
 
@@ -243,7 +262,6 @@ const darkThemeStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
-    paddingBottom: 55,
   },
   contentContainer: {
     flex: 1,
@@ -253,6 +271,23 @@ const darkThemeStyles = StyleSheet.create({
   noAppsText: {
     color: '#ffffff',
     fontFamily: 'Montserrat-Regular',
+  },
+  brightnessContainer: {
+    marginTop: 15,
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: '#222222',
+    borderRadius: 8,
+  },
+  brightnessText: {
+    color: '#ffffff',
+    marginBottom: 5,
+    fontFamily: 'Montserrat-Regular',
+  },
+  brightnessRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });
 

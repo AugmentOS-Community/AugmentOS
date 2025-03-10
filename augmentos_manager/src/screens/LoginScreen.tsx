@@ -83,8 +83,21 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         }
       }
     };
-  
+
     const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
+    // Handle deep links that opened the app
+    Linking.getInitialURL().then(url => {
+      console.log('Initial URL:', url);
+      if (url) {
+        handleDeepLink({ url });
+      }
+    });
+
+    // Add this to see if linking is working at all
+    Linking.canOpenURL('com.augmentos://auth/callback').then(supported => {
+      console.log('Can open URL:', supported);
+    });
+
     return () => {
       linkingSubscription.remove();
     };
@@ -103,7 +116,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       // Add any other parameters you might need
     };
   };
-  
+
 
   const handleGoogleSignIn = async () => {
     try {
@@ -171,7 +184,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         email,
         password,
         options: {
-      //    emailRedirectTo: redirectUrl,
+          //    emailRedirectTo: redirectUrl,
           emailRedirectTo: 'com.augmentos://auth/callback',
 
         },

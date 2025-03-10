@@ -26,7 +26,7 @@ const ConnectingToPuckComponent = ({
 
   useEffect(() => {
     // We only proceed once the core is connected, the user is loaded, etc.
-    if (status.core_info.puck_connected && !loading && user) {
+    if ((status.core_info.puck_connected || true) && !loading && user) {
       // 1) Get the Supabase token from your AuthContext
       const supabaseToken = session?.access_token;
       if (!supabaseToken) {
@@ -68,6 +68,12 @@ const ConnectingToPuckComponent = ({
         });
       }
     }
+
+    // TODO: ios hack:
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' }],
+    });
   }, [status, loading, user]);
 
   return (
