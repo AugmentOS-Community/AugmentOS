@@ -63,10 +63,9 @@ class LogService {
   /**
    * Send error report to backend server
    * @param description User-provided description of the issue
-   * @param token Authentication token
    * @returns Promise<boolean> Success status
    */
-  public async sendErrorReport(coreToken: string, description: string): Promise<boolean> {
+  public async sendErrorReport(description: string): Promise<boolean> {
     try {
       // Get logs
       const logs = await this.getLogs();
@@ -83,7 +82,7 @@ class LogService {
       };
 
       // Use the dedicated method in BackendServerComms
-      await this.backendComms.sendErrorReport(coreToken, reportData);
+      await this.backendComms.sendErrorReport(reportData);
       return true;
     } catch (error) {
       console.error(`${this.TAG}: Error sending report -`, error);

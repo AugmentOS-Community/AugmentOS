@@ -44,9 +44,9 @@ const AppSettings: React.FC<AppSettingsProps> = ({ route, isDarkTheme, toggleThe
   const handleStartStopApp = () => {
     console.log(`${appInfo?.is_running ? 'Stopping' : 'Starting'} app: ${packageName}`);
     if (appInfo?.packageName && appInfo?.is_running) {
-      BluetoothService.getInstance().stopAppByPackageName(appInfo?.packageName);
+      BackendServerComms.getInstance().stopApp(appInfo?.packageName);
     } else if (appInfo?.packageName && !appInfo?.is_running) {
-      BluetoothService.getInstance().startAppByPackageName(appInfo?.packageName);
+      BackendServerComms.getInstance().startApp(appInfo?.packageName);
     }
   };
 
@@ -63,14 +63,8 @@ const AppSettings: React.FC<AppSettingsProps> = ({ route, isDarkTheme, toggleThe
   }, [packageName]);
 
   const fetchUpdatedSettingsInfo = async () => {
-    const coreToken = status.core_info.core_token;
-    if (!coreToken) {
-      console.warn('No core token available. Cannot fetch TPA settings.');
-      return;
-    }
-
     try {
-      const data = await backendServerComms.getTpaSettings(coreToken, packageName);
+      const data = await backendServerComms.getTpaSettings(packageName);
       console.log("\n\n\nGOT TPA SETTING INFO:");
       console.log(JSON.stringify(data));
       console.log("\n\n\n");
@@ -104,15 +98,13 @@ const AppSettings: React.FC<AppSettingsProps> = ({ route, isDarkTheme, toggleThe
       value: settingKey === key ? value : settingsState[settingKey],
     }));
 
-    if (status.core_info.core_token) {
-      backendServerComms.updateTpaSetting(status.core_info.core_token, packageName, updatedPayload)
-        .then((data) => {
-          console.log('Server update response:', data);
-        })
-        .catch((error) => {
-          console.error('Error updating setting on server:', error);
-        });
-    }
+    backendServerComms.updateTpaSetting(packageName, { key, value })
+      .then((data) => {
+        console.log('Server update response:', data);
+      })
+      .catch((error) => {
+        console.error('Error updating setting on server:', error);
+      });
   };
 
   // Theme colors.

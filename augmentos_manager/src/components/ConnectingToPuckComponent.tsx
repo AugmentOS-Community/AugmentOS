@@ -44,6 +44,12 @@ const ConnectingToPuckComponent = ({
           .then((coreToken) => {
             let uid = user.email || user.id;
             bluetoothService.setAuthenticationSecretKey(uid, coreToken);
+            BackendServerComms.getInstance().setCoreToken(coreToken);  
+              // // Token is now managed by BackendServerComms, navigate to Home
+              // navigation.reset({
+              //   index: 0,
+              //   routes: [{ name: 'Home' }],
+              // });
 
             // const appStoreUrl: string = Config.AUGMENTOS_APPSTORE_URL || "";
             // console.log("OUR APP STORE URL: ", appStoreUrl);
@@ -61,6 +67,7 @@ const ConnectingToPuckComponent = ({
             // handle error
           });
       } else {
+        BackendServerComms.getInstance().setCoreToken(status.core_info.core_token);
         // If we already have a token or the owner is set, go straight to Home
         navigation.reset({
           index: 0,

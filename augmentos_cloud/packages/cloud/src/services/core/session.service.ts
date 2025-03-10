@@ -226,6 +226,65 @@ export class SessionService {
   getAllSessions(): ExtendedUserSession[] {
     return Array.from(this.activeSessions.values());
   }
+  
+  /**
+   * Gets an active session for a user by their userId (email)
+   * Useful for retrieving session from a coreToken after JWT validation
+   * 
+   * @param userId - The user email/ID from the JWT token
+   * @returns The user's active session, or null if none found
+   */
+  getSessionByUserId(userId: string): ExtendedUserSession | null {
+    // First try the direct mapping where sessionId == userId (from reconnection logic)
+    const directSession = this.activeSessions.get(userId);
+    if (directSession) {
+      return directSession;
+    }
+    
+    // Otherwise, search all sessions for this userId
+    for (const session of this.activeSessions.values()) {
+      if (session.userId === userId) {
+        return session;
+      }
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Gets all active sessions for a user by their userId (email)
+   * 
+   * @param userId - The user email/ID from the JWT token
+   * @returns Array of user's active sessions, empty array if none found
+   */
+  getSessionsForUser(userId: string): ExtendedUserSession[] {
+    const sessions: ExtendedUserSession[] = [];
+    
+    // First try the direct mapping where sessionId == userId (from reconnection logic)
+    const directSession = this.activeSessions.get(userId);
+    if (directSession) {
+      sessions.push(directSession);
+    }
+    
+    // Also include any other sessions with this userId
+    for (const session of this.activeSessions.values()) {
+      if (session.userId === userId && session.sessionId !== userId) {
+        sessions.push(session);
+      }
+    }
+    
+    // Sort by most recent session first (if disconnectedAt is null, it's active)
+    sessions.sort((a, b) => {
+      if (!a.disconnectedAt && b.disconnectedAt) return -1;
+      if (a.disconnectedAt && !b.disconnectedAt) return 1;
+      
+      const timeA = a.disconnectedAt ? a.disconnectedAt.getTime() : Date.now();
+      const timeB = b.disconnectedAt ? b.disconnectedAt.getTime() : Date.now();
+      return timeB - timeA;
+    });
+    
+    return sessions;
+  }
 
   markSessionDisconnected(userSession: ExtendedUserSession): void {
     if (userSession) {

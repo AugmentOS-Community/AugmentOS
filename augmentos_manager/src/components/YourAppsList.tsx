@@ -8,6 +8,7 @@ import {
 import { useStatus } from '../providers/AugmentOSStatusProvider';
 import AppIcon from './AppIcon';
 import { BluetoothService } from '../BluetoothService';
+import BackendServerComms from '../backend_comms/BackendServerComms';
 
 interface YourAppsListProps {
     isDarkTheme: boolean;
@@ -30,7 +31,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
     const startApp = async (packageName: string) => {
         setIsLoading(true);
         try {
-            await bluetoothService.startAppByPackageName(packageName);
+            BackendServerComms.getInstance().startApp(packageName);
         } catch (error) {
             console.error('start app error:', error);
         } finally {

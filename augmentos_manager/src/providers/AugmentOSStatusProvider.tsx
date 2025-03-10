@@ -3,6 +3,7 @@ import { AugmentOSParser, AugmentOSMainStatus } from '../AugmentOSStatusParser.t
 import { BluetoothService } from '../BluetoothService.tsx';
 import { INTENSE_LOGGING, MOCK_CONNECTION } from '../consts.tsx';
 import GlobalEventEmitter from "../logic/GlobalEventEmitter.tsx";
+import BackendServerComms from '../backend_comms/BackendServerComms';
 
 interface AugmentOSStatusContextType {
     status: AugmentOSMainStatus;
@@ -11,6 +12,7 @@ interface AugmentOSStatusContextType {
     startBluetoothAndCore: () => void;
     refreshStatus: (data: any) => void;
     screenMirrorItems: { id: string; name: string }[]
+    getCoreToken: () => string | null;
 }
 
 const AugmentOSStatusContext = createContext<AugmentOSStatusContextType | undefined>(undefined);
@@ -29,6 +31,7 @@ export const StatusProvider = ({ children }: { children: ReactNode }) => {
         const parsedStatus = AugmentOSParser.parseStatus(data);
         if (INTENSE_LOGGING)
             console.log('Parsed status:', parsedStatus);
+        
         setStatus(parsedStatus);
     }, []);
 
@@ -78,9 +81,22 @@ export const StatusProvider = ({ children }: { children: ReactNode }) => {
         bluetoothService.initialize();
         setIsInitialized(true);
     }, [bluetoothService]);
+    
+    // Helper to get coreToken (directly returns from BackendServerComms)
+    const getCoreToken = useCallback(() => {
+        return BackendServerComms.getInstance().getCoreToken();
+    }, []);
 
     return (
-        <AugmentOSStatusContext.Provider value={{ startBluetoothAndCore, isConnectingToPuck, screenMirrorItems, status, isSearchingForPuck, refreshStatus }}>
+        <AugmentOSStatusContext.Provider value={{ 
+            startBluetoothAndCore, 
+            isConnectingToPuck, 
+            screenMirrorItems, 
+            status, 
+            isSearchingForPuck, 
+            refreshStatus,
+            getCoreToken
+        }}>
             {children}
         </AugmentOSStatusContext.Provider>
     );

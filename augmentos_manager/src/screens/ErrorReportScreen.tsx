@@ -36,11 +36,8 @@ const ErrorReportingScreen: React.FC<ErrorReportingScreenProps> = ({ navigation 
       // Get the log service instance
       const logService = LogService.getInstance();
 
-      // Use the token from state or pass a placeholder if not available
-      const coreToken = status.core_info.core_token || 'placeholder-token';
-
-      // Send the error report
-      await logService.sendErrorReport(description, coreToken);
+      // Send the error report - token is now handled internally by BackendServerComms
+      await logService.sendErrorReport(description);
 
       Alert.alert(
         'Success',
