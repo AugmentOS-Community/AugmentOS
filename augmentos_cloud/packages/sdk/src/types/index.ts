@@ -122,7 +122,9 @@ export {
   isAppStopped
 } from './messages/cloud-to-tpa';
 
-
+// Import the types needed for the type guards
+import { StreamType } from './streams';
+import { TranscriptionData, TranslationData } from './messages/cloud-to-tpa';
 
 /**
  * WebSocket error information
@@ -131,4 +133,22 @@ export interface WebSocketError {
   code: string;
   message: string;
   details?: unknown;
+}
+
+/**
+ * Type guard to check if a message is a transcription data message
+ * @param message Any potential message object
+ * @returns True if the message is a TranscriptionData message
+ */
+export function isTranscriptionData(message: any): message is { data: TranscriptionData; transcribeLanguage?: string } {
+  return message?.data?.type === StreamType.TRANSCRIPTION;
+}
+
+/**
+ * Type guard to check if a message is a translation data message
+ * @param message Any potential message object
+ * @returns True if the message is a TranslationData message
+ */
+export function isTranslationData(message: any): message is { data: TranslationData; transcribeLanguage?: string; translateLanguage?: string } {
+  return message?.data?.type === StreamType.TRANSLATION;
 }

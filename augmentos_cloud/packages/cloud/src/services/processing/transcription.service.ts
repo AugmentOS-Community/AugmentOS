@@ -364,7 +364,7 @@ export class TranscriptionService {
       }
     }
 
-    console.log('\n\n\nsegments:', segments, "\n\n\n");
+    // console.log('\n\n\nsegments:', segments, "\n\n\n");
 
     // Prune old segments (older than 30 minutes)
     const thirtyMinutesAgo = new Date(currentTime.getTime() - 30 * 60 * 1000);

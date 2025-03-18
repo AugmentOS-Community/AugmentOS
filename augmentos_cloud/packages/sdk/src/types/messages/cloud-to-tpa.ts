@@ -2,7 +2,7 @@
 
 import { BaseMessage } from './base';
 import { CloudToTpaMessageType } from '../message-types';
-import { StreamType } from '../streams';
+import { ExtendedStreamType, StreamType } from '../streams';
 import { AppSettings } from '../models';
 import { LocationUpdate, CalendarEvent } from './glasses-to-cloud';
 
@@ -99,7 +99,7 @@ export interface AudioChunk extends BaseMessage {
  */
 export interface DataStream extends BaseMessage {
   type: CloudToTpaMessageType.DATA_STREAM;
-  streamType: StreamType;
+  streamType: ExtendedStreamType;
   data: unknown; // Type depends on the streamType
 }
 

@@ -4,6 +4,11 @@
 import EventEmitter from 'events';
 import { 
   StreamType,
+  ExtendedStreamType,
+  getBaseStreamType,
+  parseLanguageStream,
+  createTranscriptionStream,
+  createTranslationStream,
   AppSettings,
   WebSocketError,
   // Event data types
@@ -34,7 +39,7 @@ interface SystemEvents {
 }
 
 /** 📡 All possible event types */
-type EventType = StreamType | keyof SystemEvents;
+type EventType = ExtendedStreamType | keyof SystemEvents;
 
 /** 📦 Map of stream types to their data types */
 interface StreamDataTypes {
@@ -60,17 +65,24 @@ interface StreamDataTypes {
 }
 
 /** 📦 Data type for an event */
-type EventData<T extends EventType> = T extends keyof StreamDataTypes 
-  ? StreamDataTypes[T] 
-  : T extends keyof SystemEvents 
+type EventData<T extends EventType> = 
+  T extends keyof SystemEvents 
     ? SystemEvents[T] 
-    : never;
+    : T extends keyof StreamDataTypes 
+      ? StreamDataTypes[T] 
+      : T extends string 
+        ? T extends `${StreamType.TRANSCRIPTION}:${string}` 
+          ? TranscriptionData 
+          : T extends `${StreamType.TRANSLATION}:${string}` 
+            ? TranslationData 
+            : any
+        : any;
 
 export class EventManager {
   private emitter: EventEmitter;
   private handlers: Map<EventType, Set<Handler<unknown>>>;
 
-  constructor(private subscribe: (type: StreamType) => void) {
+  constructor(private subscribe: (type: ExtendedStreamType) => void, private unsubscribe: (type: ExtendedStreamType) => void) {
     this.emitter = new EventEmitter();
     this.handlers = new Map();
   }
@@ -78,7 +90,35 @@ export class EventManager {
   // Convenience handlers for common event types
 
   onTranscription(handler: Handler<TranscriptionData>) {
-    return this.addHandler(StreamType.TRANSCRIPTION, handler);
+    // console.log("streamType@#", StreamType.TRANSCRIPTION);
+    return this.addHandler(createTranscriptionStream("en-US"), handler);
+  }
+
+  /**
+   * 🎤 Listen for transcription in a specific language
+   * @param language - Language code (e.g., "en-US")
+   * @param handler - Function to handle transcription data
+   * @returns Cleanup function to remove the handler
+   */
+  onTranscriptionForLanguage(language: string, handler: Handler<TranscriptionData>) {
+    const streamType = createTranscriptionStream(language);
+    return this.addHandler(streamType, handler);
+  }
+
+  onTranslation(handler: Handler<TranslationData>) {
+    return this.addHandler(StreamType.TRANSLATION, handler);
+  }
+
+  /**
+   * 🌐 Listen for translation between specific languages
+   * @param sourceLanguage - Source language code (e.g., "es-ES")
+   * @param targetLanguage - Target language code (e.g., "en-US")
+   * @param handler - Function to handle translation data
+   * @returns Cleanup function to remove the handler
+   */
+  onTranslationForLanguages(sourceLanguage: string, targetLanguage: string, handler: Handler<TranslationData>) {
+    const streamType = createTranslationStream(sourceLanguage, targetLanguage);
+    return this.addHandler(streamType, handler);
   }
 
   onHeadPosition(handler: Handler<HeadPosition>) {
@@ -149,19 +189,18 @@ export class EventManager {
    * 
    * Use this for stream types without specific handler methods
    */
-  on<T extends StreamType>(type: T, handler: Handler<StreamDataTypes[T]>): () => void {
+  on<T extends ExtendedStreamType>(type: T, handler: Handler<EventData<T>>): () => void {
     return this.addHandler(type, handler);
   }
 
   /**
    * ➕ Add an event handler and subscribe if needed
    */
-  private addHandler<T extends StreamType>(
+  private addHandler<T extends ExtendedStreamType>(
     type: T, 
-    handler: Handler<StreamDataTypes[T]>
+    handler: Handler<EventData<T>>
   ): () => void {
     const handlers = this.handlers.get(type) ?? new Set();
-    
     if (handlers.size === 0) {
       this.handlers.set(type, handlers);
       this.subscribe(type);
@@ -174,9 +213,9 @@ export class EventManager {
   /**
    * ➖ Remove an event handler
    */
-  private removeHandler<T extends StreamType>(
+  private removeHandler<T extends ExtendedStreamType>(
     type: T, 
-    handler: Handler<StreamDataTypes[T]>
+    handler: Handler<EventData<T>>
   ): void {
     const handlers = this.handlers.get(type);
     if (!handlers) return;
@@ -184,18 +223,20 @@ export class EventManager {
     handlers.delete(handler as Handler<unknown>);
     if (handlers.size === 0) {
       this.handlers.delete(type);
+      this.unsubscribe(type);
     }
   }
 
   /**
    * 📡 Emit an event to all registered handlers
    */
-  emit<T extends EventType>(event: T, data: EventData<T>): void {
+  emit<T extends EventType>(eventType: T, data: EventData<T>): void {
     // Emit to EventEmitter handlers (system events)
-    this.emitter.emit(event, data);
+    this.emitter.emit(eventType, data);
 
     // Emit to stream handlers if applicable
-    const handlers = this.handlers.get(event);
+    const handlers = this.handlers.get(eventType);
+
     if (handlers) {
       handlers.forEach(handler => {
         (handler as Handler<EventData<T>>)(data);

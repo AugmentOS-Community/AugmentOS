@@ -22,6 +22,7 @@ import {
   HeadPosition,
   PhoneNotification,
   TranscriptionData,
+  TranslationData,
 
   // Type guards
   isTpaConnectionAck,
@@ -33,7 +34,12 @@ import {
   // Other types
   AppSettings,
   AudioChunk,
-  isAudioChunk
+  isAudioChunk,
+  ExtendedStreamType,
+  createTranslationStream,
+  createTranscriptionStream,
+  isTranslationData,
+  isTranscriptionData
 } from '../../types';
 
 /**
@@ -97,7 +103,7 @@ export class TpaSession {
   /** Number of reconnection attempts made */
   private reconnectAttempts = 0;
   /** Active event subscriptions */
-  private subscriptions = new Set<StreamType>();
+  private subscriptions = new Set<ExtendedStreamType>();
 
   /** 🎮 Event management interface */
   public readonly events: EventManager;
@@ -113,7 +119,7 @@ export class TpaSession {
       ...config
     };
 
-    this.events = new EventManager(this.subscribe.bind(this));
+    this.events = new EventManager(this.subscribe.bind(this), this.unsubscribe.bind(this));
     this.layouts = new LayoutManager(
       config.packageName,
       this.send.bind(this)
@@ -168,8 +174,19 @@ export class TpaSession {
    * 📬 Subscribe to a specific event stream
    * @param type - Type of event to subscribe to
    */
-  subscribe(type: StreamType): void {
+  subscribe(type: ExtendedStreamType): void {
     this.subscriptions.add(type);
+    if (this.ws?.readyState === 1) {
+      this.updateSubscriptions();
+    }
+  }
+
+  /**
+   * 📭 Unsubscribe from a specific event stream
+   * @param type - Type of event to unsubscribe from
+   */
+  unsubscribe(type: ExtendedStreamType): void {
+    this.subscriptions.delete(type);
     if (this.ws?.readyState === 1) {
       this.updateSubscriptions();
     }
@@ -180,7 +197,7 @@ export class TpaSession {
    * @param event - Event name to listen for
    * @param handler - Event handler function
    */
-  on<T extends StreamType>(event: T, handler: (data: any) => void): () => void {
+  on<T extends ExtendedStreamType>(event: T, handler: (data: any) => void): () => void {
     return this.events.on(event, handler);
   }
 
@@ -310,6 +327,8 @@ export class TpaSession {
       return;
     }
 
+
+
     // Using type guards to determine message type
     if (isTpaConnectionAck(message)) {
       this.events.emit('connected', message.settings);
@@ -321,8 +340,17 @@ export class TpaSession {
     else if (message.type === StreamType.AUDIO_CHUNK) {
       this.events.emit(StreamType.AUDIO_CHUNK, message);
     }
+    else if (isTranscriptionData(message)) {
+      const languageCode = message.data.transcribeLanguage || 'en-US';
+      this.events.emit(createTranscriptionStream(languageCode), message.data);
+    }
+    // else if (isTranslationData(message)) {
+    //   const sourceLanguage = message.transcribeLanguage || 'en-US';
+    //   const targetLanguage = message.translateLanguage || 'en-US';
+    //   this.events.emit(createTranslationStream(sourceLanguage, targetLanguage), message);
+    // }
     else if (isDataStream(message)) {
-      this.events.emit(message.streamType, message.data as any);
+      this.events.emit(message.streamType, message.data);
     }
     else if (isSettingsUpdate(message)) {
       this.events.emit('settings_update', message.settings);
