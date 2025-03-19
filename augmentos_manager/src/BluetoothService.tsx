@@ -57,6 +57,7 @@ export class BluetoothService extends EventEmitter {
   }
 
   async initialize() {
+    console.log("initializing bluetooth service [og]");
     if (MOCK_CONNECTION) return;
 
     console.trace();
@@ -120,8 +121,8 @@ export class BluetoothService extends EventEmitter {
           };
 
           saveSetting(SETTINGS_KEYS.PREVIOUSLY_BONDED_PUCK, true)
-          .then()
-          .catch();
+            .then()
+            .catch();
         }
 
         this.emit('dataReceived', data);
@@ -133,6 +134,7 @@ export class BluetoothService extends EventEmitter {
   }
 
   addListeners() {
+    console.log('Adding BLE listeners');
     bleManagerEmitter.addListener(
       'BleManagerDiscoverPeripheral',
       this.handleDiscoveredPeripheral.bind(this),
@@ -172,16 +174,42 @@ export class BluetoothService extends EventEmitter {
   }
 
   async isBluetoothEnabled(): Promise<boolean> {
-    const state = await BleManager.checkState();
-    return state === 'on';
+    console.log('checking if bluetooth is enabled');
+    try {
+      // Set a timeout to handle cases where the promise doesn't resolve
+      const state = await Promise.race([
+        BleManager.checkState(),
+        new Promise<string>((_, reject) => {
+          setTimeout(() => reject(new Error('Bluetooth check timed out')), 1000);
+        })
+      ]);
+
+      return state === 'on';
+    } catch (error) {
+      console.log('Error checking Bluetooth state, attempting to initialize:', error);
+      try {
+        // If checking state fails, try to initialize BLE
+        await BleManager.start({ showAlert: false });
+        return true;
+        // const state = await BleManager.checkState();
+        // return state === 'on';
+      } catch (initError) {
+        console.error('Failed to initialize Bluetooth:', initError);
+        return false;
+      }
+    }
   }
 
   async isLocationEnabled(): Promise<boolean> {
+    console.log('checking if location is enabled');
     if (Platform.OS === 'android') {
       const result = await check(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
       return result === RESULTS.GRANTED;
     } else if (Platform.OS === 'ios') {
-      console.log("FIGURE THIS OUT FOR IOS");
+      // TODO: IOS LOCATION PERMISSION CHECK
+      // const result = await check(PERMISSIONS.IOS.LOCATION_ALWAYS);
+      // return result === RESULTS.GRANTED;
+      console.log("TODO: IOS LOCATION PERMISSION CHECK");
       return true;
     }
     console.log("Checking for location on a non-mobile device?");
@@ -189,6 +217,7 @@ export class BluetoothService extends EventEmitter {
   }
 
   async scanForDevices() {
+
     if (this.simulatedPuck) {
       this.sendRequestStatus();
       return;
@@ -204,15 +233,19 @@ export class BluetoothService extends EventEmitter {
       return;
     }
 
+    console.log('checking if already scanning');
     if (this.isScanning) {
       console.log('Already scanning for devices');
       return;
     }
 
+    console.log('checking if already connecting to a device');
     if (this.isConnecting) {
       console.log('Already in progress of connecting to a device');
       return;
     }
+
+    console.log('starting scan');
 
     this.isScanning = true;
     this.devices = [];
@@ -589,7 +622,7 @@ export class BluetoothService extends EventEmitter {
       } else if ('app_info' in jsonData) {
         GlobalEventEmitter.emit('APP_INFO_RESULT', { appInfo: jsonData.app_info });
       } else if ('app_is_downloaded' in jsonData) {
-          GlobalEventEmitter.emit('APP_IS_DOWNLOADED_RESULT', { appIsDownloaded: jsonData.app_is_downloaded });
+        GlobalEventEmitter.emit('APP_IS_DOWNLOADED_RESULT', { appIsDownloaded: jsonData.app_is_downloaded });
       } else if ('need_permissions' in jsonData) {
         // TODO: Do some nicer UX here
         console.log("GOT 'NEED PERMISSIONS' FROM CORE... OPENING PERMISSIONS ACTIVITY...");
@@ -743,7 +776,7 @@ export class BluetoothService extends EventEmitter {
     }
 
     if (!this.connectedDevice) {
-      //  console.log('SendDataToSimulatedAugmentOs: No connected device to write to');
+       console.log('SendDataToSimulatedAugmentOs: No connected device to write to');
     }
 
     if (this.isLocked) {
@@ -909,7 +942,7 @@ export class BluetoothService extends EventEmitter {
       },
     });
   }
-
+  
   async setGlassesBrightnessMode(brightness: number, autoLight: boolean) {
     console.log('setGlassesBrightnessMode');
     return await this.sendDataToAugmentOs({
@@ -966,7 +999,6 @@ export class BluetoothService extends EventEmitter {
   }
 
   async setAuthenticationSecretKey(userId: string, authSecretKey: string) {
-    console.log('setAuthenticationSecretKey');
     return await this.sendDataToAugmentOs({
       command: 'set_auth_secret_key',
       params: {
@@ -1009,15 +1041,15 @@ export class BluetoothService extends EventEmitter {
     })
   }
 
-//   async sendInstallAppFromRepository(repository: string, packageName: string) {
-//     return await this.sendDataToAugmentOs({
-//       command: 'install_app_from_repository',
-//       params: {
-//         repository: repository,
-//         target: packageName
-//       }
-//     })
-//   }
+  //   async sendInstallAppFromRepository(repository: string, packageName: string) {
+  //     return await this.sendDataToAugmentOs({
+  //       command: 'install_app_from_repository',
+  //       params: {
+  //         repository: repository,
+  //         target: packageName
+  //       }
+  //     })
+  //   }
 
   async sendUninstallApp(packageName: string) {
     return await this.sendDataToAugmentOs({
@@ -1035,7 +1067,7 @@ export class BluetoothService extends EventEmitter {
       if (start) {
         BluetoothService.bluetoothService.initialize();
       }
-      }
+    }
     return BluetoothService.bluetoothService;
   }
 

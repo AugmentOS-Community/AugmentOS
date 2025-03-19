@@ -10,9 +10,9 @@ import {
 import {useStatus} from "../providers/AugmentOSStatusProvider.tsx";
 import {useNavigation} from "@react-navigation/native";
 import {NavigationProps} from "./types.ts";
-import { useAuth } from '../AuthContext.tsx';
-import BluetoothService from '../BluetoothService.tsx';
-import BackendServerComms from '../backend_comms/BackendServerComms.tsx';
+import { useAuth } from '../AuthContext';
+import BluetoothService from '../BluetoothService';
+import BackendServerComms from '../backend_comms/BackendServerComms';
 import Config from 'react-native-config';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Button from './Button';

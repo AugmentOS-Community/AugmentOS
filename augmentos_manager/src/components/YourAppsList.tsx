@@ -115,7 +115,9 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
         
         setIsLoading(true);
         try {
-            BackendServerComms.getInstance().startApp(packageName);
+            // TODO: ios fix until prod gets updated
+            // BackendServerComms.getInstance().startApp(packageName);
+            await bluetoothService.startAppByPackageName(packageName);
         } catch (error) {
             console.error('start app error:', error);
         } finally {

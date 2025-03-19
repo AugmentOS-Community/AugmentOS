@@ -14,6 +14,7 @@ export type RootStackParamList = {
   VerifyEmailScreen: undefined;
   WelcomePage: undefined;
   Onboarding: undefined;
+  Testing: undefined;
   AppDetails: { app: AppStoreItem };
   ProfileSettings: undefined;
   GlassesMirror: undefined;

@@ -20,7 +20,7 @@ export const GlassesMirrorProvider: React.FC<{ children: React.ReactNode }> = ({
   //    lives at the top-level, so it’s always mounted.
   useEffect(() => {
     const handleGlassesDisplayEvent = (event: any) => {
-      console.log('Global Listener: GOT A GLASSES DISPLAY EVENT', event);
+      // console.log('Global Listener: GOT A GLASSES DISPLAY EVENT', event);
  //     setEvents(prev => [...prev, event]);
       setEvents([event]);
    

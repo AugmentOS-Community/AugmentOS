@@ -65,9 +65,9 @@ const SelectGlassesBluetoothScreen: React.FC<SelectGlassesBluetoothScreenProps> 
 
   React.useEffect(() => {
     const handleSearchResult = ({ modelName, deviceName }: { modelName: string, deviceName: string }) => {
-      console.log("GOT SOME SEARCH RESULTS:");
-      console.log("ModelName: " + modelName);
-      console.log("DeviceName: " + deviceName);
+      // console.log("GOT SOME SEARCH RESULTS:");
+      // console.log("ModelName: " + modelName);
+      // console.log("DeviceName: " + deviceName);
 
       if(deviceName === "NOTREQUIREDSKIP") {
         console.log("SKIPPING");

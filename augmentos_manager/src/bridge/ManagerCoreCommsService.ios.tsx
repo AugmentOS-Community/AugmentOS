@@ -1,3 +1,9 @@
+
+import { NativeModule, NativeModules } from 'react-native';
+
+const { AOSModule } = NativeModules;
+
+
 interface ManagerCoreCommsServiceInterface {
     sendCommandToCore: (jsonString: string) => void;
     addListener: (eventName: string) => void,
@@ -8,8 +14,8 @@ interface ManagerCoreCommsServiceInterface {
   
   const ManagerCoreCommsService: ManagerCoreCommsServiceInterface = {
     sendCommandToCore: (jsonString: string) => {
-      // iOS mock implementation
-      console.warn("ManagerCoreCommsService is not available on iOS. Command:", jsonString);
+      console.log('sendCommandToCore: ' + jsonString);
+      AOSModule.sendCommand(jsonString);
     },
     addListener: (eventName: string) => {
       console.warn("ManagerCoreCommsService is not available on iOS");

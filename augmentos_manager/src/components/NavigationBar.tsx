@@ -3,6 +3,7 @@ import {View, StyleSheet, TouchableOpacity} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {NavigationProps} from '../components/types';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface NavigationBarProps {
   toggleTheme: () => void;
@@ -77,7 +78,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
       </TouchableOpacity>
 
       {/* App Store Icon */}
-      <TouchableOpacity
+      {/* <TouchableOpacity
         onPress={() => navigation.navigate('AppStoreWeb')}
         style={styles.iconWrapper}>
         <MaterialCommunityIcons
@@ -85,11 +86,12 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
           size={iconSize}
           color={iconColor}
         />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       {/* Settings Icon */}
       <TouchableOpacity
         onPress={() => navigation.navigate('SettingsPage')}
+        onLongPress={() => navigation.navigate('Testing')}// super secret testing page
         style={styles.iconWrapper}>
         <MaterialCommunityIcons
           name={icons.settings}
@@ -106,12 +108,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 8,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 55,
+    width: '100%',
+    padding: 0,
+    margin: 0,
+    height: 64,
     borderTopWidth: 0.5,
     borderTopColor: '#E5E5EA',
   },

@@ -1,9 +1,29 @@
-import { Alert, Permission, PermissionsAndroid, Platform } from "react-native";
-import { checkNotificationPermission, NotificationService } from "./NotificationServiceUtils";
-import { checkAndRequestNotificationAccessSpecialPermission, checkNotificationAccessSpecialPermission } from "../utils/NotificationServiceUtils";
+import { Alert, Platform } from "react-native";
+import { request, check, PERMISSIONS, Permission, RESULTS } from 'react-native-permissions';
+import { Permission as RNPermission } from 'react-native';
+import { PermissionsAndroid } from 'react-native';
+import { checkNotificationAccessSpecialPermission } from "../utils/NotificationServiceUtils";
+
+export const displayPermissionDeniedWarning = () => {
+  return new Promise((resolve) => {
+    Alert.alert(
+      'Permissions Required',
+      'Some permissions were denied. Please go to Settings and enable all required permissions for the app to function properly.',
+      [
+        {
+          text: 'OK',
+          style: 'default',
+          onPress: () => resolve(true)
+        },
+      ]
+    );
+  });
+};
 
 export const requestGrantPermissions = async () => {
-  // Request permissions on Android
+
+  let allGranted = true;
+
   if (Platform.OS === 'android' && Platform.Version >= 23) {
     return PermissionsAndroid.requestMultiple(getAndroidPermissions()).then(async (result) => {
       console.log('Permissions granted:', result);
@@ -24,26 +44,46 @@ export const requestGrantPermissions = async () => {
         return false;
       });
   }
-  return true;
-};
 
-export const displayPermissionDeniedWarning = () => {
-  return new Promise((resolve) => {
-    Alert.alert(
-      'Permissions Required', 
-      'Some permissions were denied. Please go to Settings and enable all required permissions for the app to function properly.',
-      [
-        { 
-          text: 'OK',
-          style: 'default',
-          onPress: () => resolve(true)
-        },
-      ]
-    );
-  });
+  if (Platform.OS === 'ios') {
+
+    let perms = getIOSPermissions();
+    for (let i = 0; i < perms.length; i++) {
+      let status = await request(perms[i]);
+      if (status !== RESULTS.GRANTED) {
+        allGranted = false;
+      }
+    }
+    if (!allGranted) {
+      await displayPermissionDeniedWarning();
+    }
+  }
+
+
+
+  return allGranted;
 };
 
 export const doesHaveAllPermissions = async () => {
+  let allGranted = true;
+  
+  if (Platform.OS === 'ios') {
+    let perms = getIOSPermissions();
+    for (let i = 0; i < perms.length; i++) {
+      console.log('Checking permission:', perms[i]);
+      let status = await check(perms[i]);
+      // TODO: ios skip checking calendars because somehow it's bugged:
+      if (perms[i] === PERMISSIONS.IOS.CALENDARS) {
+        continue;
+      }
+      if (status !== RESULTS.GRANTED && status !== RESULTS.LIMITED) {
+        allGranted = false;
+        console.log('Permission not granted:', perms[i]);
+      }
+      console.log('Permission status:', status);
+    }
+  }
+
   if (Platform.OS === 'android') {
     let perms = getAndroidPermissions();
     let allGranted = true;
@@ -55,16 +95,28 @@ export const doesHaveAllPermissions = async () => {
 
     let notificationPerms = await checkNotificationAccessSpecialPermission();
     if (!notificationPerms) allGranted = false;
-
     return allGranted;
-  } else if (Platform.OS === 'ios') {
-    // TODO: ios Perm check
-    return true;
   }
-  return false;
+
+  return allGranted;
 };
 
-export const getAndroidPermissions = (): Permission[] => {
+export const getIOSPermissions = (): Permission[] => {
+
+  let list = [];
+
+  list = [PERMISSIONS.IOS.LOCATION_WHEN_IN_USE,
+  PERMISSIONS.IOS.CALENDARS,
+  PERMISSIONS.IOS.MICROPHONE,
+  PERMISSIONS.IOS.LOCATION_ALWAYS,
+  PERMISSIONS.IOS.LOCATION_WHEN_IN_USE,
+  ];
+
+  return list as Permission[];
+}
+
+
+export const getAndroidPermissions = (): RNPermission[] => {
   const list = [];
   if (Platform.OS === 'android') {
     if (Platform.Version < 29) {
@@ -94,5 +146,5 @@ export const getAndroidPermissions = (): Permission[] => {
     list.push(PermissionsAndroid.PERMISSIONS.WRITE_CALENDAR);
     list.push(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
   }
-  return list.filter(permission => permission != null) as Permission[];
+  return list.filter(permission => permission != null) as RNPermission[];
 }

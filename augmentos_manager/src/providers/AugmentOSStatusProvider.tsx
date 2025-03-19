@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
-import { AugmentOSParser, AugmentOSMainStatus } from '../AugmentOSStatusParser.tsx';
-import { BluetoothService } from '../BluetoothService.tsx';
-import { INTENSE_LOGGING, MOCK_CONNECTION } from '../consts.tsx';
+import { AugmentOSParser, AugmentOSMainStatus } from '../AugmentOSStatusParser';
+import { BluetoothService } from '../BluetoothService';
+import { INTENSE_LOGGING, MOCK_CONNECTION } from '../consts';
 import GlobalEventEmitter from "../logic/GlobalEventEmitter.tsx";
 import BackendServerComms from '../backend_comms/BackendServerComms';
 
@@ -77,7 +77,7 @@ export const StatusProvider = ({ children }: { children: ReactNode }) => {
     // 3) Provide a helper function that sets isInitialized,
     //    calls bluetoothService.initialize(), etc.
     const startBluetoothAndCore = React.useCallback(() => {
-        console.log("\n\n\nWE CALLED STARTBTANDCORE\n\n\n");
+        console.log("starting bluetooth and core!!!!");
         bluetoothService.initialize();
         setIsInitialized(true);
     }, [bluetoothService]);

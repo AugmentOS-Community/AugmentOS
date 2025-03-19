@@ -44,9 +44,12 @@ const AppSettings: React.FC<AppSettingsProps> = ({ route, isDarkTheme, toggleThe
   const handleStartStopApp = () => {
     console.log(`${appInfo?.is_running ? 'Stopping' : 'Starting'} app: ${packageName}`);
     if (appInfo?.packageName && appInfo?.is_running) {
-      BackendServerComms.getInstance().stopApp(appInfo?.packageName);
+      // BackendServerComms.getInstance().stopApp(appInfo?.packageName);
+      BluetoothService.getInstance().stopAppByPackageName(appInfo?.packageName);
     } else if (appInfo?.packageName && !appInfo?.is_running) {
-      BackendServerComms.getInstance().startApp(appInfo?.packageName);
+      // BackendServerComms.getInstance().startApp(appInfo?.packageName);
+      // TODO: ios fix until prod gets updated
+      BluetoothService.getInstance().startAppByPackageName(appInfo?.packageName);
     }
   };
 

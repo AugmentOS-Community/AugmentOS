@@ -1,6 +1,6 @@
-import BackendServerComms from '../backend_comms/BackendServerComms.tsx';
+import BackendServerComms from '../backend_comms/BackendServerComms';
 import { AppStoreItem } from '../components/types.ts';
-import { GET_APP_STORE_DATA_ENDPOINT } from '../consts.tsx';
+import { GET_APP_STORE_DATA_ENDPOINT } from '../consts';
 
 
 const backendServerComms = BackendServerComms.getInstance();

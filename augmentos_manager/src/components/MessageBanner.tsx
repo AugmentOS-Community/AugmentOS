@@ -2,11 +2,14 @@ import React, { useEffect, useState, useRef } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import { MOCK_CONNECTION } from "../consts";
 import GlobalEventEmitter from "../logic/GlobalEventEmitter";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function MessageBanner() {
   const [message, setMessage] = useState<string | null>(null);
   const [type, setType] = useState<string | null>(null);
   const slideAnim = useRef(new Animated.Value(-100)).current;
+
+  const { top } = useSafeAreaInsets();
 
   useEffect(() => {
     const handleMessageChanged = ({ message, type }: { message: string, type: string }) => {
@@ -42,7 +45,7 @@ export default function MessageBanner() {
     }
   }, [message]);
 
-  if (!message) {return null;}
+  if (!message) { return null; }
 
   let backgroundColor;
   switch (type) {
@@ -58,12 +61,14 @@ export default function MessageBanner() {
   }
 
   return (
+    // <SafeAreaView>
     <Animated.View
       style={[
         styles.container,
         {
-          transform: [{translateY: slideAnim}],
+          transform: [{ translateY: slideAnim }],
           backgroundColor: backgroundColor,
+          marginTop: top,
         },
       ]}>
       <Text style={styles.text}>{message}</Text>
@@ -71,6 +76,7 @@ export default function MessageBanner() {
         <Text style={styles.dismiss}>Dismiss</Text>
       </TouchableOpacity>
     </Animated.View>
+    // </SafeAreaView>
   );
 }
 
