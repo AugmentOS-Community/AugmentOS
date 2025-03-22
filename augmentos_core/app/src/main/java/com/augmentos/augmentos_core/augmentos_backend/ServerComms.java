@@ -1,6 +1,7 @@
 package com.augmentos.augmentos_core.augmentos_backend;
 
 import android.content.Context;
+import android.os.Environment;
 import android.util.Log;
 
 import com.augmentos.augmentos_core.BuildConfig;
@@ -13,12 +14,19 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * ServerComms is the single facade for all WebSocket interactions in AugmentOS_Core.
@@ -36,15 +44,28 @@ public class ServerComms {
     // 1) Keep a private static reference
     private static ServerComms instance;
     private String coreToken;
-
+    private Context context;
 
     // ------------------------------------------------------------------------
-    // AUDIO QUEUE SYSTEM (ADDED)
+    // AUDIO QUEUE SYSTEM (IMPROVED)
     // ------------------------------------------------------------------------
-    private final BlockingQueue<byte[]> audioQueue = new ArrayBlockingQueue<>((int) (10 / 0.01 / 10)); // 10 seconds into the past // calculation is roughly: (n seconds into the past we want) / (length of frame == 10) / (frames per chunk == 10 (Even G1))
+    // Live queue for immediate sending (small buffer)
+    private final BlockingQueue<byte[]> liveAudioQueue = new ArrayBlockingQueue<>(100); // ~1 second buffer
+    // Sliding buffer to store recent audio in case of disconnection
+    private final BlockingQueue<byte[]> slidingBuffer = new ArrayBlockingQueue<>((int) (10 / 0.01 / 10)); // 10 seconds sliding buffer
     private Thread audioSenderThread;
     private volatile boolean audioSenderRunning = false;
+    private volatile boolean isReconnecting = false;
+    private volatile boolean isProcessingBuffer = false;
 
+    // ------------------------------------------------------------------------
+    // PCM RECORDING SYSTEM (ADDED)
+    // ------------------------------------------------------------------------
+    private FileOutputStream pcmFileOutputStream = null;
+    private long recordingStartTime = 0;
+    private long bytesWritten = 0;
+    private static final long RECORDING_DURATION_MS = 20000; // 20 seconds
+    private static final String PCM_RECORDING_FOLDER = "AugmentOS_PCM_Recordings";
 
     public static synchronized ServerComms getInstance(Context context) {
         if (instance == null) {
@@ -52,7 +73,6 @@ public class ServerComms {
         }
         return instance;
     }
-
 
     public static synchronized ServerComms getInstance() {
         if (instance == null) {
@@ -66,6 +86,7 @@ public class ServerComms {
     }
 
     private ServerComms(Context context) {
+        this.context = context;
         // Create the underlying WebSocketManager (OkHttp-based).
         this.wsManager = new WebSocketManager(context, new WebSocketManager.IncomingMessageHandler() {
             @Override
@@ -75,11 +96,11 @@ public class ServerComms {
 
             @Override
             public void onConnectionOpen() {
+                // Set the reconnecting flag so the audio thread knows to send the buffer
+                isReconnecting = true;
+
                 // As soon as the connection is open, send the "connection_init" message
                 // that your server expects.
-
-                // TODO: There is a weird race condition when hosting the server locally that can be
-                // worked around by adding a small delay here... very weird...
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     try {
                         JSONObject initMsg = new JSONObject();
@@ -102,6 +123,7 @@ public class ServerComms {
             public void onConnectionClosed() {
                 // Optional: place logic if needed on close
                 stopAudioSenderThread();
+                stopPcmRecording(); // Close any open recording file
             }
 
             @Override
@@ -109,6 +131,7 @@ public class ServerComms {
                 // Log errors
                 Log.e(TAG, "WebSocket error: " + error);
                 stopAudioSenderThread();
+                stopPcmRecording(); // Close any open recording file
 //                if (serverCommsCallback != null)
 //                    serverCommsCallback.onConnectionError("Websocket error");
             }
@@ -119,7 +142,6 @@ public class ServerComms {
                     serverCommsCallback.onConnectionStatusChange(status);
             }
         });
-
     }
 
     /**
@@ -144,23 +166,8 @@ public class ServerComms {
     public void disconnectWebSocket() {
         wsManager.disconnect();
         stopAudioSenderThread();  // Stop the audio queue thread
+        stopPcmRecording(); // Close any open recording file
     }
-
-//    private void attemptReconnect() {
-//        // In case we are still connected, explicitly disconnect
-//        disconnectWebSocket();
-//
-//        // Optionally, wait a moment before reconnecting to avoid immediate loops
-//        try {
-//            Thread.sleep(1000);
-//        } catch (InterruptedException e) {
-//            Thread.currentThread().interrupt();
-//        }
-//
-//        // Reconnect with the same coreToken
-//        connectWebSocket(coreToken);
-//    }
-
 
     /**
      * Checks if we are currently connected.
@@ -177,10 +184,129 @@ public class ServerComms {
      * Sends a raw PCM audio chunk as binary data.
      */
     public void sendAudioChunk(byte[] audioData) {
-        // If the queue is full, remove the oldest entry before adding a new one
-        if (!audioQueue.offer(audioData)) {
-            audioQueue.poll(); // Remove the oldest item
-            audioQueue.offer(audioData); // Add the new chunk
+        // Clone only once to avoid unnecessary copies
+        byte[] copiedData = audioData.clone();
+
+        // Add to live queue - if full, just drop (we prioritize newest audio)
+        if (!liveAudioQueue.offer(copiedData)) {
+            liveAudioQueue.poll(); // Remove oldest
+            liveAudioQueue.offer(copiedData); // Add new
+        }
+
+        // Only add to sliding buffer if we're not actively processing it
+        // to prevent buffering data we're currently sending
+        if (!isProcessingBuffer) {
+            // Also maintain sliding buffer - always keep most recent 10 seconds
+            if (!slidingBuffer.offer(copiedData.clone())) {  // Clone again for separate instance
+                slidingBuffer.poll(); // Remove oldest
+                slidingBuffer.offer(copiedData.clone()); // Add new
+            }
+        }
+    }
+
+    /**
+     * Sends audio from the sliding buffer to catch up after a reconnection
+     */
+    private void sendSlidingBufferAudio() {
+        Log.d(TAG, "Sending cached audio from sliding buffer...");
+        List<byte[]> bufferContents = new ArrayList<>();
+
+        // Set flag to prevent adding new data to sliding buffer while we're processing it
+        isProcessingBuffer = true;
+
+        // Drain the sliding buffer to a list to preserve order
+        slidingBuffer.drainTo(bufferContents);
+
+        // Send all buffer contents in order
+        for (byte[] chunk : bufferContents) {
+            if (wsManager.isConnected()) {
+                wsManager.sendBinary(chunk);
+                // Debug - Write to PCM file as we send
+                // writeToPcmFile(chunk);
+            } else {
+                // If connection drops during playback, stop sending
+                break;
+            }
+        }
+
+        // Clear the live queue to avoid sending duplicate audio after buffer replay
+        liveAudioQueue.clear();
+
+        Log.d(TAG, "Sent " + bufferContents.size() + " cached audio chunks");
+
+        // Reset flag so we can start buffering again
+        isProcessingBuffer = false;
+    }
+
+    // ------------------------------------------------------------------------
+    // PCM RECORDING METHODS (ADDED)
+    // ------------------------------------------------------------------------
+
+    /**
+     * Starts a new PCM recording session, creating a new file.
+     */
+    private void startPcmRecording() {
+        try {
+            // Create directory if it doesn't exist
+            File recordingDir = new File(context.getExternalFilesDir(null), PCM_RECORDING_FOLDER);
+            if (!recordingDir.exists()) {
+                recordingDir.mkdirs();
+            }
+
+            // Create a unique filename with timestamp
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US);
+            String timestamp = sdf.format(new Date());
+            File outputFile = new File(recordingDir, "pcm_recording_" + timestamp + ".pcm");
+
+            // Open file stream
+            pcmFileOutputStream = new FileOutputStream(outputFile);
+            recordingStartTime = System.currentTimeMillis();
+            bytesWritten = 0;
+
+            Log.e(TAG, "📢 PCM RECORDING STARTED: " + outputFile.getAbsolutePath() + " 📢");
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to create PCM recording file", e);
+            pcmFileOutputStream = null;
+        }
+    }
+
+    /**
+     * Writes audio data to the PCM file and checks if we've reached the recording duration.
+     */
+    private void writeToPcmFile(byte[] audioData) {
+        if (pcmFileOutputStream == null) {
+            startPcmRecording();
+        }
+
+        try {
+            // Write the audio data to file
+            pcmFileOutputStream.write(audioData);
+            bytesWritten += audioData.length;
+
+            // Check if we've recorded for the specified duration
+            long elapsedTime = System.currentTimeMillis() - recordingStartTime;
+            if (elapsedTime >= RECORDING_DURATION_MS) {
+                stopPcmRecording();
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error writing to PCM file", e);
+            stopPcmRecording();
+        }
+    }
+
+    /**
+     * Closes the current PCM recording file.
+     */
+    private void stopPcmRecording() {
+        if (pcmFileOutputStream != null) {
+            try {
+                pcmFileOutputStream.close();
+                Log.e(TAG, "📢 PCM RECORDING COMPLETED: " + bytesWritten + " bytes written 📢");
+                // Clear the file stream reference but don't start a new recording
+                pcmFileOutputStream = null;
+            } catch (IOException e) {
+                Log.e(TAG, "Error closing PCM file", e);
+            }
         }
     }
 
@@ -563,7 +689,7 @@ public class ServerComms {
     }
 
     // ------------------------------------------------------------------------
-    // AUDIO QUEUE SENDER THREAD (ADDED)
+    // AUDIO QUEUE SENDER THREAD (IMPROVED)
     // ------------------------------------------------------------------------
     private void startAudioSenderThread() {
         if (audioSenderThread != null) return;
@@ -572,12 +698,23 @@ public class ServerComms {
         audioSenderThread = new Thread(() -> {
             while (audioSenderRunning) {
                 try {
-                    byte[] chunk = audioQueue.take();
+                    // First check if we're connected before taking from queue
                     if (wsManager.isConnected()) {
-                        wsManager.sendBinary(chunk);
+                        if (isReconnecting) {
+                            // On reconnection, drain the sliding buffer first
+                            sendSlidingBufferAudio();
+                            isReconnecting = false;
+                        }
+
+                        // Process live audio with a short timeout to remain responsive
+                        byte[] chunk = liveAudioQueue.poll(50, TimeUnit.MILLISECONDS);
+                        if (chunk != null) {
+                            wsManager.sendBinary(chunk);
+                            // Write to PCM file whenever we send binary data over websocket
+                            writeToPcmFile(chunk);
+                        }
                     } else {
-                        // Re-enqueue the chunk if not connected, then wait a bit
-                        audioQueue.offer(chunk);
+                        // If not connected, just wait a bit
                         Thread.sleep(100);
                     }
                 } catch (InterruptedException e) {
@@ -595,8 +732,6 @@ public class ServerComms {
             audioSenderThread = null;
         }
     }
-
-
 
     public void cleanup() {
         wsManager.cleanup();

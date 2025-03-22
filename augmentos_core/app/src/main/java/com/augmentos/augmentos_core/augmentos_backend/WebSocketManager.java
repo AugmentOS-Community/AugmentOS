@@ -210,7 +210,7 @@ public class WebSocketManager extends WebSocketListener implements NetworkMonito
     }
 
     /**
-     * Send binary data over the WebSocket (e.g. raw PCM audio).
+     * Send binary data over the WebSocket
      */
     public void sendBinary(byte[] data) {
         synchronized (connectionLock) {
