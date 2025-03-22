@@ -121,7 +121,6 @@ public class AugmentosSmartGlassesService extends SmartGlassesAndroidService {
     public void onTranscript(SpeechRecOutputEvent event) {
 
     }
-    
 
     public WindowManagerWithTimeouts getWindowManager() {
         return windowManager;

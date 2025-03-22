@@ -5,5 +5,5 @@ import java.io.Serializable;
 public class HomeScreenEvent  implements Serializable {
     public static final String eventId = "homeScreenEvent";
 
-    public HomeScreenEvent(){}
+    public HomeScreenEvent() {}
 }

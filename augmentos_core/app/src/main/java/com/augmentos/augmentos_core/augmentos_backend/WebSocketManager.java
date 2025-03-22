@@ -5,6 +5,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import com.augmentos.augmentoslib.events.DisconnectedFromCloudEvent;
+
+import org.greenrobot.eventbus.EventBus;
 import org.json.JSONObject;
 
 import java.util.concurrent.TimeUnit;
@@ -300,6 +303,8 @@ public class WebSocketManager extends WebSocketListener implements NetworkMonito
             if (handler != null) {
                 handler.onConnectionClosed();
                 handler.onConnectionStatusChange(IncomingMessageHandler.WebSocketStatus.DISCONNECTED);
+                Log.d(TAG, "Connection closed and handled, proceeding with cleanup and reconnect");
+                EventBus.getDefault().post(new DisconnectedFromCloudEvent());
             }
             cleanupSafe();
             scheduleReconnect();
@@ -317,6 +322,8 @@ public class WebSocketManager extends WebSocketListener implements NetworkMonito
             if (handler != null) {
                 handler.onError("WebSocket failure: " + t.getMessage());
                 handler.onConnectionStatusChange(IncomingMessageHandler.WebSocketStatus.DISCONNECTED);
+                Log.d(TAG, "WebSocket failure handled, notifying handler and posting DisconnectedFromCloudEvent");
+                EventBus.getDefault().post(new DisconnectedFromCloudEvent());
             }
 
             cleanupSafe();

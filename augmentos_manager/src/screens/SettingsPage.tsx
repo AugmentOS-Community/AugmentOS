@@ -57,6 +57,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [isContextualDashboardEnabled, setIsContextualDashboardEnabled] = useState(
     status.core_info.contextual_dashboard_enabled
   );
+  const [isAlwaysOnStatusBarEnabled, setIsAlwaysOnStatusBarEnabled] = useState(
+    status.core_info.always_on_status_bar_enabled
+  );
   const [brightness, setBrightness] = useState<number|null>(null);
 
   // -- HEAD UP ANGLE STATES --
@@ -74,6 +77,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const newVal = !forceCoreOnboardMic;
     await BluetoothService.getInstance().sendToggleForceCoreOnboardMic(newVal);
     setForceCoreOnboardMic(newVal);
+  };
+
+  const toggleAlwaysOnStatusBar = async () => {
+    const newVal = !isAlwaysOnStatusBarEnabled;
+    await BluetoothService.getInstance().sendToggleAlwaysOnStatusBar(newVal);
+    setIsAlwaysOnStatusBarEnabled(newVal);
   };
 
   const toggleContextualDashboard = async () => {
@@ -144,7 +153,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       await supabase.auth.signOut().catch(err => {
         console.log('Supabase sign-out failed, continuing with local cleanup:', err);
       });
-      
+
       // Completely clear ALL Supabase Auth storage
       // This is critical to ensure user is redirected to login screen even when offline
       await AsyncStorage.removeItem('supabase.auth.token');
@@ -154,25 +163,25 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       await AsyncStorage.removeItem('supabase.auth.expires_in');
       await AsyncStorage.removeItem('supabase.auth.provider_token');
       await AsyncStorage.removeItem('supabase.auth.provider_refresh_token');
-      
+
       // Clear any other user-related storage that might prevent proper logout
       const allKeys = await AsyncStorage.getAllKeys();
-      const userKeys = allKeys.filter(key => 
-        key.startsWith('supabase.auth.') || 
-        key.includes('user') || 
+      const userKeys = allKeys.filter(key =>
+        key.startsWith('supabase.auth.') ||
+        key.includes('user') ||
         key.includes('token')
       );
-      
+
       if (userKeys.length > 0) {
         await AsyncStorage.multiRemove(userKeys);
       }
-      
+
       // Clean up other services
       console.log('Cleaning up local sessions and services');
       BluetoothService.getInstance().deleteAuthenticationSecretKey();
       ManagerCoreCommsService.stopService();
       BluetoothService.resetInstance();
-      
+
       // Navigate to Login screen directly instead of SplashScreen
       // This ensures we skip the SplashScreen logic that might detect stale user data
       navigation.reset({
@@ -250,8 +259,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   onSlidingComplete: (value: number) => changeBrightness(value),
   value: brightness ?? 50,
   minimumTrackTintColor: styles.minimumTrackTintColor.color,
-  maximumTrackTintColor: isDarkTheme 
-    ? styles.maximumTrackTintColorDark.color 
+  maximumTrackTintColor: isDarkTheme
+    ? styles.maximumTrackTintColorDark.color
     : styles.maximumTrackTintColorLight.color,
   thumbTintColor: styles.thumbTintColor.color,
   // Using inline objects instead of defaultProps
@@ -313,6 +322,35 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             //disabled={!status.glasses_info?.model_name}
             value={forceCoreOnboardMic}
             onValueChange={toggleForceCoreOnboardMic}
+            trackColor={switchColors.trackColor}
+            thumbColor={switchColors.thumbColor}
+            ios_backgroundColor={switchColors.ios_backgroundColor}
+          />
+        </View>
+
+        {/* Always on time, date and battery */}
+        <View style={styles.settingItem}>
+          <View style={styles.settingTextContainer}>
+            <Text
+              style={[
+                styles.label,
+                isDarkTheme ? styles.lightText : styles.darkText,
+              ]}
+            >
+              Always On Status Bar
+            </Text>
+            <Text
+              style={[
+                styles.value,
+                isDarkTheme ? styles.lightSubtext : styles.darkSubtext,
+              ]}
+            >
+              Always show the time, date and battery level on your smart glasses.
+            </Text>
+          </View>
+          <Switch
+            value={isAlwaysOnStatusBarEnabled}
+            onValueChange={toggleAlwaysOnStatusBar}
             trackColor={switchColors.trackColor}
             thumbColor={switchColors.thumbColor}
             ios_backgroundColor={switchColors.ios_backgroundColor}
@@ -482,7 +520,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         />
       )}
 
-      {/* Your app’s bottom navigation bar */}
+      {/* Your app's bottom navigation bar */}
       <NavigationBar toggleTheme={toggleTheme} isDarkTheme={isDarkTheme} />
     </View>
   );

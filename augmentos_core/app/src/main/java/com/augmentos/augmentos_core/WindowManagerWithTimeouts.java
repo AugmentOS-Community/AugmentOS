@@ -48,6 +48,8 @@ public class WindowManagerWithTimeouts {
             layer = new Layer(layerId);
             layers.add(layer);
         }
+//        Log.d(TAG, "Setting linger time: " + lingerTimeSecs);
+
         layer.setDisplayCommand(displayCommand);
         layer.setVisible(true);
         layer.setLastUpdated(System.currentTimeMillis());
@@ -98,18 +100,24 @@ public class WindowManagerWithTimeouts {
     private void checkTimeouts() {
         long now = System.currentTimeMillis();
 
-        // Check global timeout
-        if (!globalTimedOut && (now - lastGlobalUpdate) >= (globalTimeoutSeconds * 1000L)) {
-            // Global inactivity => call the provided global timeout action (e.g. clearScreen)
-            //globalTimeoutAction.run();
-            clearAll();
-            globalTimedOut = true;
-        }
+//        // Check global timeout
+//        if (!globalTimedOut && (now - lastGlobalUpdate) >= (globalTimeoutSeconds * 1000L)) {
+//            // Global inactivity => call the provided global timeout action (e.g. clearScreen)
+//            //globalTimeoutAction.run();
+//            clearAll();
+//            globalTimedOut = true;
+//        }
 
         // Use Iterator to safely remove elements while iterating
         Iterator<Layer> iterator = layers.iterator();
         while (iterator.hasNext()) {
             Layer layer = iterator.next();
+//            Log.d(TAG, "Checking layer: " + layer.getLingerTimeSeconds());
+            if (layer.getLingerTimeSeconds() ==  0) {
+//                Log.d(TAG, "No auto-hide");
+                continue; // No auto-hide
+            }
+
             if (layer.isVisible() && layer.getLingerTimeSeconds() > 0) {
                 long age = (now - layer.getLastUpdated()) / 1000L;
                 if (age >= layer.getLingerTimeSeconds()) {

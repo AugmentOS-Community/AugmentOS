@@ -74,6 +74,11 @@ public class AugmentOsManagerMessageParser {
                     callback.setContextualDashboardEnabled(dashboardEnabled);
                     break;
 
+                case "enable_always_on_status_bar":
+                    boolean alwaysOnEnabled = commandObject.getJSONObject("params").getBoolean("enabled");
+                    callback.setAlwaysOnStatusBarEnabled(alwaysOnEnabled);
+                    break;
+
                 case "install_app_from_repository": // TODO: Implement repository handling
 //                    String repo = commandObject.getJSONObject("params").getString("repository");
                     String packageNameToInstall = commandObject.getJSONObject("params").getString("target");

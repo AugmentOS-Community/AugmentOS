@@ -910,6 +910,16 @@ export class BluetoothService extends EventEmitter {
     });
   }
 
+  async sendToggleAlwaysOnStatusBar(enabled: boolean) {
+    console.log('sendToggleAlwaysOnStatusBar');
+    return await this.sendDataToAugmentOs({
+      command: 'enable_always_on_status_bar',
+      params: {
+        enabled: enabled,
+      },
+    });
+  }
+
   async setGlassesBrightnessMode(brightness: number, autoLight: boolean) {
     console.log('setGlassesBrightnessMode');
     return await this.sendDataToAugmentOs({

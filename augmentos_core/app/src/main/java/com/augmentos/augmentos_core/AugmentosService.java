@@ -82,6 +82,7 @@ import com.augmentos.augmentos_core.tpa.EdgeTPASystem;
 
 
 import com.augmentos.augmentoslib.events.GlassesTapOutputEvent;
+import com.augmentos.augmentoslib.events.HomeScreenEvent;
 import com.augmentos.augmentoslib.events.SmartRingButtonOutputEvent;
 
 import org.greenrobot.eventbus.EventBus;
@@ -107,6 +108,8 @@ import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Response;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class AugmentosService extends Service implements AugmentOsActionsCallback {
     public static final String TAG = "AugmentOS_AugmentOSService";
@@ -160,10 +163,26 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
 
     private final boolean showingDashboardNow = false;
     private boolean contextualDashboardEnabled;
+    private boolean alwaysOnStatusBarEnabled;
     private AsrPlanner asrPlanner;
     private HTTPServerComms httpServerComms;
 
     JSONObject cachedDashboardDisplayObject;
+    private JSONObject cachedDisplayData;
+    {
+        cachedDisplayData = new JSONObject();
+        try {
+            JSONObject layout = new JSONObject();
+            layout.put("layoutType", "empty");
+            cachedDisplayData.put("layout", layout);
+        } catch (JSONException e) {
+            Log.e(TAG, "Failed to construct cachedDisplayData JSON", e);
+        }
+    }
+
+    Runnable cachedDashboardDisplayRunnable;
+    private String cachedDashboardTopLine;
+ 
     List<ThirdPartyCloudApp> cachedThirdPartyAppList;
     private WebSocketManager.IncomingMessageHandler.WebSocketStatus webSocketStatus = WebSocketManager.IncomingMessageHandler.WebSocketStatus.DISCONNECTED;
     private final Handler serverCommsHandler = new Handler(Looper.getMainLooper());
@@ -358,6 +377,7 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
         headUpAngle = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(this).getString(getResources().getString(R.string.HEADUP_ANGLE), "20"));
 
         contextualDashboardEnabled = getContextualDashboardEnabled();
+        alwaysOnStatusBarEnabled = getAlwaysOnStatusBarEnabled();
 
         edgeTpaSystem = new EdgeTPASystem(this, smartGlassesService);
         asrPlanner = new AsrPlanner(edgeTpaSystem);
@@ -584,6 +604,16 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
                             () -> smartGlassesService.sendTextWall("                  /// AugmentOS Connected \\\\\\"),
                             6
                     );
+
+                    if (alwaysOnStatusBarEnabled) {
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> 
+                            smartGlassesService.windowManager.showAppLayer(
+                                    "serverappid",
+                                    () -> smartGlassesService.sendTextWall(cachedDashboardTopLine),
+                                    0
+                            ), 3000); // Delay of 1000 milliseconds (3 second)
+                    }
+
                     return; // Stop looping
                 }
 
@@ -707,20 +737,33 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
 
                 JSONObject msg = processJSONPlaceholders(rawMsg, placeholders);
 
+//                Log.d(TAG, "Parsed message: " + msg.toString());
 
                 JSONObject layout = msg.getJSONObject("layout");
                 String layoutType = layout.getString("layoutType");
                 String title;
                 String text;
                 switch (layoutType) {
+                    case "empty":
+                        return () -> smartGlassesService.sendTextWall(cachedDashboardTopLine);
                     case "reference_card":
-                        title = layout.getString("title");
+                        if (alwaysOnStatusBarEnabled && cachedDashboardTopLine != null
+                                && !layout.getString("title").contains("AugmentOS")) {
+                            title = layout.getString("title") + " | " + cachedDashboardTopLine;
+                        } else {
+                            title = layout.getString("title");
+                        }
                         text = layout.getString("text");
                         return () -> smartGlassesService.sendReferenceCard(title, text);
                     case "text_wall":
-                    case "text_line":
+                    case "text_line": // This assumes that the dashboard doesn't use textwall layout
                         text = layout.getString("text");
-                        return () -> smartGlassesService.sendTextWall(text);
+                        if (alwaysOnStatusBarEnabled && cachedDashboardTopLine != null) {
+                            String finalText = cachedDashboardTopLine + "\n" + text;
+                            return () -> smartGlassesService.sendTextWall(finalText);
+                        } else {
+                            return () -> smartGlassesService.sendTextWall(text);
+                        }
                     case "double_text_wall":
                         String topText = layout.getString("topText");
                         String bottomText = layout.getString("bottomText");
@@ -743,6 +786,129 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
                 e.printStackTrace();
             }
             return () -> {};
+    }
+
+    /**
+     * Parses the top line of a dashboard display.
+     * This function extracts and processes information specifically from the top line
+     * of the dashboard display, which typically contains time, date, battery status, etc.
+     * 
+     * @param msg The JSON object containing the dashboard display data
+     * @return The parsed top line string, or null if there was an error in parsing
+     */
+    public String parseDashboardTopLine(JSONObject msg) {
+        try {
+            // First check if this is a proper dashboard display with layout
+            if (msg == null || !msg.has("layout")) {
+                return generateFallbackDashboardTopLine();
+            }
+            
+            JSONObject layout = msg.getJSONObject("layout");
+            String layoutType = layout.getString("layoutType");
+            
+            // Most dashboards use double_text_wall layout
+            if ("double_text_wall".equals(layoutType) && layout.has("topText")) {
+                String topText = layout.getString("topText");
+                
+                if (topText.contains("$GBATT$")) {
+                    topText = topText.replace("$GBATT$", batteryLevel != null ? String.valueOf(batteryLevel) : "");
+                }
+
+                // Process special tokens in the top line if needed
+                if (topText.contains("$no_datetime$")) {
+                    SimpleDateFormat sdf = new SimpleDateFormat("M/dd, h:mm", Locale.getDefault());
+                    String formatted = sdf.format(new Date());
+                    topText = topText.replace("$no_datetime$", formatted);
+                }
+                
+                return topText;
+            } else if ("text_rows".equals(layoutType) && layout.has("text")) {
+                // For text_rows layout, the first row is typically the header
+                JSONArray rowsArray = layout.getJSONArray("text");
+                if (rowsArray.length() > 0) {
+                    return rowsArray.getString(0);
+                }
+            }
+            
+            // If we can't parse the dashboard format or it's not what we expect,
+            // generate a fallback header line
+            return generateFallbackDashboardTopLine();
+            
+        } catch (JSONException e) {
+            Log.e(TAG, "Error parsing dashboard top line", e);
+            return generateFallbackDashboardTopLine();
+        }
+    }
+    
+    /**
+     * Generates a fallback dashboard top line when the normal parsing fails.
+     * This ensures that even if there are issues with the dashboard data,
+     * we still display useful information to the user.
+     * 
+     * @return A formatted string with time, date, and battery information
+     */
+    private String generateFallbackDashboardTopLine() {
+        SimpleDateFormat currentTimeFormat = new SimpleDateFormat("h:mm", Locale.getDefault());
+        SimpleDateFormat currentDateFormat = new SimpleDateFormat("MMM d", Locale.getDefault());
+        String currentTime = currentTimeFormat.format(new Date());
+        String currentDate = currentDateFormat.format(new Date());
+        
+        // Use a safe default if battery level is null
+        int batteryPercentage = (batteryLevel != null) ? batteryLevel : 0;
+        
+        // Format: "◌ h:mm MMM d, XX%"
+        return String.format(Locale.getDefault(), "◌ %s %s, %d%%", 
+                currentTime, currentDate, batteryPercentage);
+    }
+
+    /**
+     * Extracts specific information from a dashboard top line.
+     * This function can identify and extract elements like time, battery level,
+     * or other structured data from the dashboard top line.
+     * 
+     * @param topLine The dashboard top line string to analyze
+     * @return A JSONObject containing the extracted information
+     */
+    public JSONObject extractDashboardTopLineInfo(String topLine) {
+        JSONObject result = new JSONObject();
+        
+        try {
+            // Check for null or empty input
+            if (topLine == null || topLine.trim().isEmpty()) {
+                return result;
+            }
+            
+            // Extract time pattern (like "h:mm" or "hh:mm")
+            Pattern timePattern = Pattern.compile("\\d{1,2}:\\d{2}");
+            Matcher timeMatcher = timePattern.matcher(topLine);
+            if (timeMatcher.find()) {
+                result.put("time", timeMatcher.group());
+            }
+            
+            // Extract date pattern (like "MMM d" or "Month day")
+            Pattern datePattern = Pattern.compile("(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\\s+\\d{1,2}");
+            Matcher dateMatcher = datePattern.matcher(topLine);
+            if (dateMatcher.find()) {
+                result.put("date", dateMatcher.group());
+            }
+            
+            // Extract battery percentage (like "85%" or "100%")
+            Pattern batteryPattern = Pattern.compile("(\\d{1,3})%");
+            Matcher batteryMatcher = batteryPattern.matcher(topLine);
+            if (batteryMatcher.find()) {
+                result.put("battery", Integer.parseInt(batteryMatcher.group(1)));
+            }
+            
+            // Detect if this is a status line (contains specific indicators)
+            boolean isStatusLine = topLine.contains("◌") || 
+                                 (result.has("time") && result.has("battery"));
+            result.put("isStatusLine", isStatusLine);
+            
+        } catch (JSONException e) {
+            Log.e(TAG, "Error creating dashboard top line info JSON", e);
+        }
+        
+        return result;
     }
 
     @Subscribe
@@ -811,6 +977,7 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
             coreInfo.put("charging_status", batteryStatusHelper.isBatteryCharging());
             coreInfo.put("sensing_enabled", AugmentosSmartGlassesService.getSensingEnabled(this));
             coreInfo.put("contextual_dashboard_enabled", this.contextualDashboardEnabled);
+            coreInfo.put("always_on_status_bar_enabled", this.alwaysOnStatusBarEnabled);
             coreInfo.put("force_core_onboard_mic", AugmentosSmartGlassesService.getForceCoreOnboardMic(this));
             coreInfo.put("default_wearable", AugmentosSmartGlassesService.getPreferredWearable(this));
             status.put("core_info", coreInfo);
@@ -894,6 +1061,13 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
             @Override
             public void onConnectionAck() {
                 serverCommsHandler.postDelayed(() -> locationSystem.sendLocationToServer(), 500);
+                if (alwaysOnStatusBarEnabled) {
+                    smartGlassesService.windowManager.showAppLayer(
+                            "serverappid",
+                            () -> smartGlassesService.sendTextWall(cachedDashboardTopLine),
+                            0
+                    );
+                }
             }
             @Override
             public void onAppStateChange(List<ThirdPartyCloudApp> appList) {
@@ -903,16 +1077,35 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
 
             @Override
             public void onDisplayEvent(JSONObject displayData) {
+                cachedDisplayData = displayData;
+//                Log.d(TAG,"Received display data: " + displayData.toString());
                 Runnable newRunnable = parseDisplayEventMessage(displayData);
-                if (smartGlassesService != null)
-                    smartGlassesService.windowManager.showAppLayer("serverappid", newRunnable, -1);
-                if (blePeripheral != null)
+//                Log.d(TAG, displayData.toString());
+//                Log.d(TAG, "Parsed display event message: " + displayData.has("durationMs"));
+                int durationMs = displayData.optInt("durationMs", -1);
+//                Log.d(TAG, "Received display event with duration: " + durationMs);
+//                Log.d("AugmentosService", "Received display event: " + displayData.toString());
+                if (smartGlassesService != null) {
+                        smartGlassesService.windowManager.showAppLayer("serverappid", newRunnable, durationMs / 1000); // TODO: either only use seconds or milliseconds
+                }
+                if (blePeripheral != null) {
                     blePeripheral.sendGlassesDisplayEventToManager(displayData);  //THIS LINE RIGHT HERE ENDS UP TRIGGERING IT
+                }
             }
 
             @Override
             public void onDashboardDisplayEvent(JSONObject dashboardDisplayData) {
                 cachedDashboardDisplayObject = dashboardDisplayData;
+                // Parse the top line for logging/debugging
+                cachedDashboardTopLine = parseDashboardTopLine(dashboardDisplayData);
+
+                if (alwaysOnStatusBarEnabled) {
+                    onDisplayEvent(cachedDisplayData);
+//                    Log.d("AugmentosService", "Dashboard display event received: " + dashboardDisplayData.toString());
+                }
+
+                // Create the runnable as before
+                cachedDashboardDisplayRunnable = parseDisplayEventMessage(dashboardDisplayData);
             }
 
             @Override
@@ -1079,6 +1272,23 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
         this.contextualDashboardEnabled = contextualDashboardEnabled;
     }
 
+    @Override
+    public void setAlwaysOnStatusBarEnabled(boolean alwaysOnStatusBarEnabled) {
+        if (alwaysOnStatusBarEnabled) {
+            smartGlassesService.windowManager.showAppLayer(
+                    "serverappid",
+                    () -> smartGlassesService.sendTextWall(cachedDashboardTopLine),
+                    0
+            );
+        }
+        else {
+            EventBus.getDefault().post(new HomeScreenEvent());
+        }
+
+        saveAlwaysOnStatusBarEnabled(alwaysOnStatusBarEnabled);
+        this.alwaysOnStatusBarEnabled = alwaysOnStatusBarEnabled;
+    }
+
     public boolean getContextualDashboardEnabled() {
         return this.getSharedPreferences("AugmentOSPrefs", Context.MODE_PRIVATE).getBoolean("contextual_dashboard_enabled", true);
     }
@@ -1087,6 +1297,18 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
         SharedPreferences sharedPreferences = this.getSharedPreferences("AugmentOSPrefs", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putBoolean("contextual_dashboard_enabled", enabled);
+        editor.apply();
+    }
+
+    public boolean getAlwaysOnStatusBarEnabled() {
+        return this.getSharedPreferences("AugmentOSPrefs", Context.MODE_PRIVATE)
+                .getBoolean("always_on_status_bar_enabled", false); // Default to false if not set
+    }
+
+    public void saveAlwaysOnStatusBarEnabled(boolean enabled) {
+        SharedPreferences sharedPreferences = this.getSharedPreferences("AugmentOSPrefs", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putBoolean("always_on_status_bar_enabled", enabled);
         editor.apply();
     }
 

@@ -304,8 +304,10 @@ class DisplayManager implements DisplayManagerI {
         layoutType: LayoutType.TEXT_WALL,
         text: ''
       },
-      timestamp: new Date()
+      timestamp: new Date(),
+      durationMs: 0
     };
+//     console.log('####### clearDisplay', clearRequest);
     this.sendDisplay(clearRequest);
   }
 

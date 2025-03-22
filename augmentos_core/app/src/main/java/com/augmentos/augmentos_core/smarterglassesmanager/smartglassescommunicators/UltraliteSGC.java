@@ -449,7 +449,7 @@ public class UltraliteSGC extends SmartGlassesCommunicator {
     }
 
 
-    public void showHomeScreen(){
+    public void showHomeScreen() {
         Log.d(TAG, "SHOW HOME SCREEN");
         ultraliteSdk.screenOff();
         screenIsClear = true;
