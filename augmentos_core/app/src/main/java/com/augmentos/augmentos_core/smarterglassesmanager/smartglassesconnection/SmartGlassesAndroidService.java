@@ -23,6 +23,7 @@ import androidx.preference.PreferenceManager;
 
 import com.augmentos.augmentos_core.R;
 import com.augmentos.augmentos_core.smarterglassesmanager.camera.CameraRecordingService;
+import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.BypassVadForDebuggingEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.NewAsrLanguagesEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.SmartGlassesFontSize;
 import com.augmentos.augmentos_core.smarterglassesmanager.comms.MessageTypes;
@@ -305,18 +306,41 @@ public abstract class SmartGlassesAndroidService extends LifecycleService {
         editor.putBoolean(context.getResources().getString(R.string.SENSING_ENABLED), enabled);
         editor.apply();
     }
-
-    public static boolean getBypassVadEnabled(Context context) {
+    public static boolean getBypassVadForDebugging(Context context) {
         SharedPreferences sharedPreferences = context.getSharedPreferences("AugmentOSPrefs", Context.MODE_PRIVATE);
-        return sharedPreferences.getBoolean(context.getResources().getString(R.string.BYPASS_VAD_ENABLED), false);
+        Log.d("AugmentOSPrefs", "Getting bypass VAD for debugging: " + sharedPreferences.getBoolean(context.getResources().getString(R.string.BYPASS_VAD_FOR_DEBUGGING), false));
+        return sharedPreferences.getBoolean(context.getResources().getString(R.string.BYPASS_VAD_FOR_DEBUGGING), false);
     }
-
-    public static void setBypassVadEnabled(Context context, boolean enabled) {
+    public static void saveBypassVadForDebugging(Context context, boolean enabled) {
         SharedPreferences sharedPreferences = context.getSharedPreferences("AugmentOSPrefs", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putBoolean(context.getResources().getString(R.string.BYPASS_VAD_ENABLED), enabled);
+        editor.putBoolean(context.getResources().getString(R.string.BYPASS_VAD_FOR_DEBUGGING), enabled);
+        editor.apply();
+        EventBus.getDefault().post(new BypassVadForDebuggingEvent(enabled));
+    }
+    public static boolean getBypassAudioEncodingForDebugging(Context context) {
+        SharedPreferences sharedPreferences = context.getSharedPreferences("AugmentOSPrefs", Context.MODE_PRIVATE);
+        return sharedPreferences.getBoolean(context.getResources().getString(R.string.BYPASS_AUDIO_ENCODING_FOR_DEBUGGING), false);
+    }
+
+    public static void saveBypassAudioEncodingForDebugging(Context context, boolean enabled) {
+        SharedPreferences sharedPreferences = context.getSharedPreferences("AugmentOSPrefs", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putBoolean(context.getResources().getString(R.string.BYPASS_AUDIO_ENCODING_FOR_DEBUGGING), enabled);
         editor.apply();
     }
+
+//    public static boolean getBypassVadEnabled(Context context) {
+//        SharedPreferences sharedPreferences = context.getSharedPreferences("AugmentOSPrefs", Context.MODE_PRIVATE);
+//        return sharedPreferences.getBoolean(context.getResources().getString(R.string.BYPASS_VAD_ENABLED), false);
+//    }
+
+//    public static void setBypassVadEnabled(Context context, boolean enabled) {
+//        SharedPreferences sharedPreferences = context.getSharedPreferences("AugmentOSPrefs", Context.MODE_PRIVATE);
+//        SharedPreferences.Editor editor = sharedPreferences.edit();
+//        editor.putBoolean(context.getResources().getString(R.string.BYPASS_VAD_ENABLED), enabled);
+//        editor.apply();
+//    }
 
     /** Gets the preferred wearable from shared preference. */
     public static boolean getForceCoreOnboardMic(Context context) {

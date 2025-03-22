@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.Log;
 
 import com.augmentos.augmentos_core.augmentos_backend.ServerComms;
+import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.BypassVadForDebuggingEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassesconnection.SmartGlassesAndroidService;
 import com.augmentos.augmentos_core.smarterglassesmanager.speechrecognition.AsrStreamKey;
 import com.augmentos.augmentos_core.smarterglassesmanager.speechrecognition.SpeechRecFramework;
@@ -15,6 +16,7 @@ import com.augmentos.augmentoslib.events.TranslateOutputEvent;
 //import com.augmentos.augmentos_core.smarterglassesmanager.speechrecognition.vad.VadGateSpeechPolicy;
 
 import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
 import org.json.JSONObject;
 
 import java.lang.reflect.Field;
@@ -41,17 +43,18 @@ public class SpeechRecAugmentos extends SpeechRecFramework {
     // VAD
     private VadGateSpeechPolicy vadPolicy;
     private volatile boolean isSpeaking = false; // Track VAD state
-    private boolean vadEnabled = true;
+//    private boolean vadEnabled = true;
 
     // VAD buffer for chunking
     private final BlockingQueue<Short> vadBuffer = new LinkedBlockingQueue<>();
     private final int vadFrameSize = 512; // 512-sample frames for VAD
     private volatile boolean vadRunning = true;
+    private boolean bypassVadForDebugging = false;
 
     private SpeechRecAugmentos(Context context) {
         this.mContext = context;
 
-        vadEnabled = !SmartGlassesAndroidService.getBypassVadEnabled(context);
+//        vadEnabled = !SmartGlassesAndroidService.getBypassVadEnabled(context);
 
         // 1) Create or fetch your single ServerComms (the new consolidated manager).
         //    For example, we create a new instance here:
@@ -62,6 +65,8 @@ public class SpeechRecAugmentos extends SpeechRecFramework {
         // Rolling buffer to store ~220ms of audio for replay on VAD trigger
         this.bufferMaxSize = (int) ((16000 * 0.22 * 2) / 512);
         this.rollingBuffer = new LinkedBlockingQueue<>(bufferMaxSize);
+
+        bypassVadForDebugging = SmartGlassesAndroidService.getBypassVadForDebugging(context);
 
         // Initialize VAD asynchronously
         initVadAsync();
@@ -181,7 +186,14 @@ public class SpeechRecAugmentos extends SpeechRecFramework {
     @Override
     public void ingestLC3AudioChunk(byte[] LC3audioChunk) {
         // If currently speaking, send data live
-        if (!vadEnabled || isSpeaking) {
+//        if (!vadEnabled || isSpeaking) {
+        if (bypassVadForDebugging) {
+            Log.d(TAG, "Bypassing VAD for debugging.");
+            ServerComms.getInstance().sendAudioChunk(LC3audioChunk);
+            return;
+        }
+
+        if (isSpeaking) {
             ServerComms.getInstance().sendAudioChunk(LC3audioChunk);
         }
 
@@ -299,5 +311,10 @@ public class SpeechRecAugmentos extends SpeechRecFramework {
         if (vadPolicy != null){
             vadPolicy.microphoneStateChanged(state);
         }
+    }
+
+    public void changeBypassVadForDebuggingState(boolean bypassVadForDebugging) {
+        Log.d(TAG, "setBypassVadForDebugging: " + bypassVadForDebugging);
+        this.bypassVadForDebugging = bypassVadForDebugging;
     }
 }

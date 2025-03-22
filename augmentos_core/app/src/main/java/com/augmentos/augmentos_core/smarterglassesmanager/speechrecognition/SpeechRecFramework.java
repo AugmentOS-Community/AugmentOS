@@ -22,4 +22,7 @@ public abstract class SpeechRecFramework {
     public abstract void updateConfig(List<AsrStreamKey> languages);
 
     public abstract void microphoneStateChanged(boolean state);
+
+    public void changeBypassVadForDebuggingState(boolean bypassVadForDebugging) {
+    }
 }

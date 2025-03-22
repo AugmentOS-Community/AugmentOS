@@ -337,7 +337,7 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
     public void onCreate() {
         super.onCreate();
 
-        EnvHelper.init(this);
+//        EnvHelper.init(this);
 
         EventBus.getDefault().register(this);
 
@@ -810,6 +810,8 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
             coreInfo.put("puck_battery_life", batteryStatusHelper.getBatteryLevel());
             coreInfo.put("charging_status", batteryStatusHelper.isBatteryCharging());
             coreInfo.put("sensing_enabled", AugmentosSmartGlassesService.getSensingEnabled(this));
+            coreInfo.put("bypass_vad_for_debugging", AugmentosSmartGlassesService.getBypassVadForDebugging(this));
+            coreInfo.put("bypass_audio_encoding_for_debugging", AugmentosSmartGlassesService.getBypassAudioEncodingForDebugging(this));
             coreInfo.put("contextual_dashboard_enabled", this.contextualDashboardEnabled);
             coreInfo.put("force_core_onboard_mic", AugmentosSmartGlassesService.getForceCoreOnboardMic(this));
             coreInfo.put("default_wearable", AugmentosSmartGlassesService.getPreferredWearable(this));
@@ -1070,6 +1072,18 @@ public class AugmentosService extends Service implements AugmentOsActionsCallbac
         if(smartGlassesService != null && smartGlassesService.getConnectedSmartGlasses() != null) {
             blePeripheral.sendNotifyManager(this.getResources().getString(R.string.SETTING_WILL_APPLY_ON_NEXT_GLASSES_CONNECTION), "success");
         }
+        sendStatusToBackend();
+    }
+
+    @Override
+    public void setBypassVadForDebugging(boolean bypassVadForDebugging) {
+        AugmentosSmartGlassesService.saveBypassVadForDebugging(this, bypassVadForDebugging);
+        sendStatusToBackend();
+    }
+
+    @Override
+    public void setBypassAudioEncodingForDebugging(boolean bypassAudioEncodingForDebugging) {
+        AugmentosSmartGlassesService.saveBypassAudioEncodingForDebugging(this, bypassAudioEncodingForDebugging);
         sendStatusToBackend();
     }
 

@@ -64,6 +64,18 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
     setIsContextualDashboardEnabled(newContextualDashboardSetting);
   };
 
+  const toggleBypassVADForDebugging = async () => {
+    let newSetting = !isBypassVADForDebuggingEnabled;
+    await BluetoothService.getInstance().sendToggleBypassVADForDebugging(newSetting);
+    setIsBypassVADForDebuggingEnabled(newSetting);
+  };
+
+  const toggleBypassAudioEncodingForDebugging = async () => {
+    let newSetting = !isBypassAudioEncodingForDebuggingEnabled;
+    await BluetoothService.getInstance().sendToggleBypassAudioEncodingForDebugging(newSetting);
+    setIsBypassAudioEncodingForDebuggingEnabled(newSetting);
+  };
+
   const changeBrightness = async (newBrightness: number) => {
     if (status.glasses_info?.brightness === '-') {return;}
     await BluetoothService.getInstance().setGlassesBrightnessMode(newBrightness, false);
@@ -248,49 +260,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   headerContainer: {
-    backgroundColor: '#fff',
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#333',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
   disabledItem: {
     opacity: 0.4,
-  },
-  disabledText: {
-    color: '#aaaaaa',
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  thumbTouchSize: {
-    width: 40,
-    height: 40,
-  },
-  trackStyle: {
-    height: 5,
-  },
-  thumbStyle: {
-    height: 20,
-    width: 20,
-  },
-  minimumTrackTintColor: {
-    color: '#2196F3',
-  },
-  maximumTrackTintColorDark: {
-    color: '#666666',
-  },
-  maximumTrackTintColorLight: {
-    color: '#D1D1D6',
-  },
-  thumbTintColor: {
-    color: '#FFFFFF',
   },
 });
 

@@ -38,6 +38,7 @@ import GlassesPairingGuidePreparationScreen from './screens/GlassesPairingGuideP
 import ErrorReportScreen from './screens/ErrorReportScreen.tsx';
 import { saveSetting } from './logic/SettingsHelper';
 import WelcomePageComponent from './components/WelcomePageComponent.tsx';
+import DebuggingSettingsScreen from './screens/DebuggingSettingsScreen.tsx';
 
 const linking = {
   prefixes: ['https://augmentos.org'],
@@ -152,6 +153,17 @@ const App: React.FC = () => {
                 >
                   {props => (
                     <PrivacySettingsScreen
+                      {...props}
+                      toggleTheme={toggleTheme}
+                      isDarkTheme={isDarkTheme}
+                    />
+                  )}
+                </Stack.Screen>
+                <Stack.Screen name="DebuggingSettingsScreen"
+                  options={{ title: 'Debugging Settings' }}
+                >
+                  {props => (
+                    <DebuggingSettingsScreen
                       {...props}
                       toggleTheme={toggleTheme}
                       isDarkTheme={isDarkTheme}

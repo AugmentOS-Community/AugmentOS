@@ -15,6 +15,8 @@ public interface AugmentOsActionsCallback {
     void setSensingEnabled(boolean sensingEnabled);
     void setForceCoreOnboardMic(boolean forceCoreOnboardMic);
     void setContextualDashboardEnabled(boolean contextualDashboardEnabled);
+    void setBypassVadForDebugging(boolean bypassVadForDebugging);
+    void setBypassAudioEncodingForDebugging(boolean bypassAudioEncodingForDebugging);
     void installAppFromRepository(String repository, String packageName) throws JSONException;
     void uninstallApp(String packageName);
     void handleNotificationData(JSONObject notificationData);

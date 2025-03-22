@@ -910,6 +910,24 @@ export class BluetoothService extends EventEmitter {
     });
   }
 
+  async sendToggleBypassVadForDebugging(enabled: boolean) {
+    return await this.sendDataToAugmentOs({
+      command: 'bypass_vad_for_debugging',
+      params: {
+        enabled: enabled,
+      },
+    });
+  }
+
+  async sendToggleBypassAudioEncodingForDebugging(enabled: boolean) {
+    return await this.sendDataToAugmentOs({
+      command: 'bypass_audio_encoding_for_debugging',
+      params: {
+        enabled: enabled,
+      },
+    });
+  }
+
   async setGlassesBrightnessMode(brightness: number, autoLight: boolean) {
     console.log('setGlassesBrightnessMode');
     return await this.sendDataToAugmentOs({

@@ -343,6 +343,30 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           />
         </TouchableOpacity>
 
+        {/* Debugging Settings */}
+        <TouchableOpacity
+          style={styles.settingItem}
+          onPress={() => {
+            navigation.navigate('DebuggingSettingsScreen');
+          }}
+        >
+          <View style={styles.settingTextContainer}>
+            <Text
+              style={[
+                styles.label,
+                isDarkTheme ? styles.lightText : styles.darkText,
+              ]}
+            >
+              Debugging Settings
+            </Text>
+          </View>
+          <Icon
+            name="angle-right"
+            size={20}
+            color={isDarkTheme ? styles.lightIcon.color : styles.darkIcon.color}
+          />
+        </TouchableOpacity>
+
         {/* Contextual Dashboard */}
         <View style={styles.settingItem}>
           <View style={styles.settingTextContainer}>
@@ -482,7 +506,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         />
       )}
 
-      {/* Your app’s bottom navigation bar */}
+      {/* Your app's bottom navigation bar */}
       <NavigationBar toggleTheme={toggleTheme} isDarkTheme={isDarkTheme} />
     </View>
   );
