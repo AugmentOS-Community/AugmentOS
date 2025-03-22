@@ -1,6 +1,5 @@
 package com.augmentos.augmentos_manager;
 
-import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
@@ -9,18 +8,23 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
-import android.content.ComponentName;
 
+/**
+ * React Native module for communicating with AugmentOS Core
+ * This module serves as an interface to the AugmentOSCommunicator singleton
+ */
 public class ManagerCoreCommsServiceModule extends ReactContextBaseJavaModule {
     private static final String TAG = "ManagerCoreCommsServiceModule";
     private final ReactApplicationContext reactContext;
-    private static ManagerCoreCommsService managerServiceInstance;
     private static ManagerCoreCommsServiceModule moduleInstance;
 
     public ManagerCoreCommsServiceModule(ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
         moduleInstance = this;
+        
+        // Initialize the communicator right away
+        AugmentOSCommunicator.getInstance().initialize(reactContext);
     }
 
     @Override
@@ -35,13 +39,17 @@ public class ManagerCoreCommsServiceModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void startService() {
         try {
-            Context context = getReactApplicationContext();
-            Intent serviceIntent = new Intent(context, ManagerCoreCommsService.class);
-            serviceIntent.setAction("AugmentOSLIB_ACTION_START_FOREGROUND_SERVICE");
-            context.startForegroundService(serviceIntent);
-            Log.d(TAG, "ManagerCoreCommsService started as foreground service");
+            // Initialize the communicator if not already initialized
+            if (!AugmentOSCommunicator.getInstance().isInitialized()) {
+                AugmentOSCommunicator.getInstance().initialize(reactContext);
+            }
+            
+            // Start the core service
+            startAugmentosCoreService();
+            
+            Log.d(TAG, "AugmentOSCommunicator initialized and core service started");
         } catch (Exception e) {
-            Log.e(TAG, "Failed to start ManagerCoreCommsService", e);
+            Log.e(TAG, "Failed to initialize AugmentOSCommunicator", e);
         }
     }
 
@@ -51,42 +59,32 @@ public class ManagerCoreCommsServiceModule extends ReactContextBaseJavaModule {
             Intent intent = new Intent(getReactApplicationContext(), AugmentosService.class);
             intent.setAction("ACTION_START_CORE");
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                getReactApplicationContext().startService(intent);
+                getReactApplicationContext().startForegroundService(intent);
             }
         } catch (Exception e) {
-            Log.e(TAG, "mc: Failed to start core service", e);
+            Log.e(TAG, "Failed to start core service", e);
         }
     }
 
     @ReactMethod
     public void stopService() {
-        Context context = getReactApplicationContext();
-        Intent serviceIntent = new Intent(context, ManagerCoreCommsService.class);
-        serviceIntent.setAction("AugmentOSLIB_ACTION_STOP_FOREGROUND_SERVICE");
-        context.startService(serviceIntent);
+        // Cleanup the communicator
+        AugmentOSCommunicator.getInstance().cleanup();
+        Log.d(TAG, "AugmentOSCommunicator cleaned up");
     }
 
     @ReactMethod(isBlockingSynchronousMethod = true)
     public boolean isServiceRunning() {
-        return managerServiceInstance != null;
+        return AugmentOSCommunicator.getInstance().isInitialized();
     }
 
     @ReactMethod
     public void sendCommandToCore(String jsonString) {
-        if (managerServiceInstance == null) {
+        if (!AugmentOSCommunicator.getInstance().isInitialized()) {
             startService();
-            startAugmentosCoreService();
         }
 
-        if (managerServiceInstance != null) {
-            managerServiceInstance.sendCommandToCore(jsonString);
-        } else {
-            Log.e(TAG, "ManagerCoreCommsService instance is null");
-        }
-    }
-
-    public static void setManagerServiceInstance(ManagerCoreCommsService instance) {
-        managerServiceInstance = instance;
+        AugmentOSCommunicator.getInstance().sendCommandToCore(jsonString);
     }
 
     public void emitMessageToJS(String eventName, String message) {

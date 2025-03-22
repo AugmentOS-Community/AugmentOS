@@ -52,7 +52,7 @@ import java.nio.ByteBuffer;
 
 import io.reactivex.rxjava3.subjects.PublishSubject;
 
-class SmartGlassesRepresentative {
+public class SmartGlassesRepresentative {
     private static final String TAG = "WearableAi_ASGRepresentative";
 
     //receive/send data stream
@@ -61,7 +61,7 @@ class SmartGlassesRepresentative {
     Context context;
 
     public SmartGlassesDevice smartGlassesDevice;
-    SmartGlassesCommunicator smartGlassesCommunicator;
+    public SmartGlassesCommunicator smartGlassesCommunicator;
     MicrophoneLocalAndBluetooth bluetoothAudio;
 
     //timing settings
@@ -73,7 +73,7 @@ class SmartGlassesRepresentative {
     Handler uiHandler;
     Handler micHandler;
 
-    SmartGlassesRepresentative(Context context, SmartGlassesDevice smartGlassesDevice, LifecycleOwner lifecycleOwner, PublishSubject<JSONObject> dataObservable){
+    public SmartGlassesRepresentative(Context context, SmartGlassesDevice smartGlassesDevice, LifecycleOwner lifecycleOwner, PublishSubject<JSONObject> dataObservable){
         this.context = context;
         this.smartGlassesDevice = smartGlassesDevice;
         this.lifecycleOwner = lifecycleOwner;

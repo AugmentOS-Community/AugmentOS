@@ -241,8 +241,9 @@ export default class BackendServerComms {
         }
       } catch (error: any) {
         //console.error('Error starting app:', error.message || error);
-        GlobalEventEmitter.emit('SHOW_BANNER', { message: 'Error starting app: ' + error.message || error, type: 'error' })
-        throw error;
+        //GlobalEventEmitter.emit('SHOW_BANNER', { message: 'Error starting app: ' + error.message || error, type: 'error' })
+        GlobalEventEmitter.emit('SHOW_BANNER', { message: `Could not connect to ${packageName}`, type: "error" });
+        //throw error;
       }
     }
   

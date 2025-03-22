@@ -141,22 +141,35 @@ public class UltraliteSGC extends SmartGlassesCommunicator {
         ultraliteListener = new UltraliteListener();
         ultraliteSdk.addEventListener(ultraliteListener);
 
-        ultraliteConnectedLive = ultraliteSdk.getConnected();
-        ultraliteConnectedLive.observe(lifecycleOwner, isConnected -> {
-            onUltraliteConnectedChange(isConnected);
-        });
+        // Only observe LiveData if we have a valid lifecycleOwner
+        if (lifecycleOwner != null) {
+            ultraliteConnectedLive = ultraliteSdk.getConnected();
+            ultraliteConnectedLive.observe(lifecycleOwner, isConnected -> {
+                onUltraliteConnectedChange(isConnected);
+            });
 
-        ultraliteControlled = ultraliteSdk.getControlledByMe();
-        ultraliteControlled.observe(lifecycleOwner, isControlled -> {
-            onUltraliteControlChanged(isControlled);
-        });
+            ultraliteControlled = ultraliteSdk.getControlledByMe();
+            ultraliteControlled.observe(lifecycleOwner, isControlled -> {
+                onUltraliteControlChanged(isControlled);
+            });
 
-        //setup battery status
-        EventBus.getDefault().post(new BatteryLevelEvent(ultraliteSdk.getBatteryLevel()));
-        batteryStatusObserver = ultraliteSdk.getBatteryStatus();
-        batteryStatusObserver.observe(lifecycleOwner, batteryStatus -> {
-            onUltraliteBatteryChanged(batteryStatus);
-        });
+            //setup battery status
+            EventBus.getDefault().post(new BatteryLevelEvent(ultraliteSdk.getBatteryLevel()));
+            batteryStatusObserver = ultraliteSdk.getBatteryStatus();
+            batteryStatusObserver.observe(lifecycleOwner, batteryStatus -> {
+                onUltraliteBatteryChanged(batteryStatus);
+            });
+        } else {
+            Log.w(TAG, "No LifecycleOwner provided, LiveData observation is disabled");
+            ultraliteConnectedLive = ultraliteSdk.getConnected();
+            ultraliteControlled = ultraliteSdk.getControlledByMe();
+            batteryStatusObserver = ultraliteSdk.getBatteryStatus();
+            
+            // Still send the initial battery level
+            EventBus.getDefault().post(new BatteryLevelEvent(ultraliteSdk.getBatteryLevel()));
+            
+            // Note: We don't need polling anymore since we'll be using LifecycleService
+        }
 
 //        if (ultraliteSdk.isAvailable()){
 //            Log.d(TAG, "Ultralite SDK is available.");
@@ -401,10 +414,12 @@ public class UltraliteSGC extends SmartGlassesCommunicator {
     public void destroy() {
         try {
             if (ultraliteSdk != null) {
-                // Remove LiveData observers
-                ultraliteConnectedLive.removeObservers(lifecycleOwner);
-                ultraliteControlled.removeObservers(lifecycleOwner);
-                batteryStatusObserver.removeObservers(lifecycleOwner);
+                // Remove LiveData observers only if lifecycleOwner is not null
+                if (lifecycleOwner != null) {
+                    ultraliteConnectedLive.removeObservers(lifecycleOwner);
+                    ultraliteControlled.removeObservers(lifecycleOwner);
+                    batteryStatusObserver.removeObservers(lifecycleOwner);
+                }
 
                 // Remove event listeners and release control
                 ultraliteSdk.removeEventListener(ultraliteListener);
@@ -419,6 +434,7 @@ public class UltraliteSGC extends SmartGlassesCommunicator {
             if (screenOffHandler != null) {
                 screenOffHandler.removeCallbacksAndMessages(null);
             }
+            // Removed battery polling handler cleanup as we're no longer using it
             if (killHandler != null) {
                 killHandler.removeCallbacksAndMessages(null);
             }

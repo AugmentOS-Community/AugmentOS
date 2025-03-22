@@ -10,4 +10,9 @@ public class NewNotificationReceivedEvent {
         this.title = title;
         this.text = text;
     }
+    
+    @Override
+    public String toString() {
+        return "Notification[" + appName + "]: " + title + " - " + text;
+    }
 }

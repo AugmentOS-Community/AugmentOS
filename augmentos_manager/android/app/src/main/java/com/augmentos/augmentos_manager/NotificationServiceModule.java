@@ -13,6 +13,9 @@ import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
+import org.greenrobot.eventbus.EventBus;
+import org.json.JSONObject;
+
 public class NotificationServiceModule extends ReactContextBaseJavaModule {
 
     private static final String TAG = "NotificationServiceUtils";
@@ -87,6 +90,19 @@ public class NotificationServiceModule extends ReactContextBaseJavaModule {
         try {
             Log.d(TAG, "onNotificationPosted START - jsonString: " + jsonString);
             //sendNotificationToJS(jsonString);
+            
+            // Post to EventBus for AugmentOSCommunicator to handle
+            try {
+                JSONObject json = new JSONObject(jsonString);
+                String appName = json.getString("appName");
+                String title = json.getString("title");
+                String text = json.getString("text");
+                
+                NewNotificationReceivedEvent event = new NewNotificationReceivedEvent(appName, title, text);
+                EventBus.getDefault().post(event);
+            } catch (Exception e) {
+                Log.e(TAG, "Error parsing notification JSON", e);
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error in onNotificationPosted: ", e);
         }
