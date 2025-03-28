@@ -19,6 +19,7 @@ import { loadSetting, saveSetting } from '../logic/SettingsHelper';
 import { SETTINGS_KEYS } from '../consts';
 import NavigationBar from '../components/NavigationBar';
 import { supabase } from '../supabaseClient';
+import { requestFeaturePermissions, PermissionFeatures } from '../logic/PermissionsUtils';
 
 interface PrivacySettingsScreenProps {
   isDarkTheme: boolean;
@@ -53,6 +54,23 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
   };
 
   const toggleForceCoreOnboardMic = async () => {
+    // First request microphone permission if we're enabling the mic
+    if (!forceCoreOnboardMic) {
+      // We're about to enable the mic, so request permission
+      const hasMicPermission = await requestFeaturePermissions(PermissionFeatures.MICROPHONE);
+      if (!hasMicPermission) {
+        // Permission denied, don't toggle the setting
+        console.log('Microphone permission denied, cannot enable onboard mic');
+        Alert.alert(
+          'Microphone Permission Required',
+          'Microphone permission is required to use the onboard microphone feature. Please grant microphone permission in settings.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+    }
+    
+    // Continue with toggling the setting if permission granted or turning off
     let newForceCoreOnboardMic = !forceCoreOnboardMic;
     await coreCommunicator.sendToggleForceCoreOnboardMic(newForceCoreOnboardMic);
     setForceCoreOnboardMic(newForceCoreOnboardMic);

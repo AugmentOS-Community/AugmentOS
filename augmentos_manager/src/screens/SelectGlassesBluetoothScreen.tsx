@@ -23,6 +23,7 @@ import PairingDeviceInfo from '../components/PairingDeviceInfo';
 import { EvenRealitiesG1PairingGuide, VuzixZ100PairingGuide } from '../components/GlassesPairingGuides';
 import GlobalEventEmitter from '../logic/GlobalEventEmitter';
 import { useSearchResults } from '../providers/SearchResultsContext';
+import { requestFeaturePermissions, PermissionFeatures } from '../logic/PermissionsUtils';
 // import NavigationBar from '../components/NavigationBar'; // if needed
 
 interface SelectGlassesBluetoothScreenProps {
@@ -145,7 +146,38 @@ const SelectGlassesBluetoothScreen: React.FC<SelectGlassesBluetoothScreenProps> 
     }
   }, [status]);
 
-  const triggerGlassesPairingGuide = (glassesModelName: string, deviceName: string) => {
+  const triggerGlassesPairingGuide = async (glassesModelName: string, deviceName: string) => {
+    // On Android, we need to check both microphone and location permissions
+    if (Platform.OS === 'android') {
+      // First check location permission, which is required for Bluetooth scanning on Android
+      const hasLocationPermission = await requestFeaturePermissions(PermissionFeatures.LOCATION);
+      
+      if (!hasLocationPermission) {
+        // Inform the user that location permission is required for Bluetooth scanning
+        Alert.alert(
+          'Location Permission Required',
+          'Location permission is required to scan for and connect to smart glasses on Android. This is a requirement of the Android Bluetooth system.',
+          [{ text: 'OK' }]
+        );
+        return; // Stop the connection process
+      }
+    }
+    
+    // Next, check microphone permission for all platforms
+    const hasMicPermission = await requestFeaturePermissions(PermissionFeatures.MICROPHONE);
+    
+    // Only proceed if permission is granted
+    if (!hasMicPermission) {
+      // Inform the user that microphone permission is required
+      Alert.alert(
+        'Microphone Permission Required',
+        'Microphone permission is required to connect to smart glasses. Voice control and audio features are essential for the AR experience.',
+        [{ text: 'OK' }]
+      );
+      return; // Stop the connection process
+    }
+    
+    // All permissions granted, proceed with connecting to the wearable
     coreCommunicator.sendConnectWearable(glassesModelName, deviceName);
     navigation.navigate('GlassesPairingGuideScreen', {
       glassesModelName: glassesModelName,

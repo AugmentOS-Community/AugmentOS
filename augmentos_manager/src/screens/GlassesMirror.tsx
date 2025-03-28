@@ -8,39 +8,21 @@ import {
   StatusBar,
   SafeAreaView,
   Platform,
-  PermissionsAndroid,
   BackHandler,
 } from 'react-native';
 import { RNCamera } from 'react-native-camera';
 import NavigationBar from '../components/NavigationBar';
 import { useStatus } from '../providers/AugmentOSStatusProvider';
 import { useGlassesMirror } from '../providers/GlassesMirrorContext';
+import { requestFeaturePermissions, PermissionFeatures } from '../logic/PermissionsUtils';
 
 interface GlassesMirrorProps {
   isDarkTheme: boolean;
 }
 
-// Request camera permission for Android SDK 33
+// Request camera permission when needed
 const requestCameraPermission = async () => {
-  if (Platform.OS === 'android' && Platform.Version >= 33) {
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.CAMERA,
-        {
-          title: 'Camera Permission',
-          message: 'This app needs access to your camera for the fullscreen mirror mode.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch (err) {
-      console.warn('Camera permission error:', err);
-      return false;
-    }
-  }
-  return true; // iOS handles permissions through Info.plist
+  return await requestFeaturePermissions(PermissionFeatures.CAMERA);
 };
 
 const GlassesMirror: React.FC<GlassesMirrorProps> = ({isDarkTheme}) => {
