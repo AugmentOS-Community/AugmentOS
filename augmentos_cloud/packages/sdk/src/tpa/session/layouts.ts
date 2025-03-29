@@ -41,27 +41,111 @@ export class LayoutManager {
   ) {}
 
   /**
-   * 📦 Creates a display event request
+   * 📦 Creates a display event request with validation
    * 
    * @param layout - Layout configuration to display
    * @param view - View type (main or dashboard)
    * @param durationMs - How long to show the layout (optional)
    * @returns Formatted display request
+   * @throws Error if layout is invalid
    */
   private createDisplayEvent(
     layout: Layout, 
     view: ViewType = ViewType.MAIN,
     durationMs?: number
   ): DisplayRequest {
-    return {
-      timestamp: new Date(),
-      sessionId: '',  // Will be filled by session
-      type: TpaToCloudMessageType.DISPLAY_REQUEST,
-      packageName: this.packageName,
-      view,
-      layout,
-      durationMs
-    };
+    try {
+      // Validate layout data before sending
+      if (!layout) {
+        throw new Error("Layout cannot be null or undefined");
+      }
+      
+      if (!layout.layoutType) {
+        throw new Error("Layout must have a layoutType property");
+      }
+      
+      // Layout-specific validations
+      switch (layout.layoutType) {
+        case LayoutType.TEXT_WALL:
+          if (typeof (layout as TextWall).text !== 'string') {
+            throw new Error("TextWall layout must have a text property");
+          }
+          // Ensure text is not too long (prevent performance issues)
+          if ((layout as TextWall).text.length > 1000) {
+            console.warn("TextWall text is very long, this may cause performance issues");
+          }
+          break;
+          
+        case LayoutType.DOUBLE_TEXT_WALL:
+          const doubleText = layout as DoubleTextWall;
+          if (typeof doubleText.topText !== 'string') {
+            throw new Error("DoubleTextWall layout must have a topText property");
+          }
+          if (typeof doubleText.bottomText !== 'string') {
+            throw new Error("DoubleTextWall layout must have a bottomText property");
+          }
+          break;
+          
+        case LayoutType.REFERENCE_CARD:
+          const refCard = layout as ReferenceCard;
+          if (typeof refCard.title !== 'string') {
+            throw new Error("ReferenceCard layout must have a title property");
+          }
+          if (typeof refCard.text !== 'string') {
+            throw new Error("ReferenceCard layout must have a text property");
+          }
+          break;
+          
+        case LayoutType.DASHBOARD_CARD:
+          const dashCard = layout as DashboardCard;
+          if (typeof dashCard.leftText !== 'string') {
+            throw new Error("DashboardCard layout must have a leftText property");
+          }
+          if (typeof dashCard.rightText !== 'string') {
+            throw new Error("DashboardCard layout must have a rightText property");
+          }
+          break;
+          
+        case LayoutType.BITMAP_VIEW:
+          const bitmapView = layout as BitmapView;
+          if (typeof bitmapView.data !== 'string') {
+            throw new Error("BitmapView layout must have a data property");
+          }
+          // Check if data is too large (prevent OOM errors)
+          if (bitmapView.data.length > 1000000) { // 1MB limit
+            throw new Error("Bitmap data is too large (>1MB), please reduce size");
+          }
+          break;
+      }
+      
+      // Validate view type
+      if (view !== ViewType.MAIN && view !== ViewType.DASHBOARD) {
+        console.warn(`Invalid view type: ${view}, defaulting to MAIN`);
+        view = ViewType.MAIN;
+      }
+      
+      // Validate duration if provided
+      if (durationMs !== undefined) {
+        if (typeof durationMs !== 'number' || durationMs < 0) {
+          console.warn(`Invalid duration: ${durationMs}, ignoring`);
+          durationMs = undefined;
+        }
+      }
+      
+      // Create the display request with validated data
+      return {
+        timestamp: new Date(),
+        sessionId: '',  // Will be filled by session
+        type: TpaToCloudMessageType.DISPLAY_REQUEST,
+        packageName: this.packageName,
+        view,
+        layout,
+        durationMs
+      };
+    } catch (error) {
+      console.error("Error creating display event:", error);
+      throw error; // Re-throw to notify caller
+    }
   }
 
   /**
@@ -84,15 +168,41 @@ export class LayoutManager {
     text: string, 
     options?: { view?: ViewType; durationMs?: number }
   ) {
-    const layout: TextWall = {
-      layoutType: LayoutType.TEXT_WALL,
-      text
-    };
-    this.sendMessage(this.createDisplayEvent(
-      layout, 
-      options?.view, 
-      options?.durationMs
-    ));
+    try {
+      // Validate input before processing
+      if (text === undefined || text === null) {
+        text = ""; // Default to empty string instead of crashing
+        console.warn("showTextWall called with null/undefined text");
+      }
+      
+      // Ensure text is a string
+      if (typeof text !== 'string') {
+        text = String(text); // Convert to string
+        console.warn("showTextWall: Non-string input converted to string");
+      }
+      
+      // Create layout with validated text
+      const layout: TextWall = {
+        layoutType: LayoutType.TEXT_WALL,
+        text
+      };
+      
+      // Create and send display event with error handling
+      try {
+        const displayEvent = this.createDisplayEvent(
+          layout, 
+          options?.view, 
+          options?.durationMs
+        );
+        this.sendMessage(displayEvent);
+      } catch (error) {
+        console.error("Failed to display text wall:", error);
+        // Don't re-throw - prevent app crashes
+      }
+    } catch (error) {
+      console.error("Error in showTextWall:", error);
+      // Don't crash the TPA - fail gracefully
+    }
   }
 
   /**

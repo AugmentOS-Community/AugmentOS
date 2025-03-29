@@ -33,6 +33,11 @@ export class LC3Service {
   private decoderSize = 0;
   private allocationSize = 0;
 
+  // Sequence tracking for continuity detection
+  private lastProcessedSequence: number = -1;
+  private sequenceDiscontinuities: number = 0;
+  private lastDecodeTimestamp: number = 0;
+
   // Static WASM module caching
   private static wasmModule: WebAssembly.Module | null = null;
   private static instanceCounter = 0;
@@ -150,9 +155,10 @@ export class LC3Service {
   /**
    * Decode a chunk of LC3 audio data
    * @param audioData The LC3 encoded audio data
+   * @param sequenceNumber Optional sequence number for tracking chunk order
    * @returns Decoded PCM audio data or null on error
    */
-  async decodeAudioChunk(audioData: ArrayBuffer): Promise<ArrayBuffer | null> {
+  async decodeAudioChunk(audioData: ArrayBufferLike, sequenceNumber?: number): Promise<ArrayBuffer | null> {
     if (!this.initialized || !this.decoder) {
       await this.initialize();
       
@@ -168,26 +174,54 @@ export class LC3Service {
         return null;
       }
       
+      // Track sequence continuity if provided
+      if (sequenceNumber !== undefined) {
+        const expectedSequence = this.lastProcessedSequence + 1;
+        
+        // If this isn't the first chunk and sequence doesn't match expected
+        if (this.lastProcessedSequence !== -1 && sequenceNumber !== expectedSequence) {
+          this.sequenceDiscontinuities++;
+          logger.warn(`Session ${this.sessionId}: LC3 decoder sequence discontinuity - expected ${expectedSequence}, got ${sequenceNumber}. Total discontinuities: ${this.sequenceDiscontinuities}`);
+        }
+        
+        this.lastProcessedSequence = sequenceNumber;
+      }
+      
+      // Track timing between chunks for diagnostics
+      const now = Date.now();
+      if (this.lastDecodeTimestamp > 0) {
+        const timeSinceLastChunk = now - this.lastDecodeTimestamp;
+        if (timeSinceLastChunk > 100) { // Log only significant gaps (>100ms)
+          logger.debug(`Session ${this.sessionId}: LC3 decoding gap of ${timeSinceLastChunk}ms between chunks`);
+        }
+      }
+      this.lastDecodeTimestamp = now;
+      
       // Process frames
-      const numFrames = Math.floor(audioData.byteLength / this.frameBytes);
+      // Convert ArrayBufferLike to a proper ArrayBuffer for safety
+      const actualArrayBuffer = (audioData instanceof ArrayBuffer) 
+        ? audioData 
+        : audioData.slice(0, audioData.byteLength);
+        
+      const numFrames = Math.floor(actualArrayBuffer.byteLength / this.frameBytes);
       const totalSamples = numFrames * this.frameSamples;
       const outputBuffer = new ArrayBuffer(totalSamples * 2); // 16-bit PCM
       const outputView = new DataView(outputBuffer);
-      const inputData = new Uint8Array(audioData);
+      const inputData = new Uint8Array(actualArrayBuffer);
       let outputOffset = 0;
       
-      // Process each frame - EXACTLY as in the real working script
+      // Process each frame
       for (let i = 0; i < numFrames; i++) {
         try {
-          // Copy frame data - EXACTLY as in the real working script
+          // Copy frame data
           this.decoder.frame.set(
             inputData.subarray(i * this.frameBytes, (i + 1) * this.frameBytes)
           );
           
-          // Decode frame - EXACTLY as in the real working script
+          // Decode frame
           this.decoder.decode();
           
-          // Convert samples to PCM - EXACTLY as in the real working script
+          // Convert samples to PCM
           for (let j = 0; j < this.frameSamples; j++) {
             const pcmValue = Math.max(
               -32768, 
@@ -197,8 +231,9 @@ export class LC3Service {
             outputOffset += 2;
           }
         } catch (frameError) {
-          // Error handling (not in original script but helpful)
+          // Error handling for frame-level errors
           logger.warn(`Session ${this.sessionId}: Error decoding frame ${i}: ${frameError}`);
+          // Fill with silence for the errored frame
           for (let j = 0; j < this.frameSamples; j++) {
             outputView.setInt16(outputOffset, 0, true);
             outputOffset += 2;
@@ -229,7 +264,11 @@ export class LC3Service {
       frameSamples: this.frameSamples,
       decoderSize: this.decoderSize,
       allocationSize: this.allocationSize,
-      lastUsed: this.decoder?.lastUsed || 0
+      lastUsed: this.decoder?.lastUsed || 0,
+      // Sequence tracking info
+      lastProcessedSequence: this.lastProcessedSequence,
+      sequenceDiscontinuities: this.sequenceDiscontinuities,
+      lastDecodeTimestamp: this.lastDecodeTimestamp
     };
   }
 

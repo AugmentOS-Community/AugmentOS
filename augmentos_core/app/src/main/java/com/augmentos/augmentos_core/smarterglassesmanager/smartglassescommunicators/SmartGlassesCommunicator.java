@@ -6,6 +6,7 @@ import android.os.Looper;
 
 import com.augmentos.augmentoslib.events.GlassesTapOutputEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SmartGlassesConnectionEvent;
+import com.augmentos.augmentos_core.smarterglassesmanager.hci.AudioProcessingCallback;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.SmartGlassesFontSize;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.SmartGlassesModes;
 import com.augmentos.augmentos_core.smarterglassesmanager.utils.SmartGlassesConnectionState;
@@ -16,6 +17,10 @@ public abstract class SmartGlassesCommunicator {
     //basic glasses utils/settings
     public SmartGlassesConnectionState mConnectState = SmartGlassesConnectionState.DISCONNECTED;
     protected SmartGlassesModes currentMode;
+    
+    // Audio callback for direct processing (replacing EventBus)
+    public AudioProcessingCallback audioProcessingCallback;
+    
     public abstract void connectToSmartGlasses();
     public abstract void findCompatibleDeviceNames();
     public abstract void blankScreen();
@@ -126,4 +131,16 @@ public abstract class SmartGlassesCommunicator {
     public void enableGlassesAutoBrightness() {}
 
     public void changeSmartGlassesMicrophoneState(boolean isMicrophoneEnabled) {}
+    
+    /**
+     * Registers an audio processing callback to receive audio data directly
+     * instead of using EventBus. This is a battery optimization.
+     * 
+     * @param callback The callback to register
+     */
+    public void registerAudioProcessingCallback(AudioProcessingCallback callback) {
+        this.audioProcessingCallback = callback;
+        System.out.println("SmartGlassesCommunicator: Registered audio callback: " + 
+                          (callback != null ? "NOT NULL" : "NULL") + " in " + this.getClass().getSimpleName());
+    }
 }

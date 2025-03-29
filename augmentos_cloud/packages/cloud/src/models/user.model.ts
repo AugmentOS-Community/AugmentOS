@@ -304,6 +304,95 @@ UserSchema.statics.findOrCreateUser = async function (email: string): Promise<Us
   return user;
 };
 
+UserSchema.statics.findUserInstalledApps = async function (email: string): Promise<any[]> {
+  if (!email) {
+    console.warn('[User.findUserInstalledApps] Called with null or empty email');
+    return [];
+  }
+  
+  try {
+    const user = await this.findOne({ email: email.toLowerCase() });
+    
+    // Import app service to get full app details
+    const App = mongoose.model('App');
+    const { LOCAL_APPS, SYSTEM_TPAS } = require('../services/core/app.service');
+    
+    // Get package names from installed apps (or empty array if no user or no installed apps)
+    const userInstalledPackages = user?.installedApps?.map((app: any) => app.packageName) || [];
+    
+    // Create a map of package names to installation dates
+    const installDates = new Map();
+    if (user?.installedApps) {
+      user.installedApps.forEach((app: any) => {
+        installDates.set(app.packageName, app.installedDate);
+      });
+    }
+    
+    // Combine installed apps with full details
+    const result = [];
+    
+    // Always include all system apps and LOCAL_APPS, regardless of whether they're installed
+    const predefinedApps = [...LOCAL_APPS, ...SYSTEM_TPAS];
+    for (const app of predefinedApps) {
+      // Use actual installation date if available, otherwise use current date
+      const isInstalled = userInstalledPackages.includes(app.packageName);
+      const installedDate = isInstalled 
+        ? installDates.get(app.packageName) 
+        : new Date(); // Default to current date for system apps
+      
+      // Add isSystemApp flag
+      result.push({
+        ...app,
+        installedDate,
+        isSystemApp: true
+      });
+    }
+    
+    // Add user-installed apps from the database that aren't already in the list
+    if (userInstalledPackages.length > 0) {
+      // Filter out packages that are already in the result (system apps)
+      const existingPackages = result.map((app: any) => app.packageName);
+      const remainingPackages = userInstalledPackages.filter((pkg: string) => !existingPackages.includes(pkg));
+      
+      if (remainingPackages.length > 0) {
+        // Then check database apps
+        const dbApps = await App.find({ packageName: { $in: remainingPackages } });
+        for (const dbApp of dbApps) {
+          // Only add if not already added from predefined apps
+          if (!result.some(app => app.packageName === dbApp.packageName)) {
+            result.push({
+              ...dbApp.toObject(),
+              installedDate: installDates.get(dbApp.packageName)
+            });
+          }
+        }
+        
+        // For any app we couldn't find details for, include at least the package name
+        for (const packageName of remainingPackages) {
+          if (!result.some(app => app.packageName === packageName)) {
+            result.push({
+              packageName,
+              name: packageName, // Use package name as fallback name
+              installedDate: installDates.get(packageName)
+            });
+          }
+        }
+      }
+    }
+    
+    return result;
+  } catch (error) {
+    console.error(`[User.findUserInstalledApps] Error finding apps for user ${email}:`, error);
+    // In case of error, return at least the system apps
+    const { LOCAL_APPS, SYSTEM_TPAS } = require('../services/core/app.service');
+    return [...LOCAL_APPS, ...SYSTEM_TPAS].map(app => ({
+      ...app,
+      installedDate: new Date(),
+      isSystemApp: true
+    }));
+  }
+};
+
 // --- Middleware ---
 UserSchema.pre('save', function(next) {
   if (this.email) {
@@ -319,6 +408,7 @@ UserSchema.pre('save', function(next) {
 interface UserModel extends Model<UserDocument> {
   findByEmail(email: string): Promise<UserDocument | null>;
   findOrCreateUser(email: string): Promise<UserDocument>;
+  findUserInstalledApps(email: string): Promise<any[]>;
 }
 
 export const User = mongoose.model<UserDocument, UserModel>('User', UserSchema);

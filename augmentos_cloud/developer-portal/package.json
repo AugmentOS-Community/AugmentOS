@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "npm@10.8.3",
+  "engines": {
+    "node": ">=20.10.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -10,7 +14,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@augmentos/sdk": "^1.0.6",
+    "@augmentos/sdk": "^1.1.0",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-dropdown-menu": "^2.1.6",
     "@radix-ui/react-label": "^2.1.2",

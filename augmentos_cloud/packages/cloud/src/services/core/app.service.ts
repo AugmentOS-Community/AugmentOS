@@ -27,7 +27,7 @@ export const LOCAL_APPS: AppI[] = [
     packageName: systemApps.captions.packageName,
     name: systemApps.captions.name,
     tpaType: TpaType.STANDARD,
-    webhookURL: `http://${systemApps.captions.host}/webhook`,
+    publicUrl: `http://${systemApps.captions.host}`,
     logoURL: `https://cloud.augmentos.org/${systemApps.captions.packageName}.png`,
     description: systemApps.captions.description
   },
@@ -35,7 +35,7 @@ export const LOCAL_APPS: AppI[] = [
     packageName: systemApps.notify.packageName,
     name: systemApps.notify.name,
     tpaType: TpaType.BACKGROUND,
-    webhookURL: `http://${systemApps.notify.host}/webhook`,
+    publicUrl: `http://${systemApps.notify.host}`,
     logoURL: `https://cloud.augmentos.org/${systemApps.notify.packageName}.png`,
     description: systemApps.notify.description,
   },
@@ -43,31 +43,31 @@ export const LOCAL_APPS: AppI[] = [
     packageName: systemApps.mira.packageName,
     name: systemApps.mira.name,
     tpaType: TpaType.BACKGROUND,
-    webhookURL: `http://${systemApps.mira.host}/webhook`,
+    publicUrl: `http://${systemApps.mira.host}`,
     logoURL: `https://cloud.augmentos.org/${systemApps.mira.packageName}.png`,
     description: systemApps.mira.description,
   },
-  {
-    packageName: systemApps.merge.packageName,
-    name: systemApps.merge.name,
-    tpaType: TpaType.BACKGROUND,
-    webhookURL: `http://${systemApps.merge.host}/webhook`,
-    logoURL: `https://cloud.augmentos.org/${systemApps.merge.packageName}.png`,
-    description: "Proactive AI that helps you during conversations. Turn it on, have a conversation, and let Merge agents enhance your convo.",
-  },
-  {
-    packageName: systemApps.liveTranslation.packageName,
-    name: systemApps.liveTranslation.name,
-    tpaType: TpaType.STANDARD,
-    webhookURL: `http://${systemApps.liveTranslation.host}/webhook`,
-    logoURL: `https://cloud.augmentos.org/${systemApps.liveTranslation.packageName}.png`,
-    description: systemApps.liveTranslation.description,
-  },
+  // {
+  //   packageName: systemApps.merge.packageName,
+  //   name: systemApps.merge.name,
+  //   tpaType: TpaType.BACKGROUND,
+  //   publicUrl: `http://${systemApps.merge.host}`,
+  //   logoURL: `https://cloud.augmentos.org/${systemApps.merge.packageName}.png`,
+  //   description: "Proactive AI that helps you during conversations. Turn it on, have a conversation, and let Merge agents enhance your convo.",
+  // },
+  // {
+  //   packageName: systemApps.liveTranslation.packageName,
+  //   name: systemApps.liveTranslation.name,
+  //   tpaType: TpaType.STANDARD,
+  //   publicUrl: `http://${systemApps.liveTranslation.host}`,
+  //   logoURL: `https://cloud.augmentos.org/${systemApps.liveTranslation.packageName}.png`,
+  //   description: systemApps.liveTranslation.description,
+  // },
   // {
   //   packageName: systemApps.teleprompter.packageName,
   //   name: "Teleprompt",
   //   tpaType: TpaType.STANDARD,
-  //   webhookURL: `http://${systemApps.teleprompter.host}/webhook`,
+  //   publicUrl: `http://${systemApps.teleprompter.host}`,
   //   logoURL: `https://cloud.augmentos.org/${systemApps.teleprompter.packageName}.png`,
   //   description: systemApps.teleprompter.description,
   // }
@@ -80,7 +80,7 @@ if (process.env.NODE_ENV !== 'production') {
     name: "Navigation",
     description: systemApps.flash.description,
     tpaType: TpaType.BACKGROUND,
-    webhookURL: `http://${systemApps.flash.host}/webhook`,
+    publicUrl: `http://${systemApps.flash.host}`,
     logoURL: `https://cloud.augmentos.org/${systemApps.flash.packageName}.png`,
   });
   LOCAL_APPS.push({
@@ -88,7 +88,7 @@ if (process.env.NODE_ENV !== 'production') {
     name: "Screen Mirror",
     description: systemApps.flash.description,
     tpaType: TpaType.BACKGROUND,
-    webhookURL: `http://${systemApps.flash.host}/webhook`,
+    publicUrl: `http://${systemApps.flash.host}`,
     logoURL: `https://cloud.augmentos.org/${systemApps.flash.packageName}.png`,
   });
 }
@@ -104,7 +104,7 @@ export const SYSTEM_TPAS: AppI[] = [
     name: systemApps.dashboard.name,
     tpaType: TpaType.BACKGROUND,
     description: "The time, The news, The weather, The notifications, The everything. 😎🌍🚀",
-    webhookURL: `http:/${systemApps.dashboard.host}/webhook`,
+    publicUrl: `http:/${systemApps.dashboard.host}`,
     logoURL: `https://cloud.augmentos.org/${systemApps.dashboard.packageName}.png`,
   },
 ];
@@ -245,11 +245,13 @@ export class AppService {
  * @param payload - Data to send
  * @throws If stop webhook fails
  */
-  async triggerStopWebhook(webhookUrl: string, payload: StopWebhookRequest): Promise<{
+  async triggerStopWebhook(publicUrl: string, payload: StopWebhookRequest): Promise<{
     status: number;
     data: WebhookResponse;
   }> {
-    const response = await axios.post(`${webhookUrl}/stop`, payload);
+    // Construct the stop webhook URL from the app's public URL
+    const webhookUrl = `${publicUrl}/webhook/stop`;
+    const response = await axios.post(webhookUrl, payload);
     return {
       status: response.status,
       data: response.data
@@ -260,15 +262,51 @@ export class AppService {
    * Validates a TPA's API key.
    * @param packageName - TPA identifier
    * @param apiKey - API key to validate
+   * @param clientIp - Optional IP address of the client for system app validation
    * @returns Promise resolving to validation result
    */
-  async validateApiKey(packageName: string, apiKey: string): Promise<boolean> {
+  async validateApiKey(packageName: string, apiKey: string, clientIp?: string): Promise<boolean> {
     const app = await this.getApp(packageName);
     if (!app) return false;
-
-    // TODO: Implement proper API key validation
-    // For now, accept all keys for development
-    return true;
+    
+    // Additional verification for system apps
+    const isSystemApp = [...LOCAL_APPS, ...SYSTEM_TPAS].some(sysApp => sysApp.packageName === packageName);
+    if (isSystemApp) {
+      // If a system app, verify it's coming from the internal cluster network
+      if (clientIp) {
+        // Check if IP is from the internal network
+        // Docker networks typically use 172.x.x.x, 10.x.x.x, or 192.168.x.x
+        // Kubernetes pod IPs depend on your cluster configuration
+        // Handle IPv6-mapped IPv4 addresses (::ffff:a.b.c.d)
+        const ipv4 = clientIp.startsWith('::ffff:') ? clientIp.substring(7) : clientIp;
+        
+        const isInternalIp = ipv4.startsWith('10.') || 
+                             ipv4.startsWith('172.') || 
+                             ipv4.startsWith('192.168.') ||
+                             // For Kubernetes cluster IPs (adjust based on your actual cluster IP range)
+                             ipv4.includes('.svc.cluster.local') || 
+                             clientIp === '::ffff:127.0.0.1' || 
+                             ipv4 === '127.0.0.1' || 
+                             ipv4 === 'localhost';
+        
+        console.log(`System app ${packageName} connection IP check: ${clientIp} (IPv4: ${ipv4}), isInternal: ${isInternalIp}`);
+        
+        if (!isInternalIp) {
+          console.error(`System app ${packageName} connection rejected - not from internal network. IP: ${clientIp}`);
+          return false;
+        }
+      }
+      return true;
+    }
+    
+    // For regular apps, validate API key as normal
+    // Get the MongoDB app document to access hashedApiKey
+    const appDoc = await App.findOne({ packageName });
+    if (!appDoc?.hashedApiKey) return false;
+    
+    // Hash the provided API key and compare with stored hash
+    const hashedKey = this.hashApiKey(apiKey);
+    return hashedKey === appDoc.hashedApiKey;
   }
 
   /**

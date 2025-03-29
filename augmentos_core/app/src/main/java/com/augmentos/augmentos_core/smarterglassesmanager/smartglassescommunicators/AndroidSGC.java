@@ -108,6 +108,17 @@ public class AndroidSGC extends SmartGlassesCommunicator {
         //state information
         mConnectState = SmartGlassesConnectionState.DISCONNECTED;
     }
+    
+    /**
+     * BATTERY OPTIMIZATION: Register a speech recognition system to process audio
+     * This allows direct callbacks instead of EventBus for better performance
+     * @param speechRecSystem The speech recognition system to register
+     */
+    public void registerSpeechRecSystem(com.augmentos.augmentos_core.smarterglassesmanager.hci.AudioProcessingCallback speechRecSystem) {
+        if (audioSystem != null && speechRecSystem != null) {
+            audioSystem.registerAudioProcessingCallback(speechRecSystem);
+        }
+    }
 
     //not used/valid yet
     @Override
@@ -126,7 +137,7 @@ public class AndroidSGC extends SmartGlassesCommunicator {
         final int delay = 1000; // 1000 milliseconds == 1 second
         adv_handler.postDelayed(new Runnable() {
             public void run() {
-                new Thread(new SendAdvThread()).start();
+                new Thread(new SendAdvThread(), "SendAdvThread").start();
                 adv_handler.postDelayed(this, delay);
             }
         }, 5);
@@ -179,7 +190,7 @@ public class AndroidSGC extends SmartGlassesCommunicator {
         if (socket == null) {
             Log.d(TAG, "starting new SocketThread" + socket);
             connectionEvent(SmartGlassesConnectionState.CONNECTING);
-            SocketThread = new Thread(new SocketThread());
+            SocketThread = new Thread(new SocketThread(), "AndroidSGCSocketThread");
             SocketThread.start();
 
             //setup handler to handle keeping connection alive, all subsequent start of SocketThread
@@ -243,7 +254,7 @@ public class AndroidSGC extends SmartGlassesCommunicator {
                     input = new DataInputStream(new DataInputStream(socket.getInputStream()));
                     connectionEvent(SmartGlassesConnectionState.CONNECTED);
                     if (ReceiveThread == null) { //if the thread is null, make a new one (the first one)
-                        ReceiveThread = new Thread(new ReceiveThread());
+                        ReceiveThread = new Thread(new ReceiveThread(), "AndroidSGCReceiveThread");
                         ReceiveThread.start();
                     } else if (!ReceiveThread.isAlive()) { //if the thread is not null but it's dead, let it join then start a new one
                         try {
@@ -251,11 +262,11 @@ public class AndroidSGC extends SmartGlassesCommunicator {
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
-                        ReceiveThread = new Thread(new ReceiveThread());
+                        ReceiveThread = new Thread(new ReceiveThread(), "AndroidSGCReceiveThread");
                         ReceiveThread.start();
                     }
                     if (SendThread == null) { //if the thread is null, make a new one (the first one)
-                        SendThread = new Thread(new SendThread());
+                        SendThread = new Thread(new SendThread(), "AndroidSGCSendThread");
                         SendThread.start();
                     } else if (!SendThread.isAlive()) { //if the thread is not null but it's dead, let it join then start a new one
                         try {
@@ -263,7 +274,7 @@ public class AndroidSGC extends SmartGlassesCommunicator {
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
-                        SendThread =  new Thread(new SendThread());
+                        SendThread =  new Thread(new SendThread(), "AndroidSGCSendThread");
                         SendThread.start();
                     }
                 } catch (IOException e) {
@@ -399,7 +410,7 @@ public class AndroidSGC extends SmartGlassesCommunicator {
         }
 
         //start a new socket thread
-        SocketThread = new Thread(new SocketThread());
+        SocketThread = new Thread(new SocketThread(), "AndroidSGSocketThread");
         SocketThread.start();
     }
 
@@ -467,7 +478,7 @@ public class AndroidSGC extends SmartGlassesCommunicator {
         byte [] payload = outputStream.toByteArray();
 
         //send it in a background thread
-        //new Thread(new SendThread(payload)).start();
+        //new Thread(new SendThread(payload), "AndroidSGCSendThread").start();
         queue.add(payload);
     }
 
@@ -524,6 +535,7 @@ public class AndroidSGC extends SmartGlassesCommunicator {
 
         // Destroy the audio system
         if (audioSystem != null) {
+            // BATTERY OPTIMIZATION: Make sure all callbacks are properly unregistered
             audioSystem.destroy();
             audioSystem = null;
         }
@@ -563,25 +575,33 @@ public class AndroidSGC extends SmartGlassesCommunicator {
 
         //kill this socket
         try {
-            Log.i(TAG, "SOCKETTHREAD TRYNA JOIN");
-            if (SocketThread != null) {
-                SocketThread.join();
+            // Join all threads with proper timeouts to prevent blocking
+            if (SocketThread != null && SocketThread.isAlive()) {
+                SocketThread.join(1000); // 1 second timeout
+                Log.i(TAG, "SOCKETTHREAD JOINED");
             }
-            Log.i(TAG, "SOCKETTHREAD JOINED");
-            Log.i(TAG, "SENDTTHREAD TRYNA JOIN");
-            if (SendThread != null) {
-                SendThread.join();
+            
+            if (SendThread != null && SendThread.isAlive()) {
+                SendThread.join(1000);
+                Log.i(TAG, "SENDTTHREAD JOINED");
             }
-            Log.i(TAG, "SENDTTHREAD JOINED");
-            Log.i(TAG, "RECEIVE THREAD TRYNA JOIN");
-            if (ReceiveThread != null) {
-                ReceiveThread.join();
+            
+            if (ReceiveThread != null && ReceiveThread.isAlive()) {
+                ReceiveThread.join(1000);
+                Log.i(TAG, "RECEIVE THREAD JOINED");
             }
-            Log.i(TAG, "RECEIVE THREAD JOINED");
         } catch (InterruptedException e){
             e.printStackTrace();
-            Log.d(TAG, "Error waiting for threads to joing");
+            Log.d(TAG, "Error waiting for threads to join");
         }
+        
+        // Clear all references
+        serverSocket = null;
+        socket = null;
+        input = null;
+        output = null;
+        context = null;
+        smartGlassesDevice = null;
     }
 
     public void displayReferenceCardSimple(String title, String body){

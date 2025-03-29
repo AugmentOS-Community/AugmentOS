@@ -6,7 +6,10 @@ import {
 } from '@augmentos/sdk'; // shared types for cloud TPA messages
 import { wrapText } from '@augmentos/utils';
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 80; // Default http port.
-const CLOUD_HOST_NAME = process.env.CLOUD_HOST_NAME || "http://localhost:8002";
+// In Docker environment, use the service name as hostname
+// Use Docker service name "cloud" inside containers
+// Important: The Docker-based URL must be used because the TPA server and cloud are in Docker containers
+const CLOUD_HOST_NAME = process.env.CLOUD_HOST_NAME || "cloud:80";
 const PACKAGE_NAME = "com.augmentos.notify";
 const API_KEY = 'test_key'; // In production, this would be securely stored
 
@@ -238,11 +241,15 @@ class NotifyServer extends TpaServer {
 }
 
 // Create and start the server
+// Force the WebSocket URL to use our container service name, not the staging URL default
+const wsUrl = `ws://${CLOUD_HOST_NAME}/tpa-ws`;
+console.log(`🔌🔌🔌 Using WebSocket URL: ${wsUrl}`);
+
 const server = new NotifyServer({
   packageName: PACKAGE_NAME,
   apiKey: API_KEY,
   port: PORT,
-  augmentOSWebsocketUrl: `ws://${CLOUD_HOST_NAME}/tpa-ws`,
+  augmentOSWebsocketUrl: wsUrl,
   webhookPath: '/webhook',
   publicDir: path.join(__dirname, './public')
 });

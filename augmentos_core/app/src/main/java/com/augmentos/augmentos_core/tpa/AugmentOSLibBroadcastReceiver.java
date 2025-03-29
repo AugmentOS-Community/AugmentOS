@@ -13,7 +13,6 @@ import android.util.Log;
 
 import com.augmentos.augmentoslib.AugmentOSGlobalConstants;
 import com.augmentos.augmentoslib.events.BulletPointListViewRequestEvent;
-import com.augmentos.augmentoslib.events.CenteredTextViewRequestEvent;
 import com.augmentos.augmentoslib.events.DisplayCustomContentRequestEvent;
 import com.augmentos.augmentoslib.events.DoubleTextWallViewRequestEvent;
 import com.augmentos.augmentoslib.events.FinalScrollingTextRequestEvent;
@@ -84,7 +83,6 @@ public class AugmentOSLibBroadcastReceiver extends BroadcastReceiver {
             case FinalScrollingTextRequestEvent.eventId:
             case TextLineViewRequestEvent.eventId:
             case FocusRequestEvent.eventId:
-            case CenteredTextViewRequestEvent.eventId:
             case TextWallViewRequestEvent.eventId:
             case DoubleTextWallViewRequestEvent.eventId:
             case RowsCardViewRequestEvent.eventId:

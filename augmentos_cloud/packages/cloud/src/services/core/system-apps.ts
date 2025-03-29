@@ -1,3 +1,5 @@
+import { AppI } from "@augmentos/sdk";
+
 const systemApps = {
   captions: {
     host: "live-captions",
@@ -41,21 +43,23 @@ const systemApps = {
     description: "Teleprompter for live presentations.",
     isSystemApp: true,
   },
-  liveTranslation: {
-    host: "live-translation",
-    packageName: 'com.augmentos.live-translation',
-    name: 'Live Translation',
-    description: "Live language translation.",
-    isSystemApp: true,
-  },
-  merge: {
-    host: process.env.MERGE_HOST_NAME || `merge`,
-    packageName: 'com.mentra.merge',
-    name: 'Merge',
-    description: "Proactive AI that helps you during conversations. Turn it on, have a conversation, and let Merge agents enhance your convo.",
-    isSystemApp: true,
-    skipPorterHostUpdate: true,
-  },
+
+  // liveTranslation: {
+  //   host: "live-translation",
+  //   packageName: 'com.augmentos.live-translation',
+  //   name: 'Live Translation',
+  //   description: "Live language translation.",
+  //   isSystemApp: true,
+  // },
+
+  // merge: {
+  //   host: process.env.MERGE_HOST_NAME || `merge`,
+  //   packageName: 'com.mentra.merge',
+  //   name: 'Merge',
+  //   description: "Proactive AI that helps you during conversations. Turn it on, have a conversation, and let Merge agents enhance your convo.",
+  //   isSystemApp: true,
+  //   skipPorterHostUpdate: true,
+  // },
 };
 
 // Check if deployed on porter. if so we need to modify the hosts with the porter env prefix.
@@ -65,16 +69,21 @@ const systemApps = {
 // The default host names are used for the system apps in the docker-compose file.
 // In cloud environments i.e production, development, staging: the system apps are deployed as services in the porter cluster.
 
-if (process.env.PORTER_APP_NAME) {
-  for (const app of Object.values(systemApps)) {
-    // if the app is already using the porter host, skip it
+for (const app of Object.values(systemApps)) {
 
-    // @ts-ignore
-    if ((app as any).skipPorterHostUpdate) {
-      console.log(`⚡️⚡️⚡️⚡️⚡️ Skipping porter host update for ${app.name} ||| HOST ||| (${app.host}) ⚡️⚡️⚡️⚡️⚡️`);
-      continue;
-    }
+  // Add public Url
 
+  // @ts-ignore
+  (app as any).publicUrl = "http://" + app.host;
+  // if the app is already using the porter host, skip it
+  // @ts-ignore
+  if ((app as any).skipPorterHostUpdate) {
+    console.log(`⚡️⚡️⚡️⚡️⚡️ Skipping porter host update for ${app.name} ||| HOST ||| (${app.host}) ⚡️⚡️⚡️⚡️⚡️`);
+    continue;
+  }
+
+
+  if (process.env.PORTER_APP_NAME) {
     app.host = `${process.env.PORTER_APP_NAME}-${app.host}.default.svc.cluster.local:${process.env.PORTER_APP_PORT || 80}`;
     console.log(`⚡️ System app ${app.name} host: ${app.host}`);
   }

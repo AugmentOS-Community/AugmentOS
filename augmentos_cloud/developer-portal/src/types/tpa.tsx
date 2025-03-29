@@ -3,7 +3,7 @@ export interface TPA {
     name: string;
     packageName: string;
     description: string;
-    webhookURL: string;
+    publicUrl: string;
     logoURL: string;
     webviewURL?: string;
     isPublic: boolean;

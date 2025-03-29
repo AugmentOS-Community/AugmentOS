@@ -14,13 +14,11 @@ public class L3cCpp {
         // This method can be used for additional initialization if needed
     }
 
-    public static native byte[] decodeLC3(byte[] lc3Data);
+    public static native long initEncoder();
+    public static native void freeEncoder(long encoderPtr);
+    public static native byte[] encodeLC3(long encoderPtr, byte[] pcmData);
 
-    public static native byte[] encodeLC3(byte[] lc3Data);
-
-    public static native float[] rnNoise(long st, float[] input);
-
-    public static native long createRNNoiseState();
-
-    public static native void destroyRNNoiseState(long st);
+    public static native long initDecoder();
+    public static native void freeDecoder(long decoderPtr);
+    public static native byte[] decodeLC3(long decoderPtr, byte[] lc3Data);
 }

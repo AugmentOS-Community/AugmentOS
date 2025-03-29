@@ -20,7 +20,7 @@ export interface AppI {
   packageName: string;
   name: string;
   description?: string;
-  webhookURL?: string;
+  publicUrl?: string;
   webviewURL?: string; // URL for phone UI
   logoURL: string;
   tpaType?: TpaType; // Type of TPA

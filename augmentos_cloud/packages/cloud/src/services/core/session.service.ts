@@ -18,26 +18,55 @@ const RECONNECT_GRACE_PERIOD_MS = 30000; // 30 seconds
 const LOG_AUDIO = false;
 const PROCESS_AUDIO = true;
 const DEBUG_AUDIO = false;
-const IS_LC3 = false; // Set to true if using LC3 codec. false if using PCM.
+const IS_LC3 = true; // Set to true if using LC3 codec. false if using PCM.
+
+/**
+ * Audio chunk with sequence number for ordered processing
+ */
+export interface SequencedAudioChunk {
+  sequenceNumber: number;        // Monotonically increasing sequence identifier
+  timestamp: number;             // Capture timestamp (ms since epoch)
+  data: ArrayBufferLike;         // Raw audio data
+  isLC3: boolean;                // Whether this is LC3-encoded data
+  receivedAt: number;            // When the server received this chunk
+}
+
+/**
+ * Audio buffer for managing ordered chunk processing
+ */
+export interface OrderedAudioBuffer {
+  chunks: SequencedAudioChunk[];       // Ordered buffer of audio chunks
+  lastProcessedSequence: number;       // Last sequence number that was processed
+  processingInProgress: boolean;       // Flag to prevent concurrent processing
+  expectedNextSequence: number;        // Expected next sequence number
+  bufferSizeLimit: number;             // Maximum number of chunks to buffer
+  bufferTimeWindowMs: number;          // Time window to wait for chunks
+  bufferProcessingInterval: NodeJS.Timeout;  // Interval timer for processing buffer
+}
 
 export interface ExtendedUserSession extends UserSession {
   lc3Service?: LC3Service;
   audioWriter?: AudioWriter; // for debugging audio streams.
+  audioBuffer?: OrderedAudioBuffer; // Ordered buffer for audio chunks
 }
 
 export class SessionService {
   private activeSessions = new Map<string, ExtendedUserSession>();
+  private sessionsByUser = new Map<string, ExtendedUserSession>();
 
   async createSession(ws: WebSocket, userId = 'anonymous'): Promise<ExtendedUserSession> {
+    // Check for existing sessions for this user that might need to be preserved
+    const existingSession = this.sessionsByUser.get(userId);
+    
     const sessionId = uuidv4();
     const userSession: ExtendedUserSession = {
       logger: createLoggerForUserSession(userId),
       sessionId,
       userId,
       startTime: new Date(),
-      activeAppSessions: [],
+      activeAppSessions: existingSession?.activeAppSessions || [],
       installedApps: await appService.getAllApps(),
-      whatToStream: new Array<StreamType>(),
+      whatToStream: existingSession?.whatToStream || new Array<StreamType>(),
       appSubscriptions: new Map<string, StreamType[]>(),
       transcriptionStreams: new Map<string, ASRStreamInstance>(),
       loadingApps: new Set<string>(),
@@ -63,8 +92,26 @@ export class SessionService {
     }
     userSession.lc3Service = lc3ServiceInstance;
 
+    // Initialize the ordered audio buffer
+    userSession.audioBuffer = {
+      chunks: [],
+      lastProcessedSequence: -1,
+      processingInProgress: false,
+      expectedNextSequence: 0,
+      bufferSizeLimit: 100,      // Store up to 100 chunks (configurable)
+      bufferTimeWindowMs: 500,   // 500ms window for reordering (configurable)
+      bufferProcessingInterval: null as any // Will be properly initialized by the websocket service
+    };
+    userSession.logger.info(`✅ Ordered audio buffer initialized for session ${sessionId}`);
+
     this.activeSessions.set(sessionId, userSession);
     userSession.logger.info(`[session.service] Created new session ${sessionId} for user ${userId}`);
+    
+    // Always keep the latest session for each user in the user lookup map
+    if (userId !== 'anonymous') {
+      this.sessionsByUser.set(userId, userSession);
+    }
+    
     return userSession;
   }
 
@@ -167,6 +214,28 @@ export class SessionService {
         newSession.lc3Service = lc3ServiceInstance;
       }
 
+      // Transfer audio buffer with proper state management
+      if (oldUserSession.audioBuffer) {
+        // Clear the old interval before creating a new one
+        clearInterval(oldUserSession.audioBuffer.bufferProcessingInterval);
+        
+        // Create a new buffer with the existing state
+        newSession.audioBuffer = {
+          chunks: [...oldUserSession.audioBuffer.chunks],
+          lastProcessedSequence: oldUserSession.audioBuffer.lastProcessedSequence,
+          processingInProgress: false, // Reset processing flag for safety
+          expectedNextSequence: oldUserSession.audioBuffer.expectedNextSequence,
+          bufferSizeLimit: oldUserSession.audioBuffer.bufferSizeLimit,
+          bufferTimeWindowMs: oldUserSession.audioBuffer.bufferTimeWindowMs,
+          bufferProcessingInterval: setInterval(() => {
+            // Will be properly set up by websocket service
+          }, 100)
+        };
+        
+        newSession.logger.info(`✅ Transferred audio buffer from session ${oldUserSession.sessionId} to ${newSession.sessionId}`);
+        newSession.logger.debug(`Audio buffer state: ${newSession.audioBuffer.chunks.length} chunks, last processed: ${newSession.audioBuffer.lastProcessedSequence}`);
+      }
+
       // Clean up old session resources
       if (oldUserSession.recognizer) {
         transcriptionService.stopTranscription(oldUserSession);
@@ -221,10 +290,19 @@ export class SessionService {
     }
   }
 
-  // Updated handleAudioData method with improved LC3 handling
-  async handleAudioData(userSession: ExtendedUserSession, audioData: ArrayBuffer | any, isLC3 = IS_LC3): Promise<ArrayBuffer | void> {
+  // Updated handleAudioData method with improved LC3 handling and sequence tracking
+  async handleAudioData(
+    userSession: ExtendedUserSession, 
+    audioData: ArrayBufferLike | any, 
+    isLC3 = IS_LC3, 
+    sequenceNumber?: number
+  ): Promise<ArrayBuffer | void> {
     // Update the last audio timestamp
     userSession.lastAudioTimestamp = Date.now();
+
+    if (LOG_AUDIO && sequenceNumber !== undefined) {
+      userSession.logger.debug(`Processing audio chunk ${sequenceNumber} for session ${userSession.sessionId}`);
+    }
 
     // If not transcribing, just ignore the audio
     // if (!userSession.isTranscribing) {
@@ -247,10 +325,11 @@ export class SessionService {
     if (isLC3 && userSession.lc3Service) {
       try {
         // The improved LC3Service handles null checks internally
-        processedAudioData = await userSession.lc3Service.decodeAudioChunk(audioData);
+        // Pass the sequence number to track continuity
+        processedAudioData = await userSession.lc3Service.decodeAudioChunk(audioData, sequenceNumber);
         
         if (!processedAudioData) {
-          if (LOG_AUDIO) userSession.logger.warn(`⚠️ LC3 decode returned null for session ${userSession.sessionId}`);
+          if (LOG_AUDIO) userSession.logger.warn(`⚠️ LC3 decode returned null for session ${userSession.sessionId}, sequence ${sequenceNumber}`);
           return; // Skip this chunk
         }
 
@@ -259,7 +338,7 @@ export class SessionService {
           await userSession.audioWriter?.writePCM(processedAudioData);
         }
       } catch (error) {
-        userSession.logger.error(`❌ Error decoding LC3 audio for session ${userSession.sessionId}:`, error);
+        userSession.logger.error(`❌ Error decoding LC3 audio for session ${userSession.sessionId}, sequence ${sequenceNumber}:`, error);
         
         // If there was an error with the LC3 service, try to reinitialize it
         if (userSession.lc3Service) {
@@ -304,6 +383,14 @@ export class SessionService {
       userSession.logger.info(`🧹 Cleaning up LC3 service for session ${sessionId}`);
       userSession.lc3Service.cleanup();
       userSession.lc3Service = undefined;
+    }
+
+    // Clean up audio buffer resources
+    if (userSession.audioBuffer) {
+      userSession.logger.info(`🧹 Cleaning up audio buffer for session ${sessionId}`);
+      clearInterval(userSession.audioBuffer.bufferProcessingInterval);
+      userSession.audioBuffer.chunks = [];
+      userSession.audioBuffer.processingInProgress = false;
     }
 
     // Clean up subscription history for this session

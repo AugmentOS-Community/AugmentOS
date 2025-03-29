@@ -27,7 +27,7 @@ const EditTPA: React.FC = () => {
     packageName: '',
     name: '',
     description: '',
-    webhookURL: '',
+    publicUrl: '',
     logoURL: '',
     isPublic: false,
     appStoreStatus: 'DEVELOPMENT',
@@ -66,7 +66,7 @@ const EditTPA: React.FC = () => {
           packageName: tpaData.packageName,
           name: tpaData.name,
           description: tpaData.description || '',
-          webhookURL: tpaData.webhookURL,
+          publicUrl: tpaData.publicUrl || '',
           logoURL: tpaData.logoURL,
           webviewURL: tpaData.webviewURL,
           isPublic: tpaData.isPublic || false,
@@ -114,7 +114,7 @@ const EditTPA: React.FC = () => {
       await api.apps.update(packageName, {
         name: formData.name,
         description: formData.description,
-        webhookURL: formData.webhookURL,
+        publicUrl: formData.publicUrl,
         logoURL: formData.logoURL,
         webviewURL: formData.webviewURL
       });
@@ -308,16 +308,17 @@ const EditTPA: React.FC = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="webhookURL">Webhook URL</Label>
+                  <Label htmlFor="publicUrl">Server URL</Label>
                   <Input 
-                    id="webhookURL" 
-                    name="webhookURL"
-                    value={formData.webhookURL}
+                    id="publicUrl" 
+                    name="publicUrl"
+                    value={formData.publicUrl}
                     onChange={handleChange}
-                    placeholder="https://yourserver.com/webhook" 
+                    placeholder="https://yourserver.com" 
                   />
                   <p className="text-xs text-gray-500">
-                    The endpoint where AugmentOS will send events when your app is activated.
+                    The base URL of your server where AugmentOS will communicate with your app.
+                    We'll automatically append "/webhook" to handle events when your app is activated.
                   </p>
                 </div>
                 

@@ -74,7 +74,7 @@ export class AudioWriter {
   /**
    * Writes raw LC3 audio data to a file
    */
-  async writeLC3(audioData: ArrayBuffer): Promise<void> {
+  async writeLC3(audioData: ArrayBufferLike): Promise<void> {
     try {
       // Save raw LC3 data to file
       const filePath = path.join(this.dirPath, `${this.userId}_lc3.raw`);
@@ -87,7 +87,7 @@ export class AudioWriter {
   /**
    * Writes PCM audio data to both a raw file and the WAV file
    */
-  async writePCM(audioData: ArrayBuffer): Promise<void> {
+  async writePCM(audioData: ArrayBufferLike): Promise<void> {
     try {
       const buffer = Buffer.from(audioData);
       

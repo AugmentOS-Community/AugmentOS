@@ -7,14 +7,13 @@ import android.util.Log;
 
 import androidx.lifecycle.LifecycleOwner;
 
+import com.augmentos.augmentos_core.AugmentosService;
 import com.augmentos.augmentos_core.R;
 import com.augmentos.augmentos_core.WindowManagerWithTimeouts;
-import com.augmentos.augmentos_core.events.AugmentosSmartGlassesDisconnectedEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.BypassVadForDebuggingEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.NewAsrLanguagesEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SmartGlassesConnectionEvent;
-import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SmartGlassesConnectionStateChangedEvent;
-import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.TextToSpeechEvent;
+import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.AndroidSGC;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.SmartGlassesFontSize;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassesconnection.SmartGlassesRepresentative;
 import com.augmentos.augmentos_core.smarterglassesmanager.speechrecognition.ASR_FRAMEWORKS;
@@ -36,7 +35,6 @@ import com.augmentos.augmentoslib.events.DisconnectedFromCloudEvent;
 import com.augmentos.augmentoslib.events.SmartRingButtonOutputEvent;
 import com.augmentos.augmentoslib.events.SpeechRecOutputEvent;
 import com.augmentos.augmentoslib.events.BulletPointListViewRequestEvent;
-import com.augmentos.augmentoslib.events.CenteredTextViewRequestEvent;
 import com.augmentos.augmentoslib.events.DoubleTextWallViewRequestEvent;
 import com.augmentos.augmentoslib.events.FinalScrollingTextRequestEvent;
 import com.augmentos.augmentoslib.events.HomeScreenEvent;
@@ -72,8 +70,8 @@ public class SmartGlassesManager {
     private static final String TAG = "SGM_Manager"; // Equivalent to AugmentosSmartGlassesService "AugmentOS_AugmentOSService"
 
     // Context and lifecycle owner references
-    private final Context context;
-    private final LifecycleOwner lifecycleOwner;
+    private Context context;
+    private LifecycleOwner lifecycleOwner;
 
     // Components from original service
     private TextToSpeechSystem textToSpeechSystem;
@@ -85,11 +83,18 @@ public class SmartGlassesManager {
     public WindowManagerWithTimeouts windowManager;
 
     // Connection handling
-    private Handler connectHandler;
     private String translationLanguage;
-    private Handler micDebounceHandler = new Handler(Looper.getMainLooper());
+    private Handler micDebounceHandler;
     private Runnable micTurnOffRunnable;
     private boolean pendingMicTurnOff = false;
+    
+    // Get handler with lazy initialization
+    private Handler getMicDebounceHandler() {
+        if (micDebounceHandler == null) {
+            micDebounceHandler = new Handler(Looper.getMainLooper());
+        }
+        return micDebounceHandler;
+    }
     
     private long currTime = 0;
     private long lastPressed = 0;
@@ -115,9 +120,6 @@ public class SmartGlassesManager {
      * Initialize all components - replaces onCreate from service
      */
     public void initialize() {
-        // Setup connection handler
-        connectHandler = new Handler(Looper.getMainLooper());
-
         saveChosenAsrFramework(context, ASR_FRAMEWORKS.AUGMENTOS_ASR_FRAMEWORK);
 
         // Start speech recognition
@@ -150,11 +152,20 @@ public class SmartGlassesManager {
      * Cleanup all resources - replaces onDestroy from service
      */
     public void cleanup() {
-        EventBus.getDefault().unregister(this);
+        // BATTERY OPTIMIZATION: Try-catch for EventBus unregister to prevent crashes
+        // Also ensures we don't attempt to unregister if not registered
+        try {
+            if (EventBus.getDefault().isRegistered(this)) {
+                EventBus.getDefault().unregister(this);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error unregistering from EventBus", e);
+        }
 
         // Kill speech rec
         if (speechRecSwitchSystem != null) {
             speechRecSwitchSystem.destroy();
+            speechRecSwitchSystem = null; // BATTERY OPTIMIZATION: Set to null to avoid memory leaks
         }
 
         // Kill smart glasses connection
@@ -166,20 +177,31 @@ public class SmartGlassesManager {
         // Kill data transmitters
         if (dataObservable != null) {
             dataObservable.onComplete();
+            dataObservable = null; // BATTERY OPTIMIZATION: Set to null to avoid memory leaks
         }
 
         // Kill textToSpeech
         if (textToSpeechSystem != null) {
             textToSpeechSystem.destroy();
+            textToSpeechSystem = null; // BATTERY OPTIMIZATION: Set to null to avoid memory leaks
         }
 
-        // Kill connection retry handler
-        connectHandler.removeCallbacksAndMessages(null);
+        // Clean up micDebounceHandler
+        if (micDebounceHandler != null) {
+            micDebounceHandler.removeCallbacksAndMessages(null);
+            micDebounceHandler = null;
+        }
         
         // Clear window manager
         if (windowManager != null) {
             windowManager.shutdown();
+            windowManager = null; // BATTERY OPTIMIZATION: Set to null to avoid memory leaks
         }
+        
+        // BATTERY OPTIMIZATION: Explicitly remove any references to context
+        context = null;
+        lifecycleOwner = null;
+        eventHandler = null;
     }
 
     /**
@@ -191,14 +213,10 @@ public class SmartGlassesManager {
             smartGlassesRepresentative.destroy();
             smartGlassesRepresentative = null;
         }
-        
-        // Notify about state change
+
         if (eventHandler != null) {
             eventHandler.onGlassesConnectionStateChanged(null, SmartGlassesConnectionState.DISCONNECTED);
         }
-        
-        EventBus.getDefault().post(new AugmentosSmartGlassesDisconnectedEvent());
-        EventBus.getDefault().post(new SmartGlassesConnectionStateChangedEvent(null, SmartGlassesConnectionState.DISCONNECTED));
     }
 
     @Subscribe
@@ -213,18 +231,37 @@ public class SmartGlassesManager {
                     context,
                     device,
                     lifecycleOwner,
-                    dataObservable
+                    dataObservable,
+                    speechRecSwitchSystem // Pass SpeechRecSwitchSystem as the audio processing callback
             );
         }
 
-        // Use connectHandler to do the connecting
-        connectHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                Log.d(TAG, "CONNECTING TO SMART GLASSES");
-                smartGlassesRepresentative.connectToSmartGlasses();
+        // Connect directly instead of using a handler
+        Log.d(TAG, "CONNECTING TO SMART GLASSES");
+        smartGlassesRepresentative.connectToSmartGlasses();
+        
+        // BATTERY OPTIMIZATION: Explicitly register callback with the communicator
+        // This ensures it's immediately available when audio events start coming in
+        if (smartGlassesRepresentative != null && 
+            smartGlassesRepresentative.smartGlassesCommunicator != null && 
+            speechRecSwitchSystem != null) {
+            
+            // Force-setting the callback directly to bypass any potential registration issues
+            smartGlassesRepresentative.smartGlassesCommunicator.audioProcessingCallback = speechRecSwitchSystem;
+            
+            // Also use the standard registration method
+            smartGlassesRepresentative.smartGlassesCommunicator.registerAudioProcessingCallback(speechRecSwitchSystem);
+            
+            Log.d(TAG, "BATTERY OPTIMIZATION: Explicitly registered and set audio processing callback for " + 
+                device.getGlassesOs().name() + " - Callback is: " + (speechRecSwitchSystem != null ? "NOT NULL" : "NULL"));
+            
+            // Special additional setup for AndroidSGC
+            if (smartGlassesRepresentative.smartGlassesCommunicator instanceof AndroidSGC) {
+                ((AndroidSGC) smartGlassesRepresentative.smartGlassesCommunicator)
+                    .registerSpeechRecSystem(speechRecSwitchSystem);
+                Log.d(TAG, "BATTERY OPTIMIZATION: Also registered special AndroidSGC callback");
             }
-        });
+        }
     }
 
     public void findCompatibleDeviceNames(SmartGlassesDevice device) {
@@ -234,18 +271,13 @@ public class SmartGlassesManager {
                     context,
                     device,
                     lifecycleOwner,
-                    dataObservable
+                    dataObservable,
+                    speechRecSwitchSystem // Pass SpeechRecSwitchSystem as the audio processing callback
             );
         }
 
-        // Just call findCompatibleDeviceNames on the same instance
-        connectHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                Log.d(TAG, "FINDING COMPATIBLE SMART GLASSES DEVICE NAMES");
-                smartGlassesRepresentative.findCompatibleDeviceNames();
-            }
-        });
+        Log.d(TAG, "FINDING COMPATIBLE SMART GLASSES DEVICE NAMES");
+        smartGlassesRepresentative.findCompatibleDeviceNames();
     }
 
     public void sendUiUpdate() {
@@ -266,10 +298,6 @@ public class SmartGlassesManager {
                 savePreferredWearable(context, smartGlassesRepresentative.smartGlassesDevice.deviceModelName);
                 
                 setFontSize(SmartGlassesFontSize.MEDIUM);
-                
-                // Post connection state event to EventBus
-                EventBus.getDefault().post(new SmartGlassesConnectionStateChangedEvent(
-                        smartGlassesRepresentative.smartGlassesDevice, connectionState));
             }
         } else {
             connectionState = SmartGlassesConnectionState.DISCONNECTED;
@@ -351,7 +379,19 @@ public class SmartGlassesManager {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putBoolean(context.getResources().getString(R.string.BYPASS_VAD_FOR_DEBUGGING), enabled);
         editor.apply();
-        EventBus.getDefault().post(new BypassVadForDebuggingEvent(enabled));
+
+        // BATTERY OPTIMIZATION: Direct callback instead of EventBus
+        // We'll use the callback pattern in the SpeechRecSwitchSystem
+        if (context instanceof AugmentosService) {
+            AugmentosService service = (AugmentosService) context;
+            if (service.smartGlassesManager != null && 
+                service.smartGlassesManager.speechRecSwitchSystem != null) {
+                service.smartGlassesManager.speechRecSwitchSystem.setBypassVad(enabled);
+            }
+        } else {
+            // Fallback to EventBus when we don't have direct access to the service
+            EventBus.getDefault().post(new BypassVadForDebuggingEvent(enabled));
+        }
     }
     
     public static boolean getBypassAudioEncodingForDebugging(Context context) {
@@ -398,64 +438,89 @@ public class SmartGlassesManager {
         }
     }
 
-    public static void sendReferenceCard(String title, String body) {
-        EventBus.getDefault().post(new ReferenceCardSimpleViewRequestEvent(title, body));
+    public void sendReferenceCard(String title, String body) {
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.displayReferenceCardSimple(title, body);
+        }
     }
     
-    public static void sendTextWall(String text) {
-        EventBus.getDefault().post(new TextWallViewRequestEvent(text));
+    public void sendTextWall(String text) {
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.displayTextWall(text);
+        }
     }
 
-    public static void sendDoubleTextWall(String textTop, String textBottom) {
-        EventBus.getDefault().post(new DoubleTextWallViewRequestEvent(textTop, textBottom));
+    public void sendDoubleTextWall(String textTop, String textBottom) {
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.displayDoubleTextWall(textTop, textBottom);
+        }
     }
 
-    public static void sendRowsCard(String[] rowStrings) {
-        EventBus.getDefault().post(new RowsCardViewRequestEvent(rowStrings));
+    public void sendRowsCard(String[] rowStrings) {
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.displayRowsCard(rowStrings);
+        }
     }
 
     public void sendBulletPointList(String title, String[] bullets) {
-        EventBus.getDefault().post(new BulletPointListViewRequestEvent(title, bullets));
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.displayBulletList(title, bullets);
+        }
     }
 
     public void sendReferenceCard(String title, String body, String imgUrl) {
-        EventBus.getDefault().post(new ReferenceCardImageViewRequestEvent(title, body, imgUrl));
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.displayReferenceCardImage(title, body, imgUrl);
+        }
     }
 
     public void sendBitmap(Bitmap bitmap) {
-        EventBus.getDefault().post(new SendBitmapViewRequestEvent(bitmap));
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.displayBitmap(bitmap);
+        }
     }
 
     public void startScrollingText(String title) {
-        EventBus.getDefault().post(new ScrollingTextViewStartRequestEvent(title));
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.startScrollingTextViewMode(title);
+            smartGlassesRepresentative.smartGlassesCommunicator.scrollingTextViewFinalText(title);
+        }
     }
 
     public void pushScrollingText(String text) {
-        EventBus.getDefault().post(new FinalScrollingTextRequestEvent(text));
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.scrollingTextViewFinalText(text);
+        }
     }
 
     public void stopScrollingText() {
-        EventBus.getDefault().post(new ScrollingTextViewStopRequestEvent());
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.stopScrollingTextViewMode();
+        }
     }
 
     public void sendTextLine(String text) {
-        EventBus.getDefault().post(new TextLineViewRequestEvent(text));
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.displayTextLine(text);
+        }
     }
 
     public void sendTextToSpeech(String text, String languageString) {
-        EventBus.getDefault().post(new TextToSpeechEvent(text, languageString));
-    }
-
-    public void sendCenteredText(String text) {
-        EventBus.getDefault().post(new CenteredTextViewRequestEvent(text));
+        if (textToSpeechSystem != null) {
+            textToSpeechSystem.speak(text, languageString);
+        }
     }
 
     public void sendHomeScreen() {
-        EventBus.getDefault().post(new HomeScreenEvent());
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.showHomeScreen();
+        }
     }
 
     public void setFontSize(SmartGlassesFontSize fontSize) {
-        EventBus.getDefault().post(new com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SetFontSizeEvent(fontSize));
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.setFontSize(fontSize);
+        }
     }
 
     public void changeMicrophoneState(boolean isMicrophoneEnabled) {
@@ -472,7 +537,7 @@ public class SmartGlassesManager {
             // Cancel any pending turn-off operations
             if (pendingMicTurnOff) {
                 Log.d(TAG, "Cancelling pending microphone turn-off");
-                micDebounceHandler.removeCallbacks(micTurnOffRunnable);
+                getMicDebounceHandler().removeCallbacks(micTurnOffRunnable);
                 pendingMicTurnOff = false;
             }
 
@@ -497,7 +562,7 @@ public class SmartGlassesManager {
                 };
 
                 // Schedule the delayed turn-off
-                micDebounceHandler.postDelayed(micTurnOffRunnable, 10000); // 10 seconds
+                getMicDebounceHandler().postDelayed(micTurnOffRunnable, 10000); // 10 seconds
             }
         }
     }
@@ -529,36 +594,6 @@ public class SmartGlassesManager {
         speechRecSwitchSystem.microphoneStateChanged(isMicrophoneEnabled);
     }
 
-    @Subscribe
-    public void onSmartRingButtonEvent(SmartRingButtonOutputEvent event) {
-        int buttonId = event.buttonId;
-        long time = event.timestamp;
-        boolean isDown = event.isDown;
-
-        if(!isDown || buttonId != 1) return;
-        Log.d(TAG, "DETECTED BUTTON PRESS W BUTTON ID: " + buttonId);
-        currTime = System.currentTimeMillis();
-
-        //Detect double presses
-        if(isDown && currTime - lastPressed < doublePressTimeConst) {
-            Log.d(TAG, "Double tap - CurrTime-lastPressed: "+ (currTime-lastPressed));
-        }
-
-        if(isDown) {
-            lastPressed = System.currentTimeMillis();
-        }
-    }
-
-    @Subscribe
-    public void onDiarizeData(DiarizationOutputEvent event) {
-        // Empty in original
-    }
-
-    @Subscribe
-    public void onTranscript(SpeechRecOutputEvent event) {
-        // Empty in original
-    }
-    
     public void clearScreen() {
         sendHomeScreen();
     }

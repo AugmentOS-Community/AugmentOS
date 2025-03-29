@@ -62,7 +62,6 @@ import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.Glass
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.GlassesHeadDownEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.GlassesHeadUpEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.GlassesDisplayPowerEvent;
-import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SmartGlassesConnectionStateChangedEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.HeadUpAngleEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.SmartGlassesDevice;
 import com.augmentos.augmentos_core.smarterglassesmanager.utils.BitmapJavaUtils;
@@ -71,7 +70,6 @@ import com.augmentos.augmentos_core.smarterglassesmanager.SmartGlassesManager;
 import com.augmentos.augmentoslib.ThirdPartyEdgeApp;
 import com.augmentos.augmentos_core.comms.AugmentOsActionsCallback;
 import com.augmentos.augmentos_core.comms.AugmentosBlePeripheral;
-import com.augmentos.augmentos_core.events.AugmentosSmartGlassesDisconnectedEvent;
 import com.augmentos.augmentos_core.events.NewScreenImageEvent;
 import com.augmentos.augmentos_core.events.ThirdPartyEdgeAppErrorEvent;
 import com.augmentos.augmentos_core.events.TriggerSendStatusToAugmentOsManagerEvent;
@@ -199,36 +197,25 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
         new SmartGlassesManager.SmartGlassesEventHandler() {
             @Override
             public void onGlassesConnectionStateChanged(SmartGlassesDevice device, SmartGlassesConnectionState connectionState) {
-                if (connectionState != previousSmartGlassesConnectionState) {
-                    previousSmartGlassesConnectionState = connectionState;
-                    webSocketLifecycleManager.updateSmartGlassesState(connectionState);
-                    
-                    if (device != null) {
-                        ServerComms.getInstance().sendGlassesConnectionState(device.deviceModelName, connectionState.name());
-                    }
-                    
-                    if (connectionState == SmartGlassesConnectionState.CONNECTED) {
-                        Log.d(TAG, "Got event for onGlassesConnected.. CONNECTED ..");
-                        Log.d(TAG, "****************** SENDING REFERENCE CARD: CONNECTED TO AUGMENT OS");
-                        playStartupSequenceOnSmartGlasses();
-                        asrPlanner.updateAsrLanguages();
-                    } else if (connectionState == SmartGlassesConnectionState.DISCONNECTED) {
-                        edgeTpaSystem.stopAllThirdPartyApps();
-                    }
-                    
-                    sendStatusToAugmentOsManager();
+                if (connectionState == previousSmartGlassesConnectionState) return;
+                previousSmartGlassesConnectionState = connectionState;
+
+                webSocketLifecycleManager.updateSmartGlassesState(connectionState);
+
+                ServerComms.getInstance().sendGlassesConnectionState(device == null ? null : device.deviceModelName, connectionState.name());
+
+                if (connectionState == SmartGlassesConnectionState.CONNECTED) {
+                    Log.d(TAG, "Got event for onGlassesConnected.. CONNECTED ..");
+                    Log.d(TAG, "****************** SENDING REFERENCE CARD: CONNECTED TO AUGMENT OS");
+                    playStartupSequenceOnSmartGlasses();
+                    asrPlanner.updateAsrLanguages();
+                } else if (connectionState == SmartGlassesConnectionState.DISCONNECTED) {
+                    edgeTpaSystem.stopAllThirdPartyApps();
                 }
+
+                sendStatusToAugmentOsManager();
             }
         };
-
-    @Subscribe
-    public void onAugmentosSmartGlassesDisconnectedEvent(AugmentosSmartGlassesDisconnectedEvent event){
-        // TODO: For now, stop all apps on disconnection
-        // TODO: Future: Make this nicer
-        webSocketLifecycleManager.updateSmartGlassesState(SmartGlassesConnectionState.DISCONNECTED);
-        edgeTpaSystem.stopAllThirdPartyApps();
-        sendStatusToAugmentOsManager();
-    }
 
     public void onTriggerSendStatusToAugmentOsManagerEvent(TriggerSendStatusToAugmentOsManagerEvent event) {
         sendStatusToAugmentOsManager();
@@ -237,7 +224,14 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
     @Subscribe
     public void onGlassesHeadUpEvent(GlassesHeadUpEvent event){
         ServerComms.getInstance().sendHeadPosition("up");
-        EventBus.getDefault().post(new DisplayGlassesDashboardEvent());
+        // BATTERY OPTIMIZATION: Directly call method instead of posting additional event
+        if (contextualDashboardEnabled && smartGlassesManager != null) {
+            try {
+                displayGlassesDashboardEvent();
+            } catch (JSONException e) {
+                Log.e(TAG, "Error displaying dashboard", e);
+            }
+        }
     }
 
     @Subscribe
@@ -254,13 +248,21 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
         long time = event.timestamp;
 
         Log.d(TAG, "GLASSES TAPPED X TIMES: " + numTaps + " SIDEOFGLASSES: " + sideOfGlasses);
+        
         if (smartGlassesManager == null) return;
         if (numTaps == 2 || numTaps == 3) {
             if (smartGlassesManager.windowManager.isDashboardShowing()) {
                 smartGlassesManager.windowManager.hideDashboard();
             } else {
-                Log.d(TAG, "GOT A DOUBLE+ TAP");
-                EventBus.getDefault().post(new DisplayGlassesDashboardEvent());
+                // BATTERY OPTIMIZATION: Directly call method instead of posting additional event
+                if (contextualDashboardEnabled) {
+                    try {
+                        Log.d(TAG, "GOT A DOUBLE+ TAP");
+                        displayGlassesDashboardEvent();
+                    } catch (JSONException e) {
+                        Log.e(TAG, "Error displaying dashboard", e);
+                    }
+                }
             }
         }
     }
@@ -284,21 +286,23 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
     public JSONArray latestNewsArray = new JSONArray();
     private int latestNewsIndex = 0;
     @Subscribe
-    public void onDisplayGlassesDashboardEvent(DisplayGlassesDashboardEvent event) throws JSONException {
+    public void displayGlassesDashboardEvent() throws JSONException {
         if (!contextualDashboardEnabled) {
             return;
         }
 
         if (cachedDashboardDisplayObject != null) {
-            if (smartGlassesManager != null) {
+            if(smartGlassesManager != null) {
                 Runnable dashboardDisplayRunnable = parseDisplayEventMessage(cachedDashboardDisplayObject);
 
                 smartGlassesManager.windowManager.showDashboard(dashboardDisplayRunnable,
                         -1
                 );
             }
-            if(cachedDashboardDisplayObject != null && blePeripheral != null) {
-                blePeripheral.sendGlassesDisplayEventToManager(cachedDashboardDisplayObject);
+
+            if(blePeripheral != null) {
+                JSONObject newMsg = generateTemplatedJsonFromServer(cachedDashboardDisplayObject);
+                blePeripheral.sendGlassesDisplayEventToManager(newMsg);
             }
             return;
         }
@@ -611,25 +615,12 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
     public void onGlassesDisplayPowerEvent(GlassesDisplayPowerEvent event) {
         if (smartGlassesManager == null) return;
         if (event.turnedOn) {
-            smartGlassesManager.windowManager.showAppLayer("system", () -> smartGlassesManager.sendReferenceCard("AugmentOS Connected", "Screen back on"), 4);
-        }
-    }
-
-    @Subscribe
-    public void onSmartGlassesConnnectionEvent(SmartGlassesConnectionStateChangedEvent event) {
-        if (event.connectionState == previousSmartGlassesConnectionState) return;
-        webSocketLifecycleManager.updateSmartGlassesState(event.connectionState);
-        ServerComms.getInstance().sendGlassesConnectionState(event.device.deviceModelName, event.connectionState.name());
-        sendStatusToAugmentOsManager();
-        if (event.connectionState == SmartGlassesConnectionState.CONNECTED) {
-            Log.d(TAG, "Got event for onGlassesConnected.. CONNECTED ..");
-
-            Log.d(TAG, "****************** SENDING REFERENCE CARD: CONNECTED TO AUGMENT OS");
-            if (smartGlassesManager != null)
-                playStartupSequenceOnSmartGlasses();
-
-            //start transcribing
-            asrPlanner.updateAsrLanguages();
+            // BATTERY OPTIMIZATION: Using direct lambda instead of creating a new Runnable object
+            smartGlassesManager.windowManager.showAppLayer(
+                "system", 
+                () -> smartGlassesManager.sendReferenceCard("AugmentOS Connected", "Screen back on"), 
+                4
+            );
         }
     }
 
@@ -638,15 +629,23 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
             "↑", "↗", "↑", "↖"
     };
 
+    // BATTERY OPTIMIZATION: Use a single Handler instance for the service
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private Runnable animationRunnable;
+    
     private void playStartupSequenceOnSmartGlasses() {
         if (smartGlassesManager == null || smartGlassesManager.windowManager == null) return;
 
-        Handler handler = new Handler(Looper.getMainLooper());
+        // Cancel any existing animation to prevent multiple animations running
+        if (animationRunnable != null) {
+            uiHandler.removeCallbacks(animationRunnable);
+        }
+        
         int delay = 250; // Frame delay
         int totalFrames = ARROW_FRAMES.length;
         int totalCycles = 4;
 
-        Runnable animate = new Runnable() {
+        animationRunnable = new Runnable() {
             int frameIndex = 0;
             int cycles = 0;
 
@@ -666,12 +665,13 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
                     );
 
                     if (alwaysOnStatusBarEnabled) {
-                        new Handler(Looper.getMainLooper()).postDelayed(() ->
+                        // BATTERY OPTIMIZATION: Use the existing handler instead of creating a new one
+                        uiHandler.postDelayed(() ->
                                 smartGlassesManager.windowManager.showAppLayer(
                                     "serverappid",
                                     () -> smartGlassesManager.sendTextWall(cachedDashboardTopLine),
                                     0
-                            ), 3000); // Delay of 1000 milliseconds (3 second)
+                            ), 3000); // Delay of 3 seconds
                     }
 
                     return; // Stop looping
@@ -698,11 +698,12 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
                 if (frameIndex == 0) cycles++;
 
                 // Schedule next frame
-                handler.postDelayed(this, delay);
+                uiHandler.postDelayed(this, delay);
             }
         };
 
-        handler.postDelayed(animate, 350); // Start animation
+        // Start animation with the reused handler
+        uiHandler.postDelayed(animationRunnable, 350);
     }
 
     @Subscribe
@@ -725,6 +726,40 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
 
         if(isDown) {
             lastPressed = System.currentTimeMillis();
+        }
+    }
+
+    private JSONObject generateTemplatedJsonFromServer(JSONObject rawMsg) {
+        // Process all placeholders in the entire JSON structure in a single pass
+        SimpleDateFormat sdf = new SimpleDateFormat("M/dd, h:mm");
+        String formattedDate = sdf.format(new Date());
+
+        // 12-hour time format (with leading zeros for hours)
+        SimpleDateFormat time12Format = new SimpleDateFormat("hh:mm");
+        String time12 = time12Format.format(new Date());
+
+        // 24-hour time format
+        SimpleDateFormat time24Format = new SimpleDateFormat("HH:mm");
+        String time24 = time24Format.format(new Date());
+
+        // Current date with format MM/dd
+        SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd");
+        String currentDate = dateFormat.format(new Date());
+
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("$no_datetime$", formattedDate);
+        placeholders.put("$DATE$", currentDate);
+        placeholders.put("$TIME12$", time12);
+        placeholders.put("$TIME24$", time24);
+        placeholders.put("$GBATT$", (batteryLevel == null ? "" : batteryLevel + "%"));
+
+        try {
+            JSONObject msg = processJSONPlaceholders(rawMsg, placeholders);
+            return msg;
+        } catch (JSONException e) {
+            //throw new RuntimeException(e);
+            Log.d(TAG, "Error processing JSON placeholders: " + e.getMessage());
+            return rawMsg;
         }
     }
 
@@ -772,30 +807,7 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
 
     public Runnable parseDisplayEventMessage(JSONObject rawMsg) {
             try {
-                // Process all placeholders in the entire JSON structure in a single pass
-                SimpleDateFormat sdf = new SimpleDateFormat("M/dd, h:mm");
-                String formattedDate = sdf.format(new Date());
-
-                // 12-hour time format (with leading zeros for hours)
-                SimpleDateFormat time12Format = new SimpleDateFormat("hh:mm");
-                String time12 = time12Format.format(new Date());
-
-                // 24-hour time format
-                SimpleDateFormat time24Format = new SimpleDateFormat("HH:mm");
-                String time24 = time24Format.format(new Date());
-
-                // Current date with format MM/dd
-                SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd");
-                String currentDate = dateFormat.format(new Date());
-
-                Map<String, String> placeholders = new HashMap<>();
-                placeholders.put("$no_datetime$", formattedDate);
-                placeholders.put("$DATE$", currentDate);
-                placeholders.put("$TIME12$", time12);
-                placeholders.put("$TIME24$", time24);
-                placeholders.put("$GBATT$", (batteryLevel == null ? "" : batteryLevel + "%"));
-
-                JSONObject msg = processJSONPlaceholders(rawMsg, placeholders);
+                JSONObject msg = generateTemplatedJsonFromServer(rawMsg);
 
 //                Log.d(TAG, "Parsed message: " + msg.toString());
 
@@ -1155,7 +1167,8 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
                         smartGlassesManager.windowManager.showAppLayer("serverappid", newRunnable, durationMs / 1000); // TODO: either only use seconds or milliseconds
                 }
                 if (blePeripheral != null) {
-                    blePeripheral.sendGlassesDisplayEventToManager(displayData);  //THIS LINE RIGHT HERE ENDS UP TRIGGERING IT
+                    JSONObject newMsg = generateTemplatedJsonFromServer(displayData);
+                    blePeripheral.sendGlassesDisplayEventToManager(newMsg);  //THIS LINE RIGHT HERE ENDS UP TRIGGERING IT
                 }
             }
 
@@ -1259,6 +1272,7 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
     public void onMicStateForFrontendEvent(isMicEnabledForFrontendEvent event) {
         Log.d("AugmentOsService", "Received mic state for frontend event: " + event.micState);
         isMicEnabledForFrontend = event.micState;
+        sendStatusToAugmentOsManager();
     }
 
     @Override
@@ -1575,9 +1589,10 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
             edgeTpaSystem.stopAllThirdPartyApps();
         }
         
-        // Stop location updates
+        // Stop location updates and cleanup
         if(locationSystem != null) {
-            locationSystem.stopLocationUpdates();
+            // BATTERY OPTIMIZATION: Use cleanup method instead of just stopping updates
+            locationSystem.cleanup();
         }
         
         // Clean up screen capture resources
@@ -1592,6 +1607,14 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
             mediaProjection.stop();
             mediaProjection = null;
         }
+        
+        // BATTERY OPTIMIZATION: Clean up our animation handler
+        if (animationRunnable != null) {
+            uiHandler.removeCallbacks(animationRunnable);
+            animationRunnable = null;
+        }
+        // Remove all pending posts to avoid any UI updates after destruction
+        uiHandler.removeCallbacksAndMessages(null);
         
         // Reset glasses connection
         if (smartGlassesManager != null) {
@@ -1625,11 +1648,18 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
     @Override
     public void onDestroy(){
         Log.d(TAG, "Service being destroyed");
+        
+        // BATTERY OPTIMIZATION: Cleanup resources first, then unregister from EventBus
+        // This prevents unhandled EventBus events during cleanup
         cleanupAllResources();
         
-        // Unregister from EventBus last, as other cleanup methods might post events
-        if (EventBus.getDefault().isRegistered(this)) {
-            EventBus.getDefault().unregister(this);
+        // Unregister from EventBus with proper error handling
+        try {
+            if (EventBus.getDefault().isRegistered(this)) {
+                EventBus.getDefault().unregister(this);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error unregistering from EventBus", e);
         }
         
         super.onDestroy();

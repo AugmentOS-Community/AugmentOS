@@ -7,7 +7,6 @@ import android.graphics.Bitmap;
 import android.util.Log;
 
 import com.augmentos.augmentoslib.events.BulletPointListViewRequestEvent;
-import com.augmentos.augmentoslib.events.CenteredTextViewRequestEvent;
 import com.augmentos.augmentoslib.events.CommandTriggeredEvent;
 import com.augmentos.augmentoslib.events.CoreToManagerOutputEvent;
 import com.augmentos.augmentoslib.events.DisplayCustomContentRequestEvent;
@@ -192,10 +191,6 @@ public class AugmentOSLib {
 
     public void sendTextLine(String text) {
         AugmentOSLibBus.getInstance().post(new TextLineViewRequestEvent(text));
-    }
-
-    public void sendCenteredText(String text){
-        AugmentOSLibBus.getInstance().post(new CenteredTextViewRequestEvent(text));
     }
 
     public void sendTextWall(String text){

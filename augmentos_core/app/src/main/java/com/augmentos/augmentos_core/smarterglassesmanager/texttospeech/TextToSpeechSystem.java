@@ -62,6 +62,44 @@ public class TextToSpeechSystem {
     public void speak(String text){
         speak(text, Locale.ENGLISH) ;
     }
+    
+    public void speak(String text, String languageString) {
+        Locale language = Locale.ENGLISH; // Default to English
+        switch (languageString.toLowerCase()) {
+            case "english":
+                language = Locale.ENGLISH;
+                break;
+            case "chinese":
+                language = Locale.CHINESE; // or Locale.SIMPLIFIED_CHINESE for more specificity
+                break;
+            case "chinese (pinyin)":
+                language = Locale.CHINESE; // or Locale.SIMPLIFIED_CHINESE for more specificity
+                break;
+            case "italian":
+                language = Locale.ITALIAN;
+                break;
+            case "japanese":
+                language = Locale.JAPANESE;
+                break;
+            case "spanish":
+                language = new Locale("es", "ES");
+                break;
+            case "russian":
+                language = new Locale("ru", "RU");
+                break;
+            case "dutch":
+                language = new Locale("nl", "NL");
+                break;
+            case "hebrew":
+                language = new Locale("iw", "IL");
+                break;
+            default:
+                // Log or alert the user that the language is not supported for direct Locale constants
+                Log.d(TAG, "Language not supported by TTS: " + languageString);
+                break;
+        }
+        speak(text, language);
+    }
 
     public void speak(String text, Locale locale){
         Log.d(TAG, "TTS speaking text: " + text);
