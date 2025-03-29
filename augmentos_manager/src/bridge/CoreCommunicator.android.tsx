@@ -6,9 +6,6 @@ import { isAugmentOsCoreInstalled, isLocationServicesEnabled as checkLocationSer
 import { check, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import BleManager from 'react-native-ble-manager';
 
-// For checking if location services are enabled
-const { ServiceStarter } = NativeModules;
-
 const { CoreCommsService } = NativeModules;
 const eventEmitter = new NativeEventEmitter(CoreCommsService);
 
@@ -551,6 +548,14 @@ export class CoreCommunicator extends EventEmitter {
     return await this.sendData({
       command: 'delete_auth_secret_key',
     });
+  }
+
+  async startService() {
+    CoreCommsService.startService();
+  }
+
+  async stopService() {
+    CoreCommsService.stopService();
   }
 }
 

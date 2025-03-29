@@ -3,11 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
-  Image,
-  Platform,
-  GestureResponderEvent,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -74,7 +70,6 @@ const GlassesPairingGuidePreparationScreen: React.FC<GlassesPairingGuidePreparat
     <View style={[styles.container, isDarkTheme ? styles.darkBackground : styles.lightBackground]}>
       <ScrollView style={styles.scrollViewContainer}>
         <View style={styles.contentContainer}>
-          <PairingDeviceInfo glassesModelName={glassesModelName} isDarkTheme={isDarkTheme} />
           {getPairingGuide(glassesModelName, isDarkTheme)}
         </View>
       </ScrollView>

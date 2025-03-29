@@ -121,8 +121,9 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
       ]}>
       <ScrollView style={styles.scrollViewContainer}>
 
-        <TouchableOpacity
-          style={styles.settingItem}
+        {Platform.OS === 'android' && (
+          <TouchableOpacity
+            style={styles.settingItem}
           onPress={() => {
             navigation.navigate('PhoneNotificationSettings');
           }}>
@@ -138,9 +139,10 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
           <Icon
             name="angle-right"
             size={20}
-            color={isDarkTheme ? styles.lightIcon.color : styles.darkIcon.color}
-          />
-        </TouchableOpacity>
+              color={isDarkTheme ? styles.lightIcon.color : styles.darkIcon.color}
+            />
+          </TouchableOpacity>
+        )}
 
         <View style={styles.settingItem}>
           <View style={styles.settingTextContainer}>

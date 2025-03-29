@@ -6,6 +6,7 @@ import { useStatus } from '../providers/AugmentOSStatusProvider';
 import NavigationBar from '../components/NavigationBar';
 import LoadingComponent from '../components/LoadingComponent';
 import InternetConnectionFallbackComponent from '../components/InternetConnectionFallbackComponent';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../AuthContext';
 
 interface AppStoreWebProps {
@@ -63,7 +64,7 @@ const AppStoreWeb: React.FC<AppStoreWebProps> = ({ isDarkTheme }) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
+    <SafeAreaView style={{ flex: 1 }}>
       {hasError ? (
         <InternetConnectionFallbackComponent 
           retry={() => setHasError(false)} isDarkTheme={false}         />
@@ -92,20 +93,8 @@ const AppStoreWeb: React.FC<AppStoreWebProps> = ({ isDarkTheme }) => {
           />
         </View>
       )}
-
-      {/* Navigation Bar remains visible */}
-      <View
-        style={[
-          styles.navigationBarContainer,
-          {
-            backgroundColor: theme.headerBg,
-            borderTopColor: theme.borderColor,
-          },
-        ]}
-      >
-        <NavigationBar toggleTheme={() => {}} isDarkTheme={isDarkTheme} />
-      </View>
-    </View>
+      <NavigationBar toggleTheme={() => {}} isDarkTheme={isDarkTheme} />
+    </SafeAreaView>
   );
 };
 
@@ -115,7 +104,6 @@ const styles = StyleSheet.create({
   },
   webViewContainer: {
     flex: 1,
-    marginBottom: 55, // Space for the navigation bar
   },
   webView: {
     flex: 1,
@@ -134,13 +122,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     fontFamily: 'Montserrat-Regular',
-  },
-  navigationBarContainer: {
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
-    borderTopWidth: 1,
-    paddingBottom: 20,
   },
 });
 

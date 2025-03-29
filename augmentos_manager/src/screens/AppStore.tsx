@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
+  SafeAreaView,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,16 +14,16 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 import { RootStackParamList, AppStoreItem } from '../components/types';
 import NavigationBar from '../components/NavigationBar';
-import AppItem from '../components/AppStore/AppItem.tsx';
-import InternetConnectionFallbackComponent from '../components/InternetConnectionFallbackComponent.tsx';
+import AppItem from '../components/AppStore/AppItem';
+import InternetConnectionFallbackComponent from '../components/InternetConnectionFallbackComponent';
 import LoadingComponent from '../components/LoadingComponent'; // Import the LoadingComponent
 
 interface AppStoreProps {
   isDarkTheme: boolean;
 }
 
-import BackendServerComms from '../backend_comms/BackendServerComms.tsx';
-import { GET_APP_STORE_DATA_ENDPOINT } from '../consts.tsx';
+import BackendServerComms from '../backend_comms/BackendServerComms';
+import { GET_APP_STORE_DATA_ENDPOINT } from '../consts';
 
 const AppStore: React.FC<AppStoreProps> = ({ isDarkTheme }) => {
   const navigation =
@@ -154,7 +155,7 @@ const AppStore: React.FC<AppStoreProps> = ({ isDarkTheme }) => {
   // );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       {/* Conditionally render Header and Search Bar when there is no error and not loading */}
       {!isError && !isLoading && (
         <View
@@ -273,7 +274,7 @@ const AppStore: React.FC<AppStoreProps> = ({ isDarkTheme }) => {
       >
         <NavigationBar toggleTheme={() => {}} isDarkTheme={isDarkTheme} />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

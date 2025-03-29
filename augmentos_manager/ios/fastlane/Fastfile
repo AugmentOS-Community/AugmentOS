@@ -1,0 +1,29 @@
+# Fastfile
+# Place this in your project directory under ./fastlane/Fastfile
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    # Ensure we're using the correct certificates and provisioning profiles
+    # You may need to configure match separately first
+    match(type: "appstore")
+    
+    # Increment build number (optional)
+    increment_build_number
+    
+    # Build the app
+    build_app(
+      scheme: "AugmentOS_Manager", # Replace with your app's scheme name
+      workspace: "AugmentOS_Manager.xcworkspace", # Or .xcodeproj if you don't use CocoaPods
+      export_method: "app-store",
+      clean: true
+    )
+    
+    # Upload to TestFlight
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true # Set to false if you want the script to wait for processing
+    )
+  end
+end

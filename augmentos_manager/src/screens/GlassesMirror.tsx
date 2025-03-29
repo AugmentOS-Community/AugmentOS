@@ -6,14 +6,15 @@ import {
   Image,
   TouchableOpacity,
   StatusBar,
+  SafeAreaView,
   Platform,
   PermissionsAndroid,
   BackHandler,
 } from 'react-native';
 import { RNCamera } from 'react-native-camera';
-import NavigationBar from '../components/NavigationBar.tsx';
-import { useStatus } from '../providers/AugmentOSStatusProvider.tsx';
-import { useGlassesMirror } from '../providers/GlassesMirrorContext.tsx';
+import NavigationBar from '../components/NavigationBar';
+import { useStatus } from '../providers/AugmentOSStatusProvider';
+import { useGlassesMirror } from '../providers/GlassesMirrorContext';
 
 interface GlassesMirrorProps {
   isDarkTheme: boolean;
@@ -96,7 +97,7 @@ const GlassesMirror: React.FC<GlassesMirrorProps> = ({isDarkTheme}) => {
   };
 
   return (
-    <View
+    <SafeAreaView
       style={[
         styles.container,
         isFullScreen ? styles.fullscreenContainer : (isDarkTheme ? styles.darkContainer : styles.lightContainer),
@@ -214,7 +215,7 @@ const GlassesMirror: React.FC<GlassesMirrorProps> = ({isDarkTheme}) => {
       {!isFullScreen && (
         <NavigationBar isDarkTheme={isDarkTheme} toggleTheme={() => {}} />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#121212',
   },
   lightContainer: {
-    backgroundColor: '#f8f9fa',
+    // backgroundColor: '#f8f9fa',
   },
   fullscreenContainer: {
     flex: 1,
@@ -315,8 +316,6 @@ const styles = StyleSheet.create({
   titleContainer: {
     paddingVertical: 15,
     paddingHorizontal: 20,
-    marginHorizontal: -20,
-    marginTop: -20,
     marginBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -326,7 +325,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#333333',
   },
   titleContainerLight: {
-    backgroundColor: '#ffffff',
+    // backgroundColor: '#ffffff',
   },
   title: {
     fontSize: 24,

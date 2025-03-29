@@ -75,6 +75,8 @@ const ConnectingToPuckComponent = ({
   };
 
   useEffect(() => {
+    console.log("STATUS", status);
+
     // Don't show the error UI for initial load attempts and avoid repeating failed attempts
     if (connectionError || hasAttemptedConnection.current) return;
     

@@ -47,12 +47,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 16,
     marginLeft: 8,
     zIndex: 1,
     minHeight: 60,
     ...Platform.select({
       ios: {
-        paddingTop: 44, // Additional padding for iOS status bar
+        paddingTop: 16,
       },
       android: {
         paddingTop: 16,
