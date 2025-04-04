@@ -26,7 +26,7 @@ A *session* represents the active connection between a user's smart glasses and 
 *   **App Association:** When a user starts your app, a new session is created specifically for that user and your app.
 *   **Lifecycle:** Sessions are created when a user starts your app and are terminated when the user stops the app, the glasses disconnect, or an error occurs.
 
-The `TpaSession` class in the SDK provides methods for interacting with a session.
+The [`TpaSession`](/reference/tpa-session) class in the SDK provides methods for interacting with a session.
 
 ## 3. WebSockets
 
@@ -35,18 +35,18 @@ WebSockets are the primary communication mechanism between:
 *   Your app and AugmentOS Cloud.
 *   AugmentOS Cloud and the smart glasses.
 
-The SDK handles the complexities of WebSocket connections for you. You primarily interact with the `TpaSession` object, which provides methods for sending and receiving messages.
+The SDK handles the complexities of WebSocket connections for you. You primarily interact with the [`TpaSession`](/reference/tpa-session) object, which provides methods for sending and receiving messages.
 
 ## 4. Events and Data Streams
 
 AugmentOS Cloud sends real-time data to your app as *events*. These events represent:
 
-*   **User Input:** Button presses, head movements.
-*   **Sensor Data:** Location, battery level.
-*   **System Events:** Connection status, settings changes.
-*   **Processed Data:**  Speech transcription, phone notifications.
+*   **User Input:** [Button presses](/reference/interfaces/event-types#buttonpress), [head movements](/reference/interfaces/event-types#headposition).
+*   **Sensor Data:** [Location](/reference/interfaces/event-types#locationupdate), [battery level](/reference/interfaces/event-types#glassesbatteryupdate).
+*   **System Events:** Connection status, [settings changes](/reference/interfaces/config-types#appsettings).
+*   **Processed Data:**  [Speech transcription](/reference/interfaces/event-types#transcriptiondata), [phone notifications](/reference/interfaces/event-types#phonenotification).
 
-Your app *subscribes* to the events it needs.  The `EventManager` class (accessible through `session.events`) provides methods for subscribing to and handling events.
+Your app *subscribes* to the events it needs.  The [`EventManager`](/reference/managers/event-manager) class (accessible through `session.events`) provides methods for subscribing to and handling events.
 
 See the [Events](./events) section for a complete list of available events.
 
@@ -54,12 +54,12 @@ See the [Events](./events) section for a complete list of available events.
 
 Layouts control what is displayed on the smart glasses' screen.  The SDK provides several pre-defined layout types:
 
-*   `TextWall`:  Displays a single block of text.
-*   `DoubleTextWall`:  Displays two blocks of text (top and bottom).
-*   `ReferenceCard`:  Displays a card with a title and content.
-*   `BitmapView`: Displays an image on the Glasses.
+*   [`TextWall`](/reference/interfaces/layout-types#textwall):  Displays a single block of text.
+*   [`DoubleTextWall`](/reference/interfaces/layout-types#doubletextwall):  Displays two blocks of text (top and bottom).
+*   [`ReferenceCard`](/reference/interfaces/layout-types#referencecard):  Displays a card with a title and content.
+*   [`BitmapView`](/reference/interfaces/layout-types#bitmapview): Displays an image on the Glasses.
 
-You use the `LayoutManager` (accessible through `session.layouts`) to display layouts.
+You use the [`LayoutManager`](/reference/managers/layout-manager) (accessible through `session.layouts`) to display layouts.
 
 See the [Layouts](./layouts) section for more details.
 
@@ -69,8 +69,8 @@ A typical AugmentOS app lifecycle looks like this:
 
 1.  **Webhook Request:**  When a user starts your app on their glasses, AugmentOS Cloud sends an HTTP POST request (a "webhook") to your app's pre-defined webhook URL. This request includes a unique `sessionId` and `userId`.
 2.  **WebSocket Connection:**  Your app receives the webhook and uses the `sessionId` to establish a WebSocket connection to AugmentOS Cloud.
-3.  **Subscription:** Your app subscribes to the events it needs (e.g., transcription, head position).
-4.  **Event Handling:**  Your app receives events from AugmentOS Cloud and processes them. This often involves updating the display using the `LayoutManager`.
+3.  **Subscription:** Your app subscribes to the events it needs (e.g., [transcription](/reference/interfaces/event-types#transcriptiondata), [head position](/reference/interfaces/event-types#headposition)).
+4.  **Event Handling:**  Your app receives events from AugmentOS Cloud and processes them. This often involves updating the display using the [`LayoutManager`](/reference/managers/layout-manager).
 5.  **Session Termination:** The session ends when the user stops the app, the glasses disconnect, or an error occurs.
 
 See [App Lifecycle](./tpa-lifecycle) for a more detailed explanation.
