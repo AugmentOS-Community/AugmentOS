@@ -15,6 +15,9 @@
   --ifm-color-primary-lightest: #3cad6e;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-font-size-base: 16px;
+  --ifm-font-size-small: 12px;
+  --ifm-font-size-base: 16pt;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -27,4 +30,92 @@
   --ifm-color-primary-lighter: #32d8b4;
   --ifm-color-primary-lightest: #4fddbf;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Additional global styles */
+html {
+  font-size: 16pt;
+}
+
+body {
+  font-size: 1rem;
+}
+
+/* Ensure no text is smaller than 12pt */
+small, .small {
+  font-size: 0.75rem !important; /* 12pt */
+  min-height: 12pt;
+}
+
+/* Ensure code blocks and inline code have adequate size */
+code, pre {
+  font-size: 0.875rem !important; /* 14pt */
+}
+
+/* Make table text more readable */
+table {
+  font-size: 0.875rem;
+}
+
+/* Ensure footer text is readable */
+.footer {
+  font-size: 0.875rem;
+}
+
+/* Make AugmentOSArchImage responsive on mobile */
+@media screen and (max-width: 600px) {
+  [data-theme='light'] img[alt*="architecture-light"], 
+  [data-theme='dark'] img[alt*="architecture-dark"] {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Sidebar navigation */
+.menu {
+  font-size: 12pt;
+}
+
+/* Additional elements to make sure they're at least 12pt */
+button, input, textarea, select, label, .navbar {
+  font-size: 12pt;
+}
+
+/* Main readable paragraph text */
+p, ul, ol, li, a {
+  font-size: 14pt;
+  line-height: 1.6;
+}
+
+/* Headings should be larger than base font */
+h1 {
+  font-size: 24pt;
+}
+
+h2 {
+  font-size: 20pt;
+}
+
+h3 {
+  font-size: 16pt;
+}
+
+h4, h5, h6 {
+  font-size: 14pt;
+}
+
+/* Make the pagination/next box 2x wider and ensure it stays on the right */
+.pagination-nav {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1rem;
+}
+
+.pagination-nav__item--prev {
+  grid-column: 1;
+}
+
+.pagination-nav__item--next {
+  grid-column: 2;
+  text-align: right; /* Align content to the right */
 }

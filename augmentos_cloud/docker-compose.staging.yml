@@ -11,6 +11,7 @@ services:
       bash -c "bun install && 
               cd packages/utils && bun run build &&
               cd ../sdk && bun run build &&
+              cd ../config && bun run build &&
               cd ../agents && bun run build"
     networks:
       - augmentos-network-staging
@@ -244,7 +245,6 @@ services:
       - cloud
     labels:
       com.datadoghq.ad.logs: '[{"source": "live-translation", "service": "live-translation"}]'
-
 
 networks:
   augmentos-network-staging:

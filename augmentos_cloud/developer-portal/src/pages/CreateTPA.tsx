@@ -24,7 +24,7 @@ const CreateTPA: React.FC = () => {
     packageName: '',
     name: '',
     description: '',
-    webhookURL: '',
+    publicUrl: '',
     logoURL: '',
     webviewURL: '',
     // isPublic: false,
@@ -81,15 +81,15 @@ const CreateTPA: React.FC = () => {
       newErrors.description = 'Description is required';
     }
 
-    // Webhook URL validation
-    if (!formData.webhookURL) {
-      newErrors.webhookURL = 'Webhook URL is required';
+    // Public URL validation
+    if (!formData.publicUrl) {
+      newErrors.publicUrl = 'Server URL is required';
     } else {
       try {
-        new URL(formData.webhookURL);
+        new URL(formData.publicUrl);
       } catch (e) {
         console.error(e);
-        newErrors.webhookURL = 'Please enter a valid URL';
+        newErrors.publicUrl = 'Please enter a valid URL';
       }
     }
 
@@ -273,22 +273,23 @@ const CreateTPA: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="webhookURL">
-                  Webhook URL <span className="text-red-500">*</span>
+                <Label htmlFor="publicUrl">
+                  Server URL <span className="text-red-500">*</span>
                 </Label>
                 <Input
-                  id="webhookURL"
-                  name="webhookURL"
-                  value={formData.webhookURL}
+                  id="publicUrl"
+                  name="publicUrl"
+                  value={formData.publicUrl}
                   onChange={handleChange}
-                  placeholder="https://yourserver.com/webhook"
-                  className={errors.webhookURL ? "border-red-500" : ""}
+                  placeholder="https://yourserver.com"
+                  className={errors.publicUrl ? "border-red-500" : ""}
                 />
-                {errors.webhookURL && (
-                  <p className="text-xs text-red-500 mt-1">{errors.webhookURL}</p>
+                {errors.publicUrl && (
+                  <p className="text-xs text-red-500 mt-1">{errors.publicUrl}</p>
                 )}
                 <p className="text-xs text-gray-500">
-                  The endpoint where AugmentOS will send events when your app is activated.
+                  The base URL of your server where AugmentOS will communicate with your app.
+                  We'll automatically append "/webhook" to handle events when your app is activated.
                 </p>
               </div>
 

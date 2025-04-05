@@ -132,11 +132,12 @@ export class SubscriptionService {
 
   /**
    * Gets all TPAs subscribed to a specific stream type
-   * @param sessionId - User session identifier
+   * @param session - User session identifier
    * @param subscription - Subscription type to check
    * @returns Array of app IDs subscribed to the stream
    */
-  getSubscribedApps(sessionId: string, subscription: ExtendedStreamType): string[] {
+  getSubscribedApps(userSession: UserSession, subscription: ExtendedStreamType): string[] {
+    const sessionId = userSession.sessionId;
     const subscribedApps: string[] = [];
     // console.log("🎤 1111 Subscribed apps: ", this.subscriptions.entries());
 

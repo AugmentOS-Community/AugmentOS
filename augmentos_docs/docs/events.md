@@ -1,6 +1,8 @@
-# AugmentOS Cloud TPA Events
+# AugmentOS Cloud Events
 
-AugmentOS Cloud uses an event-driven architecture to communicate real-time data from the smartglasses to your Third-Party Application (TPA). Your TPA can *subscribe* to specific events and receive data as it becomes available. This document describes how to subscribe to events, the available event types, and the data structure for each event.
+*Last updated: March 31, 2025*
+
+AugmentOS Cloud uses an event-driven architecture to communicate real-time data from the smartglasses to your AugmentOS app. Your app can *subscribe* to specific events and receive data as it becomes available. This document describes how to subscribe to events, the available event types, and the data structure for each event.
 
 ## Subscribing to Events
 
@@ -103,8 +105,8 @@ The following table lists the available event types, their descriptions, and the
 | Notification Dismissed         | `StreamType.NOTIFICATION_DISMISSED` | User dismissed a notification.                                                    | `NotificationDismissed`          |
 | Audio Chunk                    | `StreamType.AUDIO_CHUNK`            | Raw audio data (for advanced use cases).                                      | `ArrayBuffer`                   |
 | Video                         |  `StreamType.VIDEO`               | Raw video data.                                             | `ArrayBuffer`       |
-| Start App                      | `StreamType.START_APP`              | User requested to start your TPA (you don't usually need to handle this directly). | `undefined` |
-| Stop App                       | `StreamType.STOP_APP`               | User requested to stop your TPA (you don't usually need to handle this directly).  | `undefined` |
+| Start App                      | `StreamType.START_APP`              | User requested to start your app (you don't usually need to handle this directly). | `undefined` |
+| Stop App                       | `StreamType.STOP_APP`               | User requested to stop your app (you don't usually need to handle this directly).  | `undefined` |
 | Open Dashboard                 | `StreamType.OPEN_DASHBOARD`             | User requested to open the dashboard (you don't usually need to handle this directly).              | `undefined` |
 | All                    | `StreamType.ALL`           | All available streams for the user.                        | `any`     |
 | Wildcard               | `StreamType.WILDCARD`     |   Wildcard for all available streams for the user.                   | `any`      |

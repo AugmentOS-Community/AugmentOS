@@ -6,10 +6,14 @@
 
   "scripts": {
     "build": "concurrently \"cd packages/sdk && bun run build\" \"cd packages/utils && bun run build\" \"cd packages/agents && bun run build\"",
+    "setup-deps": "bun install --no-link",
 
-    "dev": "docker-compose -f docker-compose.dev.yml -p dev up -d",
+    "dev": "docker-compose -f docker-compose.dev.yml -p dev up",
+    "dev:detached": "docker-compose -f docker-compose.dev.yml -p dev up -d",
+    "dev:rebuild": "docker-compose -f docker-compose.dev.yml -p dev up -d --build --remove-orphans",
     "dev:stop": "docker-compose -f docker-compose.dev.yml -p dev down --timeout 5 || docker kill $(docker ps -q)",
     "dev:setup-network": "docker network create augmentos-network-dev",
+    "dev:clean": "docker-compose -f docker-compose.dev.yml -p dev down -v && docker system prune -f",
 
     "ngrok:isaiah": "ngrok http --url=isaiah.augmentos.cloud 8002",
     "dev:ngrok:isaiah": "ngrok http --url=isaiah.augmentos.cloud host.docker.internal:8002",
@@ -19,15 +23,20 @@
     "staging:stop": "docker-compose -f docker-compose.staging.yml -p staging down",
     "staging:deploy": "bun run staging:stop && bun run staging",
     "staging:setup-network": "docker network create augmentos-network-staging",
+    "staging:logs": "docker-compose -f docker-compose.staging.yml -p staging logs -f --tail=50",
 
     "prod": "docker-compose -f docker-compose.yml -p prod up -d",
     "prod:stop": "docker-compose -f docker-compose.yml -p prod down",
     "prod:deploy": "bun run prod:stop && bun run prod",
     "prod:setup-network": "docker network create augmentos-network",
 
-
     "logs": "docker-compose -f docker-compose.dev.yml -p dev logs -f --tail=0",
-    "logs:cloud": "docker-compose -f docker-compose.dev.yml -p dev logs -f cloud --tail=0"
+    "logs:cloud": "docker-compose -f docker-compose.dev.yml -p dev logs -f cloud --tail=0",
+    "logs:live-captions": "docker-compose -f docker-compose.dev.yml -p dev logs -f live-captions --tail=50",
+    "logs:service": "docker-compose -f docker-compose.dev.yml -p dev logs -f",
+    
+    "test": "bun run packages/cloud/src/tests/run-tests.ts",
+    "test:display": "bun run packages/cloud/src/tests/display-manager.test.ts"
 },
 
   "dependencies": {

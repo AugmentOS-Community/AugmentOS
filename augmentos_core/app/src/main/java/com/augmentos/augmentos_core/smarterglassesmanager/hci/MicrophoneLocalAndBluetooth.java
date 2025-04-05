@@ -20,12 +20,23 @@ import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 
+import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.AudioChunkNewEvent;
+import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.LC3AudioChunkNewEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.ScoStartEvent;
+import com.augmentos.smartglassesmanager.cpp.L3cCpp;
 
 import org.greenrobot.eventbus.EventBus;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MicrophoneLocalAndBluetooth {
@@ -414,29 +425,132 @@ public class MicrophoneLocalAndBluetooth {
         }
     }
 
+
+
+
+    // ------------------------------------------------------------------------
+    // PCM RECORDING SYSTEM (ADDED)
+    // ------------------------------------------------------------------------
+    private FileOutputStream pcmFileOutputStream = null;
+    private long recordingStartTime = 0;
+    private long bytesWritten = 0;
+    private static final long RECORDING_DURATION_MS = 20000; // 20 seconds
+    private static final String PCM_RECORDING_FOLDER = "AugmentOS_SOURCE_PCM_Recordings";
+
+    /**
+     * Writes audio data to the PCM file and checks if we've reached the recording duration.
+     */
+    private void writeToPcmFile(byte[] audioData) {
+        if (pcmFileOutputStream == null) {
+            startPcmRecording();
+        }
+
+        try {
+            // Write the audio data to file
+            pcmFileOutputStream.write(audioData);
+            bytesWritten += audioData.length;
+
+            // Check if we've recorded for the specified duration
+            long elapsedTime = System.currentTimeMillis() - recordingStartTime;
+            if (elapsedTime >= RECORDING_DURATION_MS) {
+                stopPcmRecording();
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error writing to PCM file", e);
+            stopPcmRecording();
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // PCM RECORDING METHODS (ADDED)
+    // ------------------------------------------------------------------------
+
+    /**
+     * Starts a new PCM recording session, creating a new file.
+     */
+    private void startPcmRecording() {
+        try {
+            // Create directory if it doesn't exist
+            File recordingDir = new File(mContext.getExternalFilesDir(null), PCM_RECORDING_FOLDER);
+            if (!recordingDir.exists()) {
+                recordingDir.mkdirs();
+            }
+
+            // Create a unique filename with timestamp
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US);
+            String timestamp = sdf.format(new Date());
+            File outputFile = new File(recordingDir, "pcm_recording_" + timestamp + ".pcm");
+
+            // Open file stream
+            pcmFileOutputStream = new FileOutputStream(outputFile);
+            recordingStartTime = System.currentTimeMillis();
+            bytesWritten = 0;
+
+            Log.e(TAG, "📢 PCM RECORDING STARTED: " + outputFile.getAbsolutePath() + " 📢");
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to create PCM recording file", e);
+            pcmFileOutputStream = null;
+        }
+    }
+
+    /**
+     * Closes the current PCM recording file.
+     */
+    private void stopPcmRecording() {
+        if (pcmFileOutputStream != null) {
+            try {
+                pcmFileOutputStream.close();
+                Log.e(TAG, "📢 PCM RECORDING COMPLETED: " + bytesWritten + " bytes written 📢");
+                // Clear the file stream reference but don't start a new recording
+                pcmFileOutputStream = null;
+            } catch (IOException e) {
+                Log.e(TAG, "Error closing PCM file", e);
+            }
+        }
+    }
+
+
+    private static final int SAMPLE_RATE_HZ = 16000;
+    private static final int FRAME_DURATION_US = 10000; // 10 ms
+    private static final int SAMPLES_PER_FRAME = SAMPLE_RATE_HZ / (1_000_000 / FRAME_DURATION_US); // 160 samples
+    private static final int BYTES_PER_FRAME = SAMPLES_PER_FRAME * 2; // 16-bit = 2 bytes/sample = 320 bytes
+    private ByteArrayOutputStream remainderBuffer = new ByteArrayOutputStream();
+
     private class RecordingRunnable implements Runnable {
+        private final ByteArrayOutputStream remainderBuffer = new ByteArrayOutputStream();
+        private long encoderPtr = 0;
+        private long decoderPtr = 0;
+
         @Override
         public void run() {
+            encoderPtr = L3cCpp.initEncoder();
+            decoderPtr = L3cCpp.initDecoder();
+            if (encoderPtr == 0) {
+                Log.e(TAG, "Failed to init LC3 encoder");
+                return;
+            }
+            if (decoderPtr == 0) {
+                Log.e(TAG, "Failed to init LC3 decoder");
+                return;
+            }
+
             short[] short_buffer = new short[bufferSize];
             ByteBuffer b_buffer = ByteBuffer.allocate(short_buffer.length * 2);
 
             AudioRecord localRecorder;
+
             while (recordingInProgress.get() && !isDestroyed.get() && !Thread.currentThread().isInterrupted()) {
-                // Store a local reference to the recorder to prevent null pointer issues
                 localRecorder = recorder;
                 try {
-                    // Check if the local recorder is still valid
-                    if (localRecorder == null) {
-                        // Exit the loop if recorder has been released
-                        break;
-                    }
+                    if (localRecorder == null) break;
 
                     int result = localRecorder.read(short_buffer, 0, short_buffer.length);
                     if (result < 0) {
-                        Log.d(TAG, "Error reading from AudioRecord: " + getBufferReadFailureReason(result));
+                        Log.d(TAG, "Error reading from AudioRecord"); //: " + getBufferReadFailureReason(result));
                         break;
                     }
 
+                    // Callback
                     b_buffer.order(ByteOrder.LITTLE_ENDIAN);
                     b_buffer.asShortBuffer().put(short_buffer);
                     if (!isDestroyed.get() && mChunkCallback != null) {
@@ -444,13 +558,39 @@ public class MicrophoneLocalAndBluetooth {
                     }
                     b_buffer.clear();
 
-                    // Update the local recorder reference for the next iteration
-                    localRecorder = recorder;
+                    // --- PCM -> LC3 encode, with carryover buffering ---
 
-                    // Add a small sleep to prevent thread from hogging CPU
+                    byte[] newPcmBytes = new byte[result * 2];
+                    ByteBuffer.wrap(newPcmBytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(short_buffer, 0, result);
+                    remainderBuffer.write(newPcmBytes);
+
+                    byte[] fullBuffer = remainderBuffer.toByteArray();
+                    int fullLength = fullBuffer.length;
+                    int frameCount = fullLength / BYTES_PER_FRAME;
+
+                    for (int i = 0; i < frameCount; i++) {
+                        int offset = i * BYTES_PER_FRAME;
+                        byte[] frameBytes = Arrays.copyOfRange(fullBuffer, offset, offset + BYTES_PER_FRAME);
+
+                        // Encode → Decode → Write result as PCM
+                        byte[] lc3Data = L3cCpp.encodeLC3(encoderPtr, frameBytes);
+
+                        for (int j = 0; j < lc3Data.length; j += 20) {
+                            byte[] oneFrame = Arrays.copyOfRange(lc3Data, j, j + 20);
+                            byte[] pcm = L3cCpp.decodeLC3(decoderPtr, oneFrame);
+//                            writeToPcmFile(pcm);
+//                            writeToPcmFile(oneFrame);
+                        }
+                    }
+
+                    int leftoverBytes = fullLength % BYTES_PER_FRAME;
+                    remainderBuffer.reset();
+                    if (leftoverBytes > 0) {
+                        remainderBuffer.write(fullBuffer, fullLength - leftoverBytes, leftoverBytes);
+                    }
+
                     Thread.sleep(5);
                 } catch (InterruptedException e) {
-                    // Thread was interrupted, exit gracefully
                     Thread.currentThread().interrupt();
                     Log.d(TAG, "Recording thread interrupted");
                     break;
@@ -460,22 +600,16 @@ public class MicrophoneLocalAndBluetooth {
                 }
             }
 
-            Log.d(TAG, "Recording thread exiting");
-        }
-
-        private String getBufferReadFailureReason(int errorCode) {
-            switch (errorCode) {
-                case AudioRecord.ERROR_INVALID_OPERATION:
-                    return "ERROR_INVALID_OPERATION";
-                case AudioRecord.ERROR_BAD_VALUE:
-                    return "ERROR_BAD_VALUE";
-                case AudioRecord.ERROR_DEAD_OBJECT:
-                    return "ERROR_DEAD_OBJECT";
-                case AudioRecord.ERROR:
-                    return "ERROR";
-                default:
-                    return "Unknown (" + errorCode + ")";
+            if (encoderPtr != 0) {
+                L3cCpp.freeEncoder(encoderPtr);
+                encoderPtr = 0;
             }
+            if (decoderPtr != 0) {
+                L3cCpp.freeDecoder(decoderPtr);
+                decoderPtr = 0;
+            }
+
+            Log.d(TAG, "Recording thread exiting");
         }
     }
 

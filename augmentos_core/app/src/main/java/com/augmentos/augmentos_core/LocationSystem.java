@@ -7,7 +7,6 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 
 import androidx.core.app.ActivityCompat;
 
@@ -118,6 +117,11 @@ public class LocationSystem {
         if (fusedLocationProviderClient != null && locationCallback != null) {
             fusedLocationProviderClient.removeLocationUpdates(locationCallback);
         }
+        
+        // Also remove updates from fast callback to be safe
+        if (fusedLocationProviderClient != null && fastLocationCallback != null) {
+            fusedLocationProviderClient.removeLocationUpdates(fastLocationCallback);
+        }
     }
 
     public void sendLocationToServer() {
@@ -217,5 +221,18 @@ public class LocationSystem {
     // Get the current location - will return last known location if available
     public Location getCurrentLocation() {
         return lastKnownLocation;
+    }
+    
+    /**
+     * Call this method to cleanup all resources when the app is being destroyed
+     */
+    public void cleanup() {
+        // Remove all pending callbacks
+        if (locationSendingLoopHandler != null) {
+            locationSendingLoopHandler.removeCallbacksAndMessages(null);
+        }
+        
+        // Make sure location updates are stopped
+        stopLocationUpdates();
     }
 }

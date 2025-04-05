@@ -6,6 +6,7 @@ interface Glasses {
   is_searching: boolean;
   brightness: string | null; // 0-100
   headUp_angle: number | null; // 0-60
+  auto_brightness_enabled: boolean;
 }
 
 interface WifiConnection {
@@ -116,6 +117,7 @@ export class AugmentOSParser {
       is_searching: false,
       brightness: "87%",
       headUp_angle: 20,
+      auto_brightness_enabled: false,
     },
     wifi: { is_connected: true, ssid: 'TP-LINK69', signal_strength: 100 },
     gsm: { is_connected: false, carrier: '', signal_strength: 0 },
@@ -253,6 +255,7 @@ export class AugmentOSParser {
             is_searching: status.connected_glasses.is_searching ?? false,
             brightness: status.connected_glasses.brightness,
             headUp_angle: status.connected_glasses.headUp_angle,
+            auto_brightness_enabled: status.connected_glasses.auto_brightness_enabled ?? false,
           }
           : null,
         wifi: status.wifi ?? AugmentOSParser.defaultStatus.wifi,

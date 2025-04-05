@@ -3,13 +3,13 @@ services:
   shared-packages:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     volumes:
       - ./:/app
-      - /app/node_modules
+      - node_modules:/app/node_modules
       - bun_cache:/root/.bun
     command: >
-      bash -c "bun install && 
+      bash -c "bun install --no-link && 
               cd packages/utils && bun run build &&
               cd ../config && bun run build &&
               cd ../sdk && bun run build &&
@@ -33,20 +33,22 @@ services:
           memory: 256M
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "8002:80"
     environment:
       - NODE_ENV=development
       - HOST=0.0.0.0
       - SERVICE_NAME=cloud
+      - CONTAINER_ENVIRONMENT=true
+      - CLOUD_HOST_NAME=cloud
     env_file:
       - .env
     volumes:
       - ./:/app
       - node_modules:/app/node_modules
       - bun_cache:/root/.bun
-    command: bash -c "bun install && cd packages/cloud && bun run dev"
+    command: bash -c "cd packages/cloud && bun run dev"
     networks:
       - augmentos-network-dev
     depends_on:
@@ -60,7 +62,7 @@ services:
     init: true
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     restart: unless-stopped
     ports:
       - "8020:80"
@@ -75,7 +77,7 @@ services:
       - node_modules:/app/node_modules
       - bun_cache:/root/.bun
       - ./logs:/app/logs
-    command: bash -c "bun install && cd packages/apps/livecaptions && bun run dev"
+    command: bash -c "cd packages/apps/livecaptions && bun run dev"
     networks:
       - augmentos-network-dev
     depends_on:
@@ -90,7 +92,7 @@ services:
     init: true
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     restart: unless-stopped
     ports:
       - "8011:80"
@@ -105,7 +107,7 @@ services:
       - node_modules:/app/node_modules
       - bun_cache:/root/.bun
       - ./logs:/app/logs
-    command: bash -c "bun install && cd packages/apps/flash && bun run dev"
+    command: bash -c "cd packages/apps/flash && bun run dev"
     networks:
       - augmentos-network-dev
     depends_on:
@@ -120,7 +122,7 @@ services:
     init: true
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     restart: unless-stopped
     ports:
       - "8012:80"
@@ -135,7 +137,7 @@ services:
       - node_modules:/app/node_modules
       - bun_cache:/root/.bun
       - ./logs:/app/logs
-    command: bash -c "bun install && cd packages/apps/dashboard-manager && bun run dev"
+    command: bash -c "cd packages/apps/dashboard-manager && bun run dev"
     networks:
       - augmentos-network-dev
     depends_on:
@@ -150,7 +152,7 @@ services:
     init: true
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     restart: unless-stopped
     ports:
       - "8014:80"
@@ -165,7 +167,7 @@ services:
       - node_modules:/app/node_modules
       - bun_cache:/root/.bun
       - ./logs:/app/logs
-    command: bash -c "bun install && cd packages/apps/notify && bun run dev"
+    command: bash -c "cd packages/apps/notify && bun run dev"
     networks:
       - augmentos-network-dev
     depends_on:
@@ -180,7 +182,7 @@ services:
     init: true
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     restart: unless-stopped
     ports:
       - "8015:80"
@@ -195,7 +197,7 @@ services:
       - node_modules:/app/node_modules
       - bun_cache:/root/.bun
       - ./logs:/app/logs
-    command: bash -c "bun install && cd packages/apps/miraai && bun run dev"
+    command: bash -c "cd packages/apps/miraai && bun run dev"
     networks:
       - augmentos-network-dev
     depends_on:
@@ -209,7 +211,7 @@ services:
     init: true
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     restart: unless-stopped
     ports:
       - "8017:80"
@@ -224,7 +226,7 @@ services:
       - node_modules:/app/node_modules
       - bun_cache:/root/.bun
       - ./logs:/app/logs
-    command: bash -c "bun install && cd packages/apps/livetranslation && bun run dev"
+    command: bash -c "cd packages/apps/livetranslation && bun run dev"
     networks:
       - augmentos-network-dev
     depends_on:

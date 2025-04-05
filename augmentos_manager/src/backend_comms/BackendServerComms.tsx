@@ -282,4 +282,40 @@ export default class BackendServerComms {
         throw error;
       }
     }
+
+  /**
+   * Uninstall an app using the REST API
+   * @param packageName Package name of the app to uninstall
+   * @returns Response including uninstallation status
+   */
+  public async uninstallApp(packageName: string): Promise<any> {
+    if (!this.coreToken) {
+      throw new Error('No core token available for authentication');
+    }
+
+    const url = `${this.serverUrl}/apps/${packageName}/uninstall`;
+    console.log('Uninstalling app:', packageName);
+
+    const config: AxiosRequestConfig = {
+      method: 'POST',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.coreToken}`,
+      },
+    };
+
+    try {
+      const response = await axios(config);
+      if (response.status === 200 && response.data) {
+        console.log('App uninstalled successfully:', packageName);
+        return response.data;
+      } else {
+        throw new Error(`Bad response: ${response.statusText}`);
+      }
+    } catch (error: any) {
+      console.error('Error uninstalling app:', error.message || error);
+      throw error;
+    }
+  }
 }

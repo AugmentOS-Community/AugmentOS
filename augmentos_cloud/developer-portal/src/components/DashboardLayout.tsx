@@ -77,7 +77,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Link to="https://www.npmjs.com/package/@augmentos/sdk" >
+            <Link to="https://docs.augmentos.org" >
               <Button variant="ghost" size="sm" className='hover:bg-gray-200'>  
                 Documentation
               </Button>
@@ -130,7 +130,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             </Link>
             
             <Link
-              to="https://www.npmjs.com/package/@augmentos/sdk"
+              to="https://docs.augmentos.org"
               className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActivePath('/docs')
                 ? 'bg-gray-200 text-gray-900'
                 : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'

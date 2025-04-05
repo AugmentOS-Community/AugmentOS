@@ -53,12 +53,18 @@ router.get('/:tpaName', async (req, res) => {
       // tpaConfig = JSON.parse(rawData);
       // find the app, then call it with it's port. i.e: http://localhost:8017/tpa_config.json
       const _tpa = await appService.getApp(req.params.tpaName);
-      const host = Object.values(systemApps).find(app => app.packageName === req.params.tpaName)?.host;
-      
-      if (!host || !_tpa) {
-        throw new Error('Port / TPA not found for app ' + req.params.tpaName); // throw an error if the port is not found.
+      // const host = Object.values(systemApps).find(app => app.packageName === req.params.tpaName)?.host;
+      const publicUrl = _tpa?.publicUrl;
+
+      if (!_tpa) {
+        throw new Error('TPA not found for app ' + req.params.tpaName); // throw an error if the port is not found.
       }
-      const _tpaConfig = (await axios.get(`http://${host}/tpa_config.json`)).data; 
+      if (!publicUrl) {
+        // get the host from the public url;
+        throw new Error('publicUrl not found for app ' + req.params.tpaName); // throw an error if the port is not found.
+
+      }
+      const _tpaConfig = (await axios.get(`${publicUrl}/tpa_config.json`)).data; 
       tpaConfig = _tpaConfig;
 
     } catch (err) {
@@ -130,40 +136,45 @@ router.get('/:tpaName', async (req, res) => {
 router.get('/user/:tpaName', async (req, res) => {
   logger.info('Received request for user-specific TPA settings' + JSON.stringify(req.params));
 
-  // Extract userId from the Authorization header (assumes header is "Bearer <userId>")
   const authHeader = req.headers.authorization;
   logger.info('Received request for user-specific TPA settings' + JSON.stringify(authHeader));
 
   if (!authHeader) {
     return res.status(400).json({ error: 'User ID missing in Authorization header' });
   }
-  const userId = authHeader.split(' ')[1]; // directly use the token as the userId
-
-  logger.info('Received request for user-specific TPA settings 121223213' + JSON.stringify(userId));
-  // const parts = req.params.tpaName.split('.');
+  const userId = authHeader.split(' ')[1];
   const tpaName = req.params.tpaName;
-  try {
-    // Find or create the user.
-    const user = await User.findOrCreateUser(userId);
 
-    // Retrieve stored settings for this app.
+  try {
+    const user = await User.findOrCreateUser(userId);
     let storedSettings = user.getAppSettings(tpaName);
 
-    console.log('storedSettings', storedSettings);
-
     if (!storedSettings) {
-      // If settings are missing, load default settings from the TPA config file.
-      const configFilePath = path.join(__dirname, '..', '..', '..', 'apps', tpaName, 'tpa_config.json');
       let tpaConfig;
       try {
-        const rawData = fs.readFileSync(configFilePath, 'utf8');
-        tpaConfig = JSON.parse(rawData);
+        const _tpa = await appService.getApp(tpaName);
+        const host = Object.values(systemApps).find(app => app.packageName === tpaName)?.host;
+        
+        if (!host || !_tpa) {
+          throw new Error('Port / TPA not found for app ' + tpaName);
+        }
+        const _tpaConfig = (await axios.get(`http://${host}/tpa_config.json`)).data;
+        tpaConfig = _tpaConfig;
       } catch (err) {
-        logger.error('Error reading TPA config file:', err);
-        return res.status(500).json({ error: 'Error reading TPA config file' });
+        const _tpa = await appService.getApp(tpaName);
+        if (_tpa) {
+          tpaConfig = {
+            name: _tpa.name || tpaName,
+            description: _tpa.description || '',
+            version: "1.0.0",
+            settings: []
+          }
+        } else {
+          logger.error('Error reading TPA config file:', err);
+          return res.status(500).json({ error: 'Error reading TPA config file' });
+        }
       }
 
-      // Build default settings (ignoring groups).
       const defaultSettings = tpaConfig.settings
         .filter((setting: any) => setting.type !== 'group')
         .map((setting: any) => ({
@@ -174,7 +185,7 @@ router.get('/user/:tpaName', async (req, res) => {
           label: setting.label,
           options: setting.options || []
         }));
-      await user.updateAppSettings(req.params.tpaName, defaultSettings);
+      await user.updateAppSettings(tpaName, defaultSettings);
       storedSettings = defaultSettings;
     }
 
@@ -246,21 +257,40 @@ router.post('/:tpaName', async (req, res) => {
 
     logger.info(`Updated settings for app "${tpaName}" for user ${userId}`);
 
-    const matchingApp = Object.values(systemApps).find(app =>
-      app.packageName.endsWith(tpaName)
-    );
-
-    if (matchingApp) {
-      const appEndpoint = `http://${matchingApp.host}/settings`;
-      try {
-        // Add userIdForSettings to the payload that the captions app expects
-        const response = await axios.post(appEndpoint, {
-          userIdForSettings: userId,
-          settings: updatedSettings
-        });
-        logger.info(`Called app endpoint at ${appEndpoint} with response:`, response.data);
-      } catch (err) {
-        logger.error(`Error calling app endpoint at ${appEndpoint}:`, err);
+    // Get the app to access its properties
+    const app = await appService.getApp(tpaName);
+    
+    if (app) {
+      let appEndpoint;
+      
+      // Check if it's a system app first
+      if (app.isSystemApp) {
+        // For system apps, use the internal host approach
+        const matchingApp = Object.values(systemApps).find(sysApp => 
+          sysApp.packageName === tpaName
+        );
+        
+        if (matchingApp && matchingApp.host) {
+          appEndpoint = `http://${matchingApp.host}/settings`;
+        }
+      } 
+      
+      // If not a system app or system app info not found, use publicUrl
+      if (!appEndpoint && app.publicUrl) {
+        appEndpoint = `${app.publicUrl}/settings`;
+      }
+      
+      // Send settings update if we have an endpoint
+      if (appEndpoint) {
+        try {
+          const response = await axios.post(appEndpoint, {
+            userIdForSettings: userId,
+            settings: updatedSettings
+          });
+          logger.info(`Called app endpoint at ${appEndpoint} with response:`, response.data);
+        } catch (err) {
+          logger.error(`Error calling app endpoint at ${appEndpoint}:`, err);
+        }
       }
     }
 

@@ -3,7 +3,7 @@
 import { BaseMessage } from './base';
 import { CloudToTpaMessageType } from '../message-types';
 import { StreamType } from '../streams';
-import { AppSettings } from '../models';
+import { AppSettings, TpaConfig } from '../models';
 import { LocationUpdate, CalendarEvent } from './glasses-to-cloud';
 
 //===========================================================
@@ -16,6 +16,7 @@ import { LocationUpdate, CalendarEvent } from './glasses-to-cloud';
 export interface TpaConnectionAck extends BaseMessage {
   type: CloudToTpaMessageType.CONNECTION_ACK;
   settings?: AppSettings;
+  config?: TpaConfig; // TPA config sent from cloud
 }
 
 /**

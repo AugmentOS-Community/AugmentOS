@@ -99,7 +99,7 @@ export interface UserSession {
   isGracefullyClosing?: boolean;  // Flag to track if the session is closing gracefully
   
   // Pre-initialization audio buffer
-  bufferedAudio: ArrayBuffer[];
+  bufferedAudio: ArrayBufferLike[];
 
   // Audio Processing
   audioProcessor?: AudioProcessorI;  // Optional audio processor instance

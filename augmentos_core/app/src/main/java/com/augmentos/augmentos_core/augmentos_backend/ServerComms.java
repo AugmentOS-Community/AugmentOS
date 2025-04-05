@@ -154,10 +154,17 @@ public class ServerComms {
 
     /**
      * Opens the WebSocket to the given URL (e.g. "ws://localhost:7002/glasses-ws").
+     * Only connects if truly needed based on connection state.
      */
     public void connectWebSocket(String coreToken) {
+        // Don't reconnect if we're already connected
+        if (wsManager.isConnected()) {
+            Log.d(TAG, "WebSocket already connected, skipping connection");
+            return;
+        }
+        
         this.coreToken = coreToken;
-        wsManager.connect(getServerUrl());
+        wsManager.connect(getServerUrl(), coreToken);
     }
 
     /**
@@ -182,8 +189,14 @@ public class ServerComms {
 
     /**
      * Sends a raw PCM audio chunk as binary data.
+     * More efficient handling that only processes audio when actually needed.
      */
     public void sendAudioChunk(byte[] audioData) {
+        // If audio sender thread isn't running, don't even queue data
+        if (audioSenderThread == null) {
+            return; // Skip processing entirely if sender thread isn't active
+        }
+        
         // Clone only once to avoid unnecessary copies
         byte[] copiedData = audioData.clone();
 
@@ -222,7 +235,7 @@ public class ServerComms {
             if (wsManager.isConnected()) {
                 wsManager.sendBinary(chunk);
                 // Debug - Write to PCM file as we send
-//                 writeToPcmFile(chunk);
+                 writeToPcmFile(chunk);
             } else {
                 // If connection drops during playback, stop sending
                 break;
@@ -693,6 +706,7 @@ public class ServerComms {
     // AUDIO QUEUE SENDER THREAD (IMPROVED)
     // ------------------------------------------------------------------------
     private void startAudioSenderThread() {
+        // Don't start the audio thread if already running
         if (audioSenderThread != null) return;
 
         audioSenderRunning = true;
@@ -707,23 +721,27 @@ public class ServerComms {
                             isReconnecting = false;
                         }
 
-                        // Process live audio with a short timeout to remain responsive
-                        byte[] chunk = liveAudioQueue.poll(50, TimeUnit.MILLISECONDS);
+                        // Use poll with a long timeout instead of take() to remain responsive to shutdown
+                        byte[] chunk = liveAudioQueue.poll(250, TimeUnit.MILLISECONDS);
                         if (chunk != null) {
                             wsManager.sendBinary(chunk);
                             // Write to PCM file whenever we send binary data over websocket
-                            writeToPcmFile(chunk);
+//                            writeToPcmFile(chunk);
                         }
+                        // If poll times out (1 second with no data), we'll loop back and check conditions again
                     } else {
-                        // If not connected, just wait a bit
-                        Thread.sleep(100);
+                        // If not connected, just sleep
+                        Thread.sleep(250);
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
             }
         }, "AudioSenderThread");
+        audioSenderThread.setDaemon(true);
         audioSenderThread.start();
+
+        Log.d(TAG, "Started audio sender thread");
     }
 
     private void stopAudioSenderThread() {

@@ -376,7 +376,7 @@ router.get('/debug/apps', (req, res) => {
     updatedAt: new Date().toISOString(),
     tpaType: 'STANDARD',
     description: 'Debug mode app',
-    webhookURL: 'http://localhost:3000/webhook'
+    publicUrl: 'http://localhost:3000'
   }]);
 });
 

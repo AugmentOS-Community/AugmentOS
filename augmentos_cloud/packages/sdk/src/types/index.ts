@@ -119,8 +119,17 @@ export {
 export {
   isTpaConnectionAck,
   isDataStream,
-  isAppStopped
+  isAppStopped,
+  isSettingsUpdate
 } from './messages/cloud-to-tpa';
+
+// Export setting-related types
+export {
+  BaseAppSetting,
+  GroupSetting,
+  TpaConfig,
+  validateTpaConfig
+} from './models';
 
 
 

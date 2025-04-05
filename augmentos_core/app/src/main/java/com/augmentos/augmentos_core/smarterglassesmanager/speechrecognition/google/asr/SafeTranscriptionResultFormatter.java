@@ -107,7 +107,7 @@ public class SafeTranscriptionResultFormatter {
     synchronized (threadRestartLock) {
       if (confinedThread == null) {
         logger.atInfo().log("Restarting formatter request queue. %s", confinedThread);
-        confinedThread = new Thread(service);
+        confinedThread = new Thread(service, "SafeTranscriptionResultFormatter_confinedThread");
         confinedThread.start();
       }
     }

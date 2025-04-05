@@ -56,6 +56,7 @@ public class WebSocketManager extends WebSocketListener implements NetworkMonito
     private boolean intentionalDisconnect = false;
     private final Handler reconnectHandler = new Handler(Looper.getMainLooper());
     private Context context;
+    private String coreToken;
 
     // Add these fields for thread safety
     private final Object connectionLock = new Object();
@@ -111,11 +112,12 @@ public class WebSocketManager extends WebSocketListener implements NetworkMonito
     /**
      * Opens a connection to the given WebSocket URL.
      */
-    public void connect(String url) {
+    public void connect(String url, String coreToken) {
         synchronized (connectionLock) {
             this.serverUrl = url;
             this.intentionalDisconnect = false;
             this.retryAttempts = 0;
+            this.coreToken = coreToken;
             shouldAutoReconnect = true;
 
             if (networkMonitor != null && !networkMonitor.isNetworkCurrentlyAvailable()) {
@@ -153,12 +155,17 @@ public class WebSocketManager extends WebSocketListener implements NetworkMonito
             // Clean up any existing connection first
             cleanupSafe();
 
+            // BATTERY OPTIMIZATION: Increased ping interval from 10 to 30 seconds
+            // This reduces frequent pings that wake up the CPU and cause battery drain
             client = new OkHttpClient.Builder()
-                    .readTimeout(12, TimeUnit.SECONDS)
-                    .pingInterval(10, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS) // Increased from 12 to 30 seconds
+                    .pingInterval(30, TimeUnit.SECONDS) // Increased from 10 to 30 seconds
                     .build();
 
-            Request request = new Request.Builder().url(serverUrl).build();
+            Request request = new Request.Builder()
+                    .url(serverUrl)
+                    .header("Authorization", "Bearer " + coreToken) // Pass Core token here.
+                    .build();
             webSocket = client.newWebSocket(request, this);
         }
     }
@@ -358,9 +365,18 @@ public class WebSocketManager extends WebSocketListener implements NetworkMonito
             // Safe cleanup of client
             if (client != null) {
                 try {
+                    // Properly clean up connection pool
                     client.dispatcher().executorService().shutdown();
-                    // Remove this line as it crashes the app eventually
-                    // client.connectionPool().evictAll();
+                    
+                    // Safely evict connections without crashing
+                    try {
+                        client.connectionPool().evictAll();
+                    } catch (Exception poolException) {
+                        Log.w(TAG, "Could not evict connection pool: " + poolException.getMessage());
+                    }
+                    
+                    // Try to force GC to clean up lingering connections
+                    System.gc();
                 } catch (Exception e) {
                     Log.e(TAG, "Error cleaning up OkHttp client", e);
                 }

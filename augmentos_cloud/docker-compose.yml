@@ -56,36 +56,36 @@ services:
       com.datadoghq.ad.logs: '[{"source": "cloud", "service": "cloud"}]'
 
   # Live Captions service
-  live-captions:
-    stop_grace_period: 5s
-    init: true
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    ports:
-      - target: 80
-        published: ${LIVE_CAPTIONS_PORT:-7010}
-        protocol: tcp
-    environment:
-      - NODE_ENV=production
-      - HOST=0.0.0.0
-      - SERVICE_NAME=live-captions
-    env_file:
-      - .env
-      - .env.production
-    volumes:
-      - ./:/app
-      - node_modules:/app/node_modules
-      - ./logs:/app/logs
-    command: bash -c "bun install && cd packages/apps/livecaptions && bun run build && bun run start"
-    networks:
-      - augmentos-network
-    depends_on:
-      - shared-packages
-      - cloud
-    labels:
-      com.datadoghq.ad.logs: '[{"source": "live-captions", "service": "live-captions"}]'
+  # live-captions:
+  #   stop_grace_period: 5s
+  #   init: true
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   restart: unless-stopped
+  #   ports:
+  #     - target: 80
+  #       published: ${LIVE_CAPTIONS_PORT:-7010}
+  #       protocol: tcp
+  #   environment:
+  #     - NODE_ENV=production
+  #     - HOST=0.0.0.0
+  #     - SERVICE_NAME=live-captions
+  #   env_file:
+  #     - .env
+  #     - .env.production
+  #   volumes:
+  #     - ./:/app
+  #     - node_modules:/app/node_modules
+  #     - ./logs:/app/logs
+  #   command: bash -c "bun install && cd packages/apps/livecaptions && bun run build && bun run start"
+  #   networks:
+  #     - augmentos-network
+  #   depends_on:
+  #     - shared-packages
+  #     - cloud
+  #   labels:
+  #     com.datadoghq.ad.logs: '[{"source": "live-captions", "service": "live-captions"}]'
 
   # Flash service
   flash:

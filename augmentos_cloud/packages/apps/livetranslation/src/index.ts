@@ -21,8 +21,8 @@ import { TranscriptProcessor, convertLineWidth, languageToLocale } from '@augmen
 const app = express();
 const PORT =  process.env.PORT ? parseInt(process.env.PORT) : 80; // Default http port.
 const CLOUD_HOST_NAME = process.env.CLOUD_HOST_NAME || "http://localhost:8002"; 
-const PACKAGE_NAME = "com.augmentos.live-translation";
-const API_KEY = 'test_key'; // In production, store this securely
+const PACKAGE_NAME = "com.augmentos.livetranslation";
+const API_KEY = process.env.LIVE_TRANSLATION_API_KEY || 'test_key'; // In production, store this securely
 const MAX_FINAL_TRANSCRIPTS = 3; // Hardcoded to 3 final transcripts
 
 // Maps to track state

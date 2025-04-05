@@ -78,7 +78,7 @@ const DashboardHome: React.FC = () => {
                     Learn how to build your first AugmentOS app in minutes.
                   </p>
                   <Button variant="outline" size="sm" asChild>
-                    <a href="https://www.npmjs.com/package/@augmentos/sdk" target="_blank" rel="noopener noreferrer">
+                    <a href="https://docs.augmentos.org" target="_blank" rel="noopener noreferrer">
                       View Guide
                     </a>
                   </Button>
@@ -89,7 +89,7 @@ const DashboardHome: React.FC = () => {
                     Explore the full AugmentOS API reference.
                   </p>
                   <Button variant="outline" size="sm" asChild>
-                    <a href="https://www.npmjs.com/package/@augmentos/sdk" target="_blank" rel="noopener noreferrer">
+                    <a href="https://docs.augmentos.org" target="_blank" rel="noopener noreferrer">
                       View API Docs
                     </a>
                   </Button>

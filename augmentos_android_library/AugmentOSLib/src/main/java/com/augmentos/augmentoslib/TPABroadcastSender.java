@@ -9,7 +9,6 @@ import android.content.Intent;
 import android.util.Log;
 
 import com.augmentos.augmentoslib.events.BulletPointListViewRequestEvent;
-import com.augmentos.augmentoslib.events.CenteredTextViewRequestEvent;
 import com.augmentos.augmentoslib.events.DoubleTextWallViewRequestEvent;
 import com.augmentos.augmentoslib.events.FinalScrollingTextRequestEvent;
 import com.augmentos.augmentoslib.events.FocusRequestEvent;
@@ -103,11 +102,6 @@ public class TPABroadcastSender {
     public void onStartScrollingTextEvent(ScrollingTextViewStartRequestEvent receivedEvent){
         String eventId = receivedEvent.eventId;
         sendEventToAugmentOS(eventId, receivedEvent);
-    }
-
-    @Subscribe
-    public void onSendCenteredText(CenteredTextViewRequestEvent receivedEvent){
-        sendEventToAugmentOS(receivedEvent.eventId, receivedEvent);
     }
 
     @Subscribe

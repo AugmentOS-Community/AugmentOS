@@ -1,10 +1,16 @@
 ---
-sidebar_position: 2
+sidebar_position: 3
 ---
 
-# Getting Started
+# 🚧 Build From Scratch
 
-This guide will walk you through creating a simple "Hello, World" TPA that displays text on the AugmentOS smart glasses.  This will introduce you to the basic structure of a TPA and how to use the SDK.
+*Last updated: March 31, 2025*
+
+## 🚧 WIP 🚧
+These Docs are still under construction 👷🚧, and the code is evolving fast. 
+If you have any issues or get stuck, feel free to reach out at team@mentra.glass.
+
+This guide will walk you through creating a simple "Hello, World" AugmentOS app that displays text on the AugmentOS smart glasses. This will introduce you to the basic structure of an app and how to use the SDK.
 
 ## Prerequisites
 
@@ -14,48 +20,54 @@ Make sure you have the following installed:
 *   **Bun:**  (for installation and running scripts)
 *   **A code editor:** (VS Code recommended)
 
-## Steps
+## Part 1: Set Up Your Project
 
-### 1. Project Setup
+### 1. Create Project Directory
 
-Create a new directory for your TPA and initialize a Node.js project:
+Create a new directory for your app and initialize a Node.js project:
 
 ```bash
-mkdir my-first-tpa
-cd my-first-tpa
+mkdir my-first-augmentos-app
+cd my-first-augmentos-app
 bun init -y
-Use code with caution.
-Markdown
-This will create a package.json file.
 ```
 
-2. Install the SDK
+This will create a package.json file.
+
+### 2. Install the SDK
+
 Install the @augmentos/sdk package:
 
 ```bash
 bun add @augmentos/sdk
 ```
 
-3. Create index.ts
-Create a file named index.ts in the src directory:
+### 3. Create Project Structure
+
+Create a file named `index.ts` in the src directory:
 
 ```
-my-first-tpa/
+my-first-augmentos-app/
 └── src/
     └── index.ts
 ```
-Add the following code to index.ts:
+
+### 4. Write Your App Code
+
+Add the following code to `index.ts`:
+
+> Note: You'll need to update `PACKAGE_NAME` and `API_KEY` later when you register your app in the [Developer Console](https://console.AugmentOS.org).
 
 ```typescript
 import { TpaServer, TpaSession } from '@augmentos/sdk';
 
-// Replace with your TPA's details.  These should match what's
+// Replace with your app's details.  These should match what's
 // registered in the (future) AugmentOS app store.
-const PACKAGE_NAME = "com.example.myfirsttpa"; //  MUST BE UNIQUE!
-const PORT = 4000;  // Choose a port for your TPA server.
+const PACKAGE_NAME = "com.example.myfirstaugmentosapp"; // CHANGE THIS!
+const PORT = 3000;  // Choose a port for your app's server.
 const API_KEY = 'your_api_key'; // Replace with your API key.
 
-class MyTPA extends TpaServer {
+class MyAugmentOSApp extends TpaServer {
     protected async onSession(session: TpaSession, sessionId: string, userId: string): Promise<void> {
         console.log(`New session: ${sessionId} for user ${userId}`);
 
@@ -69,13 +81,11 @@ class MyTPA extends TpaServer {
     }
 }
 
-// Create and start the TPA server
-const server = new MyTPA({
+// Create and start the app server
+const server = new MyAugmentOSApp({
     packageName: PACKAGE_NAME,
     apiKey: API_KEY,
-    port: PORT,
-    augmentOSWebsocketUrl: `ws://cloud.augmentos.org/tpa-ws`, // Connects to AugmentOS Cloud.
-    webhookPath: '/webhook', // The path your server will listen on
+    port: PORT
 });
 
 server.start().catch(err => {
@@ -83,8 +93,9 @@ server.start().catch(err => {
 });
 ```
 
-4. Create tsconfig.json
-Create a tsconfig.json file in the root of your TPA project:
+### 5. Configure TypeScript
+
+Create a tsconfig.json file in the root of your app's project:
 
 ```json
 {
@@ -107,13 +118,13 @@ Create a tsconfig.json file in the root of your TPA project:
 }
 ```
 
+### 6. Set Up Build Scripts
 
-5. Update package.json
 Add build and start scripts to your package.json:
 
 ```json
 {
-  "name": "my-first-tpa",
+  "name": "my-first-augmentos-app",
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
@@ -130,65 +141,100 @@ Add build and start scripts to your package.json:
 }
 ```
 
-6. Run Your TPA
-First, build the TPA:
+## Part 2: Run Your App Locally
+
+### 7. Build and Run the App
+
+First, build your app:
 
 ```bash
 bun run build
 ```
 
-Then, start the TPA:
+Then, start the app:
 
 ```bash
 bun run start
 ```
 
-Or, to run it in development mode with automatic reloading:
+Or, for development with automatic reloading:
 
 ```bash
 bun run dev
 ```
 
-Your TPA is now running and listening for connections.
+## Part 3: Connect to AugmentOS
 
-7. Testing with AugmentOS Cloud
-To fully test your TPA, you need to:
+Your app's server is now running locally, but it needs to be connected to AugmentOS.
 
-Run AugmentOS Cloud: Make sure the main AugmentOS Cloud server is running (as described in the main cloud package's README).
+### 8. Install AugmentOS on Your Phone
 
-Simulate a Session: Since you don't have physical glasses yet, you'll simulate a session start by sending a POST request to your TPA's webhook endpoint. You can use a tool like curl or Postman for this. Here's an example using curl:
+Download and install the AugmentOS app from [AugmentOS.org/install](https://AugmentOS.org/install)
 
-```bash
-curl -X POST \
-  http://localhost:4000/webhook \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "type": "session_request",
-    "sessionId": "test-session-123",
-    "userId": "test-user@example.com",
-    "timestamp": "2024-07-24T12:00:00Z"
-  }'
+### 9. Set Up ngrok
+
+To make your locally running app accessible from the internet:
+
+1. [Install ngrok](https://ngrok.com/docs/getting-started/)
+2. Create an ngrok account
+3. [Set up a static address/URL in the ngrok dashboard](https://dashboard.ngrok.com/)
+
+* Make sure you run the `ngrok config add-authtoken <your_authtoken>` line.
+* Make sure you select `Static Domain`, then generate a static domain.
+
+<center>
+  <img width="75%" src="/img/ngrok_guide_1.png"></img>
+</center>
+
+### 10. Register Your App
+
+![AugmentOS Console](https://github.com/user-attachments/assets/36192c2b-e1ba-423b-90de-47ff8cd91318)
+
+1. Navigate to [console.AugmentOS.org](https://console.AugmentOS.org/)
+2. Click "Sign In" and log in with the same account you're using for AugmentOS
+3. Click "Create App"
+4. Set a unique package name (e.g., `com.example.myfirstapp`)
+5. For "Public URL", enter your ngrok static URL
+
+### 11. Update Your App Configuration
+
+Edit your `index.ts` to match the app you registered:
+
+```typescript
+const server = new MyAugmentOSApp({
+    packageName: "com.example.myfirstapp", // Must match your packageName in console.AugmentOS.org
+    apiKey: 'your_api_key', // Get this from console.AugmentOS.org
+    port: 3000, // The port your server runs on
+});
 ```
 
-Replace 4000 with the port your TPA is running on.
+### 12. Make Your App Accessible
 
-You can use any sessionId and userId for testing.
+Start your app and then expose it to the internet with ngrok:
 
-When you send this request, your TPA should:
+```bash
+# In one terminal, run your app
+bun run start
 
-Log "New session: test-session-123 for user test-user@example.com" to the console.
+# In another terminal, expose it with ngrok
+ngrok http --url=<YOUR_NGROK_URL_HERE> 3000
+```
 
-Establish a WebSocket connection to AugmentOS Cloud.
+> Note: The port number (3000) must match the port in your app configuration.
 
-The session will remain active, you won't have real events, but it shows your server is starting correctly.
+> **IMPORTANT:** After making changes to your app code or restarting your server, you must restart your app inside the AugmentOS phone app.
 
-Next Steps
-This simple example demonstrates the basic structure of a TPA. Now, you can:
+## What's Next?
 
-Explore the Core Concepts to learn more about sessions, events, and layouts.
+Congratulations! You've built your first AugmentOS app. To continue your journey:
 
-Learn about handling different Events from the glasses.
+### Learn More
+- Explore [🚧 Core Concepts](core-concepts) to understand sessions, events, and the app lifecycle
+- Dive into [Events](events) to handle user interactions and sensor data
+- Master [Layouts](layouts) to create rich visual experiences on smart glasses
 
-Experiment with different Layouts to display more complex content.
-
-Refer to the API Reference for detailed documentation on the SDK classes and methods.
+### Get Help
+- Join our [Discord community](https://discord.gg/5ukNvkEAqT) for support
+- Visit [AugmentOS.org](https://augmentos.org) for the latest updates
+- Check out the [GitHub repository](https://github.com/AugmentOS-Community/AugmentOS) for examples
+- For a more in-depth example with app settings support, see the [Live-Captions repository](https://github.com/AugmentOS-Community/LiveCaptionsOnSmartGlasses)

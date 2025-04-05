@@ -8,7 +8,7 @@ public class AugmentOSGlobalConstants {
     public static final String APP_PKG_NAME = "APP_PKG_NAME";
 
     // Shared notification Info
-    public static final String AUGMENTOS_NOTIFICATION_CHANNEL_NAME = "AugmentOS is cool";
+    public static final String AUGMENTOS_NOTIFICATION_CHANNEL_NAME = "AugmentOS Notifications";
 
     public static final int AUGMENTOS_NOTIFICATION_ID = 1211;
     public static final String AUGMENTOS_NOTIFICATION_CHANNEL_ID = "augmentos_notification_channel";

@@ -1,6 +1,6 @@
 // src/AppSettings.tsx
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Image, ImageBackground, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Image, ImageBackground, TouchableOpacity, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../components/types';
 import NavigationBar from '../components/NavigationBar';
@@ -16,17 +16,16 @@ import TitleValueSetting from '../components/settings/TitleValueSetting';
 import LoadingComponent from '../components/LoadingComponent';
 import { useStatus } from '../providers/AugmentOSStatusProvider';
 import BackendServerComms from '../backend_comms/BackendServerComms';
-import { AppInfo } from '../AugmentOSStatusParser';
-import LinearGradient from 'react-native-linear-gradient';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { getAppImage } from '../logic/getAppImage';
+import GlobalEventEmitter from '../logic/GlobalEventEmitter';
 
 type AppSettingsProps = NativeStackScreenProps<RootStackParamList, 'AppSettings'> & {
   isDarkTheme: boolean;
   toggleTheme: () => void;
 };
 
-const AppSettings: React.FC<AppSettingsProps> = ({ route, isDarkTheme, toggleTheme }) => {
+const AppSettings: React.FC<AppSettingsProps> = ({ route, navigation, isDarkTheme, toggleTheme }) => {
   const { packageName, appName } = route.params;
   const backendServerComms = BackendServerComms.getInstance();
 
@@ -52,7 +51,47 @@ const AppSettings: React.FC<AppSettingsProps> = ({ route, isDarkTheme, toggleThe
 
   const handleUninstallApp = () => {
     console.log(`Uninstalling app: ${packageName}`);
-    // This would be implemented with actual functionality to uninstall the app
+    
+    Alert.alert(
+      "Uninstall App",
+      `Are you sure you want to uninstall ${appInfo?.name || appName}?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        { 
+          text: "Uninstall", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // First stop the app if it's running
+              if (appInfo?.is_running) {
+                await backendServerComms.stopApp(packageName);
+              }
+              
+              // Then uninstall it
+              await backendServerComms.uninstallApp(packageName);
+              
+              // Show success message
+              GlobalEventEmitter.emit('SHOW_BANNER', { 
+                message: `${appInfo?.name || appName} has been uninstalled successfully`, 
+                type: "success" 
+              });
+              
+              // Navigate back to the previous screen
+              navigation.goBack();
+            } catch (error: any) {
+              console.error('Error uninstalling app:', error);
+              GlobalEventEmitter.emit('SHOW_BANNER', { 
+                message: `Error uninstalling app: ${error.message || 'Unknown error'}`, 
+                type: "error" 
+              });
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Fetch TPA settings on mount or when packageName/status change.

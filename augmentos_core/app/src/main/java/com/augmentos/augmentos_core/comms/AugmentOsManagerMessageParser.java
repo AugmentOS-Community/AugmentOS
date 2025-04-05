@@ -132,7 +132,14 @@ public class AugmentOsManagerMessageParser {
 
                 case "update_glasses_brightness":
                     int brightnessLevel = commandObject.getJSONObject("params").getInt("brightness");
-                    callback.updateGlassesBrightness(brightnessLevel);
+                    boolean isAutoBrightness = commandObject.getJSONObject("params").getBoolean("autoBrightness");
+                    Log.d(TAG, "Brightness level: " + brightnessLevel + ", autoBrightness: " + isAutoBrightness);
+                    if (isAutoBrightness) {
+                        callback.updateGlassesAutoBrightness(isAutoBrightness);
+                    }
+                    else {
+                        callback.updateGlassesBrightness(brightnessLevel);
+                    }
                     break;
 
                 case "update_glasses_headUp_angle":

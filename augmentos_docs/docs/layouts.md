@@ -1,6 +1,8 @@
 # Layouts
 
-AugmentOS Cloud provides a set of pre-defined layouts for displaying content on the smart glasses' AR view.  These layouts allow you to create visually consistent and user-friendly interfaces without needing to deal with low-level graphics programming.  You interact with layouts through the `LayoutManager`, which is a property of the `TpaSession` object.
+*Last updated: March 31, 2025*
+
+AugmentOS Cloud provides a set of pre-defined layouts for displaying content on the smart glasses' AR view. These layouts allow you to create visually consistent and user-friendly interfaces without needing to deal with low-level graphics programming. You interact with layouts through the `LayoutManager`, which is a property of the `TpaSession` object.
 
 ```typescript
 // Example of accessing the LayoutManager

@@ -32,23 +32,23 @@ const LandingPage: React.FC = () => {
             <img src="/g1.webp" alt="Hero" className="w-96" />
           </div>
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            The easiest way to build apps for smart glasses.
+            AugmentOS is the best way to build apps for smart glasses.
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 mb-10 max-w-3xl mx-auto">
-            Build and deploy your own Third Party Applications (TPAs) for smart glasses in minutes, not months.
+            Build and deploy your own apps for smart glasses in minutes, not months.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
               href="/signin"
               className="px-6 py-3 rounded-md bg-black text-white font-medium hover:bg-stone-900 inline-flex items-center justify-center gap-2"
             >
-              Start Building
+              Developer Console
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
             </a>
             <a
-              href="https://www.npmjs.com/package/@augmentos/sdk"
+              href="https://docs.augmentos.org"
               className="px-6 py-3 rounded-md border border-gray-300 font-medium hover:bg-gray-100"
             >
               View Documentation
@@ -70,7 +70,7 @@ const LandingPage: React.FC = () => {
                 <div className="border bg-white rounded-lg p-6 h-full">
                   <h3 className="text-xl font-medium mb-2">Register</h3>
                   <p className="text-gray-600">
-                    Create a free developer account
+                    Create a free developer account.
                   </p>
                 </div>
               </div>
@@ -78,7 +78,7 @@ const LandingPage: React.FC = () => {
                 <div className="border bg-white rounded-lg p-6 h-full">
                   <h3 className="text-xl font-medium mb-2">Create</h3>
                   <p className="text-gray-600">
-                    Define your app using our simple web interface
+                    Define your app using our simple web interface.
                   </p>
                 </div>
               </div>
@@ -86,15 +86,10 @@ const LandingPage: React.FC = () => {
                 <div className="border bg-white rounded-lg p-6 h-full">
                   <h3 className="text-xl font-medium mb-2">Code</h3>
                   <p className="text-gray-600">
-                    Use our TypeScript SDK to bring your idea to life
+                    Use our TypeScript SDK to bring your idea to life.
                   </p>
                 </div>
               </div>
-            </div>
-            <div className="mt-10 text-center">
-              <a href="/signin" className="px-6 py-3 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700">
-                Create Developer Account
-              </a>
             </div>
           </div>
         </div>
@@ -102,12 +97,12 @@ const LandingPage: React.FC = () => {
 
       {/* Featured Example TPAs */}
       <section className="py-20 bg-gray-100">
-        <div className="container mx-auto px-4">
+        {/* <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold mb-10 text-center">
             Featured Example TPAs
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {/* Example 1 */}
+
             <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
               <div className="h-40 bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -120,7 +115,7 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Example 2 */}
+
             <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
               <div className="h-40 bg-gradient-to-r from-green-500 to-teal-500 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -133,7 +128,7 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Example 3 */}
+  
             <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
               <div className="h-40 bg-gradient-to-r from-red-500 to-orange-500 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -146,7 +141,7 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
       </section>
 
       {/* Footer */}
@@ -158,22 +153,22 @@ const LandingPage: React.FC = () => {
                 <span className="font-bold">AugmentOS</span>
               </div>
               <p className="mt-2 text-sm text-gray-600 max-w-xs">
-                Building the next generation of computing experiences with open AR platform
+                The open source operating system for smart glasses.
               </p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
               <div>
-                <h4 className="font-medium mb-3">Platform</h4>
+                {/* <h4 className="font-medium mb-3">Platform</h4>
                 <ul className="space-y-2 text-sm">
                   <li><a href="#" className="text-gray-600 hover:text-gray-900">Features</a></li>
                   <li><a href="#" className="text-gray-600 hover:text-gray-900">SDK</a></li>
-                </ul>
+                </ul> */}
               </div>
               <div>
                 <h4 className="font-medium mb-3">Resources</h4>
                 <ul className="space-y-2 text-sm">
-                  <li><a href="#" className="text-gray-600 hover:text-gray-900">Documentation</a></li>
-                  <li><a href="#" className="text-gray-600 hover:text-gray-900">Examples</a></li>
+                  <li><a href="https://docs.augmentos.org" className="text-gray-600 hover:text-gray-900">Documentation</a></li>
+                  <li><a href="https://github.com/AugmentOS-Community/AugmentOS-Cloud-Example-App" className="text-gray-600 hover:text-gray-900">Example App</a></li>
                 </ul>
               </div>
               {/* <div>

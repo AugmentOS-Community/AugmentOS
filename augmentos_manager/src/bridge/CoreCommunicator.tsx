@@ -452,13 +452,12 @@ export class CoreCommunicator extends EventEmitter {
     });
   }
 
-
-  async setGlassesBrightnessMode(brightness: number, autoLight: boolean) {
+  async setGlassesBrightnessMode(brightness: number, autoBrightness: boolean) {
     return await this.sendData({
       command: 'update_glasses_brightness',
       params: {
         brightness: brightness,
-        autoLight: autoLight,
+        autoBrightness: autoBrightness,
       },
     });
   }

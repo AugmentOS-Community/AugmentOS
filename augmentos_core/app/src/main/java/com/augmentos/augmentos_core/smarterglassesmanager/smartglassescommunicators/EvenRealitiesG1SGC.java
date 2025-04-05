@@ -29,11 +29,13 @@ import androidx.preference.PreferenceManager;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 //BMP
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.zip.CRC32;
 import java.nio.ByteBuffer;
 
@@ -41,6 +43,7 @@ import com.augmentos.augmentos_core.smarterglassesmanager.SmartGlassesManager;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.LC3AudioChunkNewEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.isMicEnabledForFrontendEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.HeadUpAngleEvent;
+import com.augmentos.augmentos_core.smarterglassesmanager.hci.AudioProcessingCallback;
 import com.augmentos.augmentos_core.smarterglassesmanager.utils.BitmapJavaUtils;
 import com.augmentos.augmentos_core.smarterglassesmanager.utils.G1FontLoader;
 import com.augmentos.augmentos_core.smarterglassesmanager.utils.SmartGlassesConnectionState;
@@ -200,6 +203,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
 
     private static final long DEBOUNCE_DELAY_MS = 270; // Minimum time between chunk sends
     private volatile long lastSendTimestamp = 0;
+    private long lc3DecoderPtr = 0;
 
     public EvenRealitiesG1SGC(Context context, SmartGlassesDevice smartGlassesDevice) {
         super();
@@ -209,8 +213,14 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         this.smartGlassesDevice = smartGlassesDevice;
         preferredG1DeviceId = getPreferredG1DeviceId(context);
         brightnessValue = getSavedBrightnessValue(context);
+        shouldUseAutoBrightness = getSavedAutoBrightnessValue(context);
         this.bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         this.shouldRunOnboardMic = SmartGlassesManager.getSensingEnabled(context) && !SmartGlassesManager.getForceCoreOnboardMic(context);
+
+        //setup LC3 decoder
+        if (lc3DecoderPtr == 0) {
+            lc3DecoderPtr = L3cCpp.initDecoder();
+        }
 
         //setup fonts
         fontLoader = new G1FontLoader(context);
@@ -244,7 +254,13 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
                             isRightConnected = true;
                             rightReconnectAttempts = 0;
                         }
-                        Log.d(TAG, "Discover serviecs calling...");
+
+                        if (isLeftConnected && isRightConnected) {
+                            stopScan();
+                            Log.d(TAG, "Both glasses connected. Stopping BLE scan.");
+                        }
+
+                        Log.d(TAG, "Discover services calling...");
                         gatt.discoverServices();
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         Log.d(TAG, side + " glass disconnected, stopping heartbeats");
@@ -465,21 +481,41 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
                             int seq = data[1] & 0xFF; // Sequence number
                             // eg. LC3 to PCM
                             byte[] lc3 = Arrays.copyOfRange(data, 2, 202);
-                            byte[] pcmData = L3cCpp.decodeLC3(lc3);
-                            if (pcmData == null) {
-                                throw new IllegalStateException("Failed to decode LC3 data");
-                            }
+//                            byte[] pcmData = L3cCpp.decodeLC3(lc3);
+//                            if (pcmData == null) {
+//                                throw new IllegalStateException("Failed to decode LC3 data");
+//                            }
 
                             if (deviceName.contains("R_")) {
-                                // Log.d(TAG, "Audio data received. Seq: " + seq + ", from: " + deviceName + ", length: " + pcmData.length);
-                                if (shouldRunOnboardMic) {
-                                    EventBus.getDefault().post(new AudioChunkNewEvent(pcmData));
-//                                    EventBus.getDefault().post(new LC3AudioChunkNewEvent(lc3));
+                                //decode the LC3 audio
+                                if (lc3DecoderPtr != 0) {
+                                    byte[] pcmData = L3cCpp.decodeLC3(lc3DecoderPtr, lc3);
+                                    //send the PCM out
+                                    if (shouldRunOnboardMic) {
+                                        if (audioProcessingCallback != null) {
+                                            if (pcmData != null && pcmData.length > 0) {
+                                                audioProcessingCallback.onAudioDataAvailable(pcmData);
+                                            }
+                                        } else {
+                                            // If we get here, it means the callback wasn't properly registered
+                                            Log.e(TAG, "Audio processing callback is null - callback registration failed!");
+                                        }
+                                    }
+
+                                    if (shouldRunOnboardMic) {
+                                        EventBus.getDefault().post(new AudioChunkNewEvent(pcmData));
+                                    } else {
+                                        Log.e(TAG, "Failed to decode LC3 frame, got null or empty result");
+                                    }
                                 }
-                            } else {
+
+                            //send through the LC3
+                            audioProcessingCallback.onLC3AudioDataAvailable(lc3);
+
+                        } else {
 //                                Log.d(TAG, "Lc3 Audio data received. Seq: " + seq + ", Data: " + Arrays.toString(lc3) + ", from: " + deviceName);
-                            }
                         }
+                    }
                         //HEAD UP MOVEMENTS
                         else if (data.length > 1 && (data[0] & 0xFF) == 0xF5 && (data[1] & 0xFF) == 0x02) {
                             // Only check head movements from the right sensor
@@ -801,6 +837,10 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
 
     public static int getSavedBrightnessValue(Context context){
         return Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.SHARED_PREF_BRIGHTNESS), "50"));
+    }
+
+    public static boolean getSavedAutoBrightnessValue(Context context){
+        return PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getResources().getString(R.string.SHARED_PREF_AUTO_BRIGHTNESS), false);
     }
 
     private void savePairedDeviceNames() {
@@ -1335,7 +1375,8 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     }
 
     // Queue to hold pending requests
-    private final ConcurrentLinkedQueue<SendRequest []> sendQueue = new ConcurrentLinkedQueue<>();
+    private final BlockingQueue<SendRequest[]> sendQueue = new LinkedBlockingQueue<>();
+
     private volatile boolean isWorkerRunning = false;
 
     // Non-blocking function to add new send request
@@ -1382,7 +1423,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     private synchronized void startWorkerIfNeeded() {
         if (!isWorkerRunning) {
             isWorkerRunning = true;
-            new Thread(this::processQueue).start();
+            new Thread(this::processQueue, "EvenRealitiesG1SGCProcessQueue").start();
         }
     }
 
@@ -1414,7 +1455,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     private static final long INITIAL_CONNECTION_DELAY_MS = 350; // Adjust this value as needed
 
     private void processQueue() {
-        //first wait until the services are setup and ready to receive data
+        // First wait until the services are setup and ready to receive data
         Log.d(TAG, "PROC_QUEUE - waiting on services waiters");
         try {
             leftServicesWaiter.waitWhileTrue();
@@ -1424,102 +1465,84 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         }
         Log.d(TAG, "PROC_QUEUE - DONE waiting on services waiters");
 
-        while (true) {
+        while (!isKilled) {
             try {
+                // Make sure services are ready before processing requests
                 leftServicesWaiter.waitWhileTrue();
                 rightServicesWaiter.waitWhileTrue();
+
+                // This will block until data is available - no CPU spinning!
+                SendRequest[] requests = sendQueue.take();
+
+                for (SendRequest request : requests) {
+                    if (request == null) {
+                        isWorkerRunning = false;
+                        break;
+                    }
+
+                    try {
+                        // Force an initial delay so BLE gets all setup
+                        long timeSinceConnection = System.currentTimeMillis() - lastConnectionTimestamp;
+                        if (timeSinceConnection < INITIAL_CONNECTION_DELAY_MS) {
+                            Thread.sleep(INITIAL_CONNECTION_DELAY_MS - timeSinceConnection);
+                        }
+
+                        boolean leftSuccess = true;
+                        boolean rightSuccess = true;
+
+                        // Send to left glass
+                        if (!request.onlyRight && leftGlassGatt != null && leftTxChar != null && isLeftConnected) {
+                            leftWaiter.setTrue();
+                            leftTxChar.setValue(request.data);
+                            leftSuccess = leftGlassGatt.writeCharacteristic(leftTxChar);
+                            if (leftSuccess) {
+                                lastSendTimestamp = System.currentTimeMillis();
+                            }
+                        }
+
+                        if (leftSuccess) {
+                            leftWaiter.waitWhileTrue();
+                        } else {
+                            //Log.d(TAG, "PROC_QUEUE - LEFT send fail");
+                        }
+
+                        // Send to right glass
+                        if (!request.onlyLeft && rightGlassGatt != null && rightTxChar != null && isRightConnected) {
+                            rightWaiter.setTrue();
+                            rightTxChar.setValue(request.data);
+                            rightSuccess = rightGlassGatt.writeCharacteristic(rightTxChar);
+                            if (rightSuccess) {
+                                lastSendTimestamp = System.currentTimeMillis();
+                            }
+                        }
+
+                        if (rightSuccess) {
+                            rightWaiter.waitWhileTrue();
+                        } else {
+                            //Log.d(TAG, "PROC_QUEUE - RIGHT send fail");
+                        }
+
+                        Thread.sleep(DELAY_BETWEEN_CHUNKS_SEND);
+
+                        // If the packet asked us to do a delay, then do it
+                        if (request.waitTime != -1){
+                            Thread.sleep(request.waitTime);
+                        }
+                    } catch (InterruptedException e) {
+                        Log.e(TAG, "Error sending data: " + e.getMessage());
+                        if (isKilled) break;
+                    }
+                }
             } catch (InterruptedException e) {
-                Log.e(TAG, "Interrupted waiting for descriptor writes: " + e);
-            }
-
-            SendRequest[] requests = sendQueue.poll();
-            if (requests == null){
-                continue;
-            }
-
-            for (SendRequest request : requests) {
-                if (request == null) {
-                    isWorkerRunning = false;
+                if (isKilled) {
+                    Log.d(TAG, "Process queue thread interrupted - shutting down");
                     break;
                 }
-
-                try {
-                    //force an initial delay so BLE gets all setup
-                    long timeSinceConnection = System.currentTimeMillis() - lastConnectionTimestamp;
-                    if (timeSinceConnection < INITIAL_CONNECTION_DELAY_MS) {
-                        Thread.sleep(INITIAL_CONNECTION_DELAY_MS - timeSinceConnection);
-                    }
-
-//                    Log.d(TAG, "PROC_QUEUE - DEBOUNCE_DELAY_MS: " + DEBOUNCE_DELAY_MS);
-
-                    // Apply debouncing
-//                    long currentTime = System.currentTimeMillis();
-//                    long timeSinceLastSend = currentTime - lastSendTimestamp;
-//                    if (timeSinceLastSend < DEBOUNCE_DELAY_MS) {
-//                        Thread.sleep(DEBOUNCE_DELAY_MS - timeSinceLastSend);
-//                    }
-
-//                    Log.d(TAG, "PROC_QUEUE - timeSinceLastSend: " + timeSinceLastSend);
-                    boolean leftSuccess = true;
-                    boolean rightSuccess = true;
-
-                    // Send to left glass
-                    if (!request.onlyRight && leftGlassGatt != null && leftTxChar != null && isLeftConnected) {
-                        leftWaiter.setTrue();
-                        leftTxChar.setValue(request.data);
-                        leftSuccess = leftGlassGatt.writeCharacteristic(leftTxChar);
-                        if (leftSuccess) {
-                            lastSendTimestamp = System.currentTimeMillis();
-                        }
-                    }
-
-                    if (leftSuccess) {
-                        //Log.d(TAG, "PROC_QUEUE - WAIT ON LEFT");
-                        leftWaiter.waitWhileTrue();
-                        //Log.d(TAG, "PROC_QUEUE - DONE WAIT ON LEFT");
-                    } else {
-                        //Log.d(TAG, "PROC_QUEUE - LEFT send fail");
-                    }
-
-//                    Thread.sleep(DELAY_BETWEEN_SENDS_MS);
-
-                    // Send to right glass
-                    if (!request.onlyLeft && rightGlassGatt != null && rightTxChar != null && isRightConnected) {
-                        rightWaiter.setTrue();
-                        rightTxChar.setValue(request.data);
-                        rightSuccess = rightGlassGatt.writeCharacteristic(rightTxChar);
-                        if (rightSuccess) {
-                            lastSendTimestamp = System.currentTimeMillis();
-                        }
-                    }
-
-                    //wait to make sure the right happens
-                    if (rightSuccess) {
-                        //Log.d(TAG, "PROC_QUEUE - WAIT ON RIGHT");
-                        rightWaiter.waitWhileTrue();
-                        //Log.d(TAG, "PROC_QUEUE - DONE WAIT ON RIGHT");
-                    } else {
-                         //Log.d(TAG, "PROC_QUEUE - LEFT send fail");
-                    }
-
-                    Thread.sleep(DELAY_BETWEEN_CHUNKS_SEND);
-
-                    // if the packet asked us to do a delay, then do it
-                    if (request.waitTime != -1){
-                        Thread.sleep(request.waitTime);
-                    }
-                } catch (InterruptedException e) {
-                    Log.e(TAG, "Error sending data: " + e.getMessage());
-                    // Optionally re-add the failed request to the queue
-                    // sendQueue.offer(request);
-                }
+                Log.e(TAG, "Error in queue processing: " + e.getMessage());
             }
-//            try {
-//                Thread.sleep(DELAY_BETWEEN_ACTIONS_SEND);
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
         }
+
+        Log.d(TAG, "Process queue thread exiting");
     }
 
 //    @Override
@@ -1637,7 +1660,6 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
                 sendDataSequentially(chunk, false, 300);
             }
         }
-
         Log.d(TAG, "Send simple reference card");
     }
 
@@ -1671,6 +1693,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
 
         // Stop periodic notifications
         stopPeriodicNotifications();
+
 
         // Stop periodic text wall
 //        stopPeriodicNotifications();
@@ -1725,7 +1748,17 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
             queryBatteryStatusHandler.removeCallbacksAndMessages(null);
         }
 
+        //free LC3 decoder
+        if (lc3DecoderPtr != 0) {
+            L3cCpp.freeDecoder(lc3DecoderPtr);
+            lc3DecoderPtr = 0;
+        }
+
         sendQueue.clear();
+
+        // Add a dummy element to unblock the take() call if needed
+        sendQueue.offer(new SendRequest[0]); //is this needed?
+
         isWorkerRunning = false;
 
         isLeftConnected = false;
@@ -2017,7 +2050,13 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     }
     public void sendBrightnessCommand(int brightness, boolean autoLight) {
         // Validate brightness range
-        int validBrightness = (brightness * 63) / 100;
+
+        int validBrightness;
+        if (brightness != -1) {
+            validBrightness = (brightness * 63) / 100;
+        } else {
+            validBrightness = (30 * 63) / 100;
+        }
 
         // Construct the command
         ByteBuffer buffer = ByteBuffer.allocate(3);
@@ -2030,7 +2069,11 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         Log.d(TAG, "Sent auto light brightness command => Brightness: " + brightness + ", Auto Light: " + (autoLight ? "Open" : "Close"));
 
         //send to AugmentOS core
-        EventBus.getDefault().post(new BrightnessLevelEvent(autoLight ? -1 : brightness));
+        if (autoLight) {
+            EventBus.getDefault().post(new BrightnessLevelEvent(autoLight));
+        } else {
+            EventBus.getDefault().post(new BrightnessLevelEvent(brightness));
+        }
     }
 
     public void sendHeadUpAngleCommand(int headUpAngle) {
@@ -2059,13 +2102,13 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     }
 
     @Override
-    public void updateGlassesHeadUpAngle(int headUpAngle) {
-        sendHeadUpAngleCommand(headUpAngle);
+    public void updateGlassesAutoBrightness(boolean autoBrightness) {
+        sendBrightnessCommand(-1, autoBrightness);
     }
 
     @Override
-    public void enableGlassesAutoBrightness() {
-        sendBrightnessCommand(50, true);
+    public void updateGlassesHeadUpAngle(int headUpAngle) {
+        sendHeadUpAngleCommand(headUpAngle);
     }
 
     private static String bytesToHex(byte[] bytes) {

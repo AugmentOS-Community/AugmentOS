@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * SpeechRecAugmentos uses ServerComms for WebSocket interactions (single connection).
@@ -39,7 +40,7 @@ public class SpeechRecAugmentos extends SpeechRecFramework {
     private volatile boolean isSpeaking = false; // Track VAD state
 
     // VAD buffer for chunking
-    private final BlockingQueue<Short> vadBuffer = new LinkedBlockingQueue<>();
+    private BlockingQueue<Short> vadBuffer = new LinkedBlockingQueue<>();
     private final int vadFrameSize = 512; // 512-sample frames for VAD
     private volatile boolean vadRunning = true;
     private boolean bypassVadForDebugging = false;
@@ -75,7 +76,7 @@ public class SpeechRecAugmentos extends SpeechRecFramework {
             vadPolicy.init(512);
             setupVadListener();
             startVadProcessingThread();
-        }).start();
+        }, "1SpeechRecAugmentos_initVadAsync").start();
     }
 
     /**
@@ -83,28 +84,38 @@ public class SpeechRecAugmentos extends SpeechRecFramework {
      */
     private void setupVadListener() {
         new Thread(() -> {
+            boolean previousVadState = false;
+
             while (true) {
-                boolean newVadIsSpeakingState = vadPolicy.shouldPassAudioToRecognizer();
-
-                if (newVadIsSpeakingState && !isSpeaking) {
-                    // VAD on
-                    sendVadStatus(true);
-                    sendBufferedAudio();
-                    isSpeaking = true;
-                } else if (!newVadIsSpeakingState && isSpeaking) {
-                    // VAD off
-                    sendVadStatus(false);
-                    isSpeaking = false;
-                }
-
                 try {
-                    Thread.sleep(50);
+                    // Get current VAD state
+                    boolean newVadIsSpeakingState = vadPolicy.shouldPassAudioToRecognizer();
+
+                    // Only take action when state changes
+                    if (newVadIsSpeakingState != previousVadState) {
+                        if (newVadIsSpeakingState) {
+                            // VAD on
+                            sendVadStatus(true);
+                            sendBufferedAudio();
+                            isSpeaking = true;
+                        } else {
+                            // VAD off
+                            sendVadStatus(false);
+                            isSpeaking = false;
+                        }
+                        previousVadState = newVadIsSpeakingState;
+                    }
+
+                    // Use longer sleep time to reduce CPU usage
+                    // WAS PREVIOUSLY 50
+                    Thread.sleep(100);
+
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return;
                 }
             }
-        }).start();
+        }, "2SpeechRecAugmentos_setupVadListener").start();
     }
 
     /**
@@ -134,24 +145,41 @@ public class SpeechRecAugmentos extends SpeechRecFramework {
      * Start a background thread that chunks up audio for VAD (512 frames).
      */
     private void startVadProcessingThread() {
+        // Convert to a BlockingQueue
+        BlockingQueue<Short> vadBlockingQueue = new LinkedBlockingQueue<>();
+
+        // Replace your existing queue with this one
+        this.vadBuffer = vadBlockingQueue;
+
         new Thread(() -> {
+            short[] vadChunk = new short[vadFrameSize];
+            int bufferedSamples = 0;
+
             while (vadRunning) {
                 try {
-                    while (vadBuffer.size() < vadFrameSize) {
-                        Thread.sleep(5);
+                    // Use take() to efficiently block until data is available
+                    // WAS PREVIOUSLY 5
+                    Short sample = vadBlockingQueue.poll(50, TimeUnit.MILLISECONDS);
+
+                    // If we got a sample, add it to our chunk
+                    if (sample != null) {
+                        vadChunk[bufferedSamples++] = sample;
+
+                        // If we've filled the chunk, process it
+                        if (bufferedSamples == vadFrameSize) {
+                            byte[] bytes = shortsToBytes(vadChunk);
+                            vadPolicy.processAudioBytes(bytes, 0, bytes.length);
+                            bufferedSamples = 0;
+                        }
                     }
-                    short[] vadChunk = new short[vadFrameSize];
-                    for (int i = 0; i < vadFrameSize; i++) {
-                        vadChunk[i] = vadBuffer.poll();
-                    }
-                    byte[] bytes = shortsToBytes(vadChunk);
-                    vadPolicy.processAudioBytes(bytes, 0, bytes.length);
+                    // If poll times out, just continue the loop
+
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
                 }
             }
-        }).start();
+        }, "3SpeechRecAugmentos_startVadProcessingThread").start();
     }
 
     /**
@@ -160,6 +188,9 @@ public class SpeechRecAugmentos extends SpeechRecFramework {
     private void sendVadStatus(boolean isNowSpeaking) {
         ServerComms.getInstance().sendVadStatus(isNowSpeaking);
     }
+
+
+    public boolean sendPcmToBackend = true;
 
     /**
      * Called by external code to feed raw PCM chunks (16-bit, 16kHz).
@@ -184,25 +215,26 @@ public class SpeechRecAugmentos extends SpeechRecFramework {
             vadBuffer.offer(sample);
         }
 
+        if (sendPcmToBackend) {
+            //BUFFER STUFF
+            // Add to rolling buffer regardless of VAD state
+            synchronized (lc3RollingBuffer) {
+                // Clone the data to ensure we have our own copy
+                byte[] copy = new byte[audioChunk.length];
+                System.arraycopy(audioChunk, 0, copy, 0, audioChunk.length);
 
-        //BUFFER STUFF
-        // Add to rolling buffer regardless of VAD state
-        synchronized (lc3RollingBuffer) {
-            // Clone the data to ensure we have our own copy
-            byte[] copy = new byte[audioChunk.length];
-            System.arraycopy(audioChunk, 0, copy, 0, audioChunk.length);
-
-            lc3RollingBuffer.add(copy);
-            while (lc3RollingBuffer.size() > LC3_BUFFER_MAX_SIZE) {
-                lc3RollingBuffer.remove(0); // Remove oldest chunks to maintain rolling window
+                lc3RollingBuffer.add(copy);
+                while (lc3RollingBuffer.size() > LC3_BUFFER_MAX_SIZE) {
+                    lc3RollingBuffer.remove(0); // Remove oldest chunks to maintain rolling window
+                }
             }
-        }
 
 
-        //SENDING STUFF
-        // If bypassing VAD for debugging or currently speaking, send data live
-        if (bypassVadForDebugging || isSpeaking) {
-            ServerComms.getInstance().sendAudioChunk(audioChunk);
+            //SENDING STUFF
+            // If bypassing VAD for debugging or currently speaking, send data live
+            if (bypassVadForDebugging || isSpeaking) {
+                ServerComms.getInstance().sendAudioChunk(audioChunk);
+            }
         }
     }
 
@@ -211,7 +243,27 @@ public class SpeechRecAugmentos extends SpeechRecFramework {
      */
     @Override
     public void ingestLC3AudioChunk(byte[] LC3audioChunk) {
-        //skip for now as not using LC3
+        if (!sendPcmToBackend) {
+            //BUFFER STUFF
+            // Add to rolling buffer regardless of VAD state
+            synchronized (lc3RollingBuffer) {
+                // Clone the data to ensure we have our own copy
+                byte[] copy = new byte[LC3audioChunk.length];
+                System.arraycopy(LC3audioChunk, 0, copy, 0, LC3audioChunk.length);
+
+                lc3RollingBuffer.add(copy);
+                while (lc3RollingBuffer.size() > LC3_BUFFER_MAX_SIZE) {
+                    lc3RollingBuffer.remove(0); // Remove oldest chunks to maintain rolling window
+                }
+            }
+
+
+            //SENDING STUFF
+            // If bypassing VAD for debugging or currently speaking, send data live
+            if (bypassVadForDebugging || isSpeaking) {
+                ServerComms.getInstance().sendAudioChunk(LC3audioChunk);
+            }
+        }
     }
 
     /**

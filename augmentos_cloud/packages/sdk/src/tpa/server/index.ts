@@ -31,20 +31,22 @@ import {
  * ```
  */
 export interface TpaServerConfig {
-  /** 📦 Unique identifier for your TPA (e.g., 'org.company.appname') */
+  /** 📦 Unique identifier for your TPA (e.g., 'org.company.appname') must match what you specified at https://console.augmentos.org */
   packageName: string;
   /** 🔑 API key for authentication with AugmentOS Cloud */
   apiKey: string;
   /** 🌐 Port number for the server (default: 7010) */
   port?: number;
-  /** 🛣️ Custom path for the webhook endpoint (default: '/webhook') */
+
+  /** 🛣️ [DEPRECATED] do not set: The SDK will automatically expose an endpoint at '/webhook' */
   webhookPath?: string;
   /** 
    * 📂 Directory for serving static files (e.g., images, logos)
    * Set to false to disable static file serving
    */
   publicDir?: string | false;
-  /** 🔌 WebSocket server URL for AugmentOS Cloud (default: 'wss://staging.augmentos.org/tpa-ws') */
+
+  /** 🔌 [DEPRECATED] No need to set this value */
   augmentOSWebsocketUrl?: string;
   /** ❤️ Enable health check endpoint at /health (default: true) */
   healthCheck?: boolean;
@@ -73,7 +75,8 @@ export interface TpaServerConfig {
  * 
  * const server = new MyAppServer({
  *   packageName: 'org.example.myapp',
- *   apiKey: 'your_api_key'
+ *   apiKey: 'your_api_key',
+ *   publicDir: "/public",
  * });
  * 
  * await server.start();

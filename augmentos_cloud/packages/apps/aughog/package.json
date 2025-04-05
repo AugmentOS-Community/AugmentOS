@@ -1,20 +1,30 @@
 {
-  "name": "@augmentos/flash",
-  "version": "1.0.0",
+  "name": "@augmentos/aughog",
+  "version": "0.1.0",
+  "description": "PostHog analytics viewer for AugmentOS smart glasses",
   "main": "dist/index.js",
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "deploy": "bun run build && bun start",
-    "dev": "tsx watch src/index.ts"
+    "dev": "bun --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist",
+    "start": "bun dist/index.js"
   },
+  "keywords": [
+    "augmentos",
+    "analytics",
+    "posthog",
+    "tpa"
+  ],
+  "author": "AugmentOS Team",
+  "license": "UNLICENSED",
   "dependencies": {
     "@augmentos/sdk": "workspace:*",
     "@augmentos/utils": "workspace:*",
-    "axios": "^1.6.7"
+    "axios": "^1.8.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "ts-node-dev": "^1.1.6"
+    "@types/express": "^4.17.21",
+    "bun-types": "latest"
   }
 }

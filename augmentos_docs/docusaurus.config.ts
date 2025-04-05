@@ -5,8 +5,8 @@ import type * as Preset from '@docusaurus/preset-classic';
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'AugmentOS Docs',
-  tagline: 'Build your AugmentOS app',
+  title: 'AugmentOS SDK Docs (Beta)',
+  tagline: 'Build your AugmentOS smart glasses app.',
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
@@ -41,6 +41,7 @@ const config: Config = {
           // Remove or update this to remove/edit "edit this page" links.
           editUrl:
             'https://github.com/augmentos-community/augmentos/tree/main/augmentos_docs/create-docusaurus/',
+          routeBasePath: '/', // Set docs as the root
         },
         blog: false,
         theme: {
@@ -51,22 +52,21 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
-    image: 'img/augmentos-social-card.jpg',
+    // Social card for link previews
+    image: 'img/augmentos-social-card.png',
+    metadata: [
+      {name: 'og:image', content: 'https://docs.augmentos.org/img/augmentos-social-card.png'},
+      {name: 'twitter:image', content: 'https://docs.augmentos.org/img/augmentos-social-card.png'},
+      {name: 'twitter:card', content: 'summary_large_image'},
+    ],
     navbar: {
-      title: 'AugmentOS Docs',
+      title: 'AugmentOS SDK Docs (Beta)',
       logo: {
         alt: 'AugmentOS Logo',
         src: 'img/logo.svg',
       },
       // Only docs in the navbar
       items: [
-        {
-          type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
-          position: 'left',
-          label: 'Docs',
-        },
         {
           href: 'https://github.com/augmentos-community/augmentos',
           label: 'GitHub',
@@ -81,9 +81,16 @@ const config: Config = {
           title: 'Docs',
           items: [
             {
-              // Points to the docs root now
-              label: 'Tutorial',
+              label: 'Home',
               to: '/',
+            },
+            {
+              label: 'Quickstart',
+              to: '/quickstart',
+            },
+            {
+              label: '🚧 Build From Scratch',
+              to: '/getting-started',
             },
           ],
         },
@@ -91,12 +98,8 @@ const config: Config = {
           title: 'Community',
           items: [
             {
-              label: 'Stack Overflow',
-              href: 'https://stackoverflow.com/questions/tagged/docusaurus',
-            },
-            {
               label: 'Discord',
-              href: 'https://discordapp.com/invite/docusaurus',
+              href: 'https://discord.gg/5ukNvkEAqT',
             },
             {
               label: 'X',

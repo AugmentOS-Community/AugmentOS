@@ -362,6 +362,11 @@ function handleSettings(sessionId: string, settingsData: any) {
 // 7) Internal Dashboard Updater
 // -----------------------------------
 async function updateDashboard(sessionId?: string) {
+  // Skip updates if no session ID is provided
+  if (!sessionId) {
+    console.log(`[Dashboard Manager] Called updateDashboard without a session ID`);
+    return;
+  }
 
   console.log(`[Session ${sessionId}] Updating dashboard...`);
 
