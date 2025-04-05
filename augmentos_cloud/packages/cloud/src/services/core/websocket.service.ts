@@ -771,7 +771,7 @@ export class WebSocketService {
 
         // Update the last activity timestamp for this connection
         healthMonitorService.updateGlassesActivity(ws);
-        console.log("🔥🔥🔥: Received message from glasses:", message);
+        // console.log("🔥🔥🔥: Received message from glasses:", message);
 
         // Handle JSON messages
         const parsedMessage = JSON.parse(message.toString()) as GlassesToCloudMessage;

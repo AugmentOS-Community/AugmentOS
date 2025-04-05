@@ -29,7 +29,7 @@ export const LLM_MODEL = process.env.LLM_MODEL || LLMModel.GPT4;
 export const LLM_PROVIDER = process.env.LLM_PROVIDER || LLMService.AZURE;
 
 export class LLMProvider {
-  static getLLM() {
+  static getLLM(options?: { temperature?: number; maxTokens?: number }) {
     const supportedAzureModels = [
       LLMModel.GPT4,
     ]
@@ -45,14 +45,21 @@ export class LLMProvider {
     const model = typeof LLM_MODEL === 'string' ? LLM_MODEL as LLMModel : LLM_MODEL;
     const provider = LLM_PROVIDER || LLMService.AZURE;
 
+    const defaultOptions = {
+      temperature: 0.3,
+      maxTokens: 300,
+    };
+
+    const finalOptions = { ...defaultOptions, ...(options || {}) };
+
     if (provider === LLMService.AZURE) {
       if (!supportedAzureModels.includes(model as LLMModel)) {
         throw new Error(`Unsupported Azure model: ${model}`);
       }
       return new AzureChatOpenAI({
         modelName: model,
-        temperature: 0.3,
-        maxTokens: 300,
+        temperature: finalOptions.temperature,
+        maxTokens: finalOptions.maxTokens,
         azureOpenAIApiKey: AZURE_OPENAI_API_KEY,
         azureOpenAIApiVersion: AZURE_OPENAI_API_VERSION,
         azureOpenAIApiInstanceName: AZURE_OPENAI_API_INSTANCE_NAME,
@@ -64,8 +71,8 @@ export class LLMProvider {
       }
       return new ChatOpenAI({
         modelName: model,
-        temperature: 0.3,
-        maxTokens: 300,
+        temperature: finalOptions.temperature,
+        maxTokens: finalOptions.maxTokens,
         openAIApiKey: OPENAI_API_KEY,
       });
     } else if (provider === LLMService.ANTHROPIC) {
@@ -74,8 +81,8 @@ export class LLMProvider {
       }
       return new ChatAnthropic({
         modelName: model,
-        temperature: 0.3,
-        maxTokens: 300,
+        temperature: finalOptions.temperature,
+        maxTokens: finalOptions.maxTokens,
         anthropicApiKey: ANTHROPIC_API_KEY,
       });
     } else {

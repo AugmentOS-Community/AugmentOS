@@ -15,6 +15,6 @@
       "@augmentos/agents": ["../agents/dist"],
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../../agents/src/FunFactAgent.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -200,12 +200,9 @@ router.get('/user/:tpaName', async (req, res) => {
 // Receives an update payload containing all settings with new values and updates the database.
 // backend/src/routes/tpa-settings.ts
 router.post('/:tpaName', async (req, res) => {
-  // logger.info('Received update for TPA settings');
-
   // Extract TPA name.
   // const parts = req.params.tpaName.split('.');
   const tpaName = req.params.tpaName;
-  // console.log('tpaName', tpaName);
   if (!tpaName) {
     return res.status(400).json({ error: 'TPA name missing in request' });
   }

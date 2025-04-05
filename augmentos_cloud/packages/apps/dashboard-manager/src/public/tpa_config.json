@@ -1,0 +1,27 @@
+{
+    "name": "Dashboard Manager",
+    "description": "Dashboard Manager",
+    "version": "1.0.0",
+    "settings": [
+      {
+        "type": "group",
+        "title": "Dashboard settings"
+      },
+      {
+        "key": "dashboard_content",
+        "type": "select",
+        "label": "Dashboard content",
+        "defaultValue": "notification_summary",
+        "options": [
+          {
+            "label": "Notification Summary",
+            "value": "Notification Summary"
+          },
+          {
+            "label": "Weather",
+            "value": "Weather"
+          }
+        ]
+      }
+    ]
+  }

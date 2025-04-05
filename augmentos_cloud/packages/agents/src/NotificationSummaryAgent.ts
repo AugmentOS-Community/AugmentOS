@@ -59,11 +59,11 @@ Example Output:
 Input (JSON):
 {notifications}`;
 
-export class NotificationFilterAgent implements Agent {
-  public agentId = "notification_filter";
-  public agentName = "NotificationFilterAgent";
+export class NotificationSummaryAgent implements Agent {
+  public agentId = "notification_summary";
+  public agentName = "NotificationSummaryAgent";
   public agentDescription =
-    "Filters notifications by importance and provides concise summaries for display on smart glasses.";
+    "Summarizes notifications by importance and provides concise summaries for display on smart glasses.";
   public agentPrompt = agentPromptBlueprint;
   // This agent doesn't use additional tools.
   public agentTools: any[] = [];
@@ -191,7 +191,7 @@ export class NotificationFilterAgent implements Agent {
       console.log(enrichedRankingList);
       return enrichedRankingList;
     } catch (err) {
-      console.error("[NotificationFilterAgent] Error:", err);
+      console.error("[NotificationSummaryAgent] Error:", err);
       return [];
     }
   }
