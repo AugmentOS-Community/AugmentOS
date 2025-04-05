@@ -9,7 +9,7 @@ import {
   TextInput,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
-import NavigationBar from '../components/NavigationBar.tsx';
+import NavigationBar from '../components/NavigationBar';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 interface Card {

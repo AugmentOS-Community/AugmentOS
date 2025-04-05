@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NavigationProps } from './types';
 import { getAppImage } from '../logic/getAppImage';
 import { FallbackImageBackground } from './FallbackImageBackground';
-import { saveSetting } from '../logic/SettingsHelper';
+import { saveSetting, loadSetting } from '../logic/SettingsHelper';
 import { SETTINGS_KEYS } from '../consts';
 
 interface AppIconProps {
@@ -33,8 +33,13 @@ const AppIcon: React.FC<AppIconProps> = ({
         try {
             await saveSetting(SETTINGS_KEYS.ONBOARDING_COMPLETED, true);
             console.log('Onboarding marked as completed');
+            
+            // Track the number of times settings have been accessed
+            const currentCount = await loadSetting(SETTINGS_KEYS.SETTINGS_ACCESS_COUNT, 0);
+            await saveSetting(SETTINGS_KEYS.SETTINGS_ACCESS_COUNT, currentCount + 1);
+            console.log(`Settings access count: ${currentCount + 1}`);
         } catch (error) {
-            console.error('Failed to save onboarding completion status:', error);
+            console.error('Failed to save settings data:', error);
         }
         
         navigation.navigate('AppSettings', {

@@ -1,15 +1,26 @@
+import { NativeModules } from 'react-native';
+
+const { AOSModule } = NativeModules;
+
 export const startExternalService = () => {
-    console.warn("CoreServiceStarter is not available on iOS");
+    // ServiceStarter.startService();
 };
 
 export const stopExternalService = () => {
-    console.warn("CoreServiceStarter is not available on iOS");
-}
-
-export const openCorePermissionsActivity = () => {
-    console.warn("CoreServiceStarter is not available on iOS");
+    // ServiceStarter.stopService();
 };
 
-export const areAllCorePermissionsGranted = () => {
-    console.warn("CoreServiceStarter is not available on iOS");
+export const openCorePermissionsActivity = () => {
+    // ServiceStarter.openPermissionsActivity();
+};
+
+export const isAugmentOsCoreInstalled = async () => {
+    // return ServiceStarter.isAugmentOsCoreInstalled();
+    return true;
+};
+
+export const areAllCorePermissionsGranted = async () => {
+    // return ServiceStarter.areAllCorePermissionsGranted();
+    // TODO: ios (we check for permissions as they're used on iOS)
+    return true;
 }

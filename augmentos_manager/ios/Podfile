@@ -1,18 +1,52 @@
 # Resolve react_native_pods.rb with node to allow for hoisting
-require Pod::Executable.execute_command('node', ['-p',
-  'require.resolve(
-    "react-native/scripts/react_native_pods.rb",
-    {paths: [process.argv[1]]},
-  )', __dir__]).strip
+def node_require(script)
+ # Resolve script with node to allow for hoisting
+ require Pod::Executable.execute_command('node', ['-p',
+   "require.resolve(
+     '#{script}',
+     {paths: [process.argv[1]]},
+   )", __dir__]).strip
+end
 
-platform :ios, min_ios_version_supported
+# Use it to require both react-native's and this package's scripts:
+node_require('react-native/scripts/react_native_pods.rb')
+node_require('react-native-permissions/scripts/setup.rb')
+
+# platform :ios, min_ios_version_supported
+platform :ios, '13.4'
 prepare_react_native_project!
+
+# All required permissions must be uncommented here
+setup_permissions([
+  # 'AppTrackingTransparency',
+  'Bluetooth',
+  'Calendars',
+  # 'CalendarsWriteOnly',
+  'Camera',
+  # 'Contacts',
+  # 'FaceID',
+  'LocationAccuracy',
+  'LocationAlways',
+  'LocationWhenInUse',
+  # 'MediaLibrary',
+  'Microphone',
+  # 'Motion',
+  'Notifications',
+  'PhotoLibrary',
+  # 'PhotoLibraryAddOnly',
+  # 'Reminders',
+  # 'Siri',
+  # 'SpeechRecognition',
+  # 'StoreKit',
+])
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
   use_frameworks! :linkage => linkage.to_sym
 end
+
+#use_modular_headers!
 
 target 'AugmentOS_Manager' do
   config = use_native_modules!
@@ -27,6 +61,8 @@ target 'AugmentOS_Manager' do
     inherit! :complete
     # Pods for testing
   end
+  
+  pod 'onnxruntime-objc', '1.18.0', :modular_headers => true
 
   post_install do |installer|
     # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202

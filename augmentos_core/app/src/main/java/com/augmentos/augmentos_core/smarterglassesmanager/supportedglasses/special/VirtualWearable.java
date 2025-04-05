@@ -5,7 +5,7 @@ import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.Smart
 
 public class VirtualWearable extends SmartGlassesDevice {
     public VirtualWearable() {
-        deviceModelName = "Virtual Wearable";
+        deviceModelName = "Simulated Glasses";
         deviceIconName = "bluetooth_earpiece";
         anySupport = true;
         fullSupport = true;

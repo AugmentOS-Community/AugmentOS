@@ -18,6 +18,7 @@ import { useStatus } from '../providers/AugmentOSStatusProvider.tsx';
 import coreCommunicator from '../bridge/CoreCommunicator';
 import HeadUpAngleComponent from '../components/HeadUpAngleComponent.tsx';
 import NavigationBar from '../components/NavigationBar';
+import { Slider } from 'react-native-elements';
 
 interface DashboardSettingsScreenProps {
   isDarkTheme: boolean;
@@ -38,6 +39,8 @@ const DashboardSettingsScreen: React.FC<DashboardSettingsScreenProps> = ({
   );
   const [headUpAngleComponentVisible, setHeadUpAngleComponentVisible] = useState(false);
   const [headUpAngle, setHeadUpAngle] = useState<number | null>(null);
+  const [dashboardHeight, setDashboardHeight] = useState<number | null>(null);
+
 
   // -- Handlers --
   const toggleContextualDashboard = async () => {
@@ -62,6 +65,21 @@ const DashboardSettingsScreen: React.FC<DashboardSettingsScreenProps> = ({
 
   const onCancelHeadUpAngle = () => {
     setHeadUpAngleComponentVisible(false);
+  };
+
+  const changeDashboardHeight = async (newDashboardHeight: number) => {
+    if (!status.glasses_info) {
+      Alert.alert('Glasses not connected', 'Please connect your smart glasses first.');
+      return;
+    }
+
+    if (newDashboardHeight == null) {
+      return;
+    }
+
+    // if (status.glasses_info.dashboard_height === -1) { return; } // or handle accordingly
+    await coreCommunicator.setGlassesDashboardHeight(newDashboardHeight);
+    setDashboardHeight(newDashboardHeight);
   };
 
   // -- Effects --
@@ -90,6 +108,26 @@ const DashboardSettingsScreen: React.FC<DashboardSettingsScreenProps> = ({
     status.glasses_info?.brightness === '-' ||
     !status.glasses_info.model_name.toLowerCase().includes('even');
 
+  const dashboardHeightSliderProps = {
+    disabled: !status.glasses_info?.model_name ||
+      !status.glasses_info.model_name.toLowerCase().includes('even'),
+    style: styles.slider,
+    minimumValue: 0,
+    maximumValue: 8,
+    step: 1,
+    onSlidingComplete: (value: number) => changeDashboardHeight(value),
+    value: status.glasses_info?.dashboard_height ?? 4,
+    minimumTrackTintColor: styles.minimumTrackTintColor.color,
+    maximumTrackTintColor: isDarkTheme
+      ? styles.maximumTrackTintColorDark.color
+      : styles.maximumTrackTintColorLight.color,
+    thumbTintColor: styles.thumbTintColor.color,
+    // Using inline objects instead of defaultProps
+    thumbTouchSize: { width: 40, height: 40 },
+    trackStyle: { height: 5 },
+    thumbStyle: { height: 20, width: 20 }
+  };
+
   return (
     <View
       style={[
@@ -116,13 +154,12 @@ const DashboardSettingsScreen: React.FC<DashboardSettingsScreenProps> = ({
                   isDarkTheme ? styles.lightSubtext : styles.darkSubtext,
                 ]}
               >
-                {`Show a summary of your phone notifications when you ${
-                  status.glasses_info?.model_name
+                {`Show a summary of your phone notifications when you ${status.glasses_info?.model_name
                     .toLowerCase()
                     .includes('even')
                     ? 'look up'
                     : 'tap your smart glasses'
-                }.`}
+                  }.`}
               </Text>
             )}
           </View>
@@ -164,6 +201,35 @@ const DashboardSettingsScreen: React.FC<DashboardSettingsScreenProps> = ({
             </Text>
           </View>
         </TouchableOpacity>
+
+        {/* Dashboard Height */}
+        {/* <View style={styles.settingItem}>
+          <View style={styles.settingTextContainer}>
+            <Text
+              style={[
+                styles.label,
+                isDarkTheme ? styles.lightText : styles.darkText,
+                (!status.core_info.puck_connected || !status.glasses_info?.model_name) &&
+                styles.disabledItem,
+              ]}
+            >
+              Dashboard Height
+            </Text>
+            <Text
+              style={[
+                styles.value,
+                isDarkTheme ? styles.lightSubtext : styles.darkSubtext,
+                (!status.core_info.puck_connected || !status.glasses_info?.model_name) &&
+                styles.disabledItem,
+              ]}
+            >
+              Adjust the height of the dashboard.
+            </Text>
+            <Slider
+              {...dashboardHeightSliderProps}
+            />
+          </View>
+        </View> */}
       </ScrollView>
 
       {/* HEADUP ANGLE MODAL */}
@@ -260,5 +326,32 @@ const styles = StyleSheet.create({
   },
   disabledItem: {
     opacity: 0.4,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  thumbTouchSize: {
+    width: 40,
+    height: 40,
+  },
+  trackStyle: {
+    height: 5,
+  },
+  thumbStyle: {
+    height: 20,
+    width: 20,
+  },
+  minimumTrackTintColor: {
+    color: '#2196F3',
+  },
+  maximumTrackTintColorDark: {
+    color: '#666666',
+  },
+  maximumTrackTintColorLight: {
+    color: '#D1D1D6',
+  },
+  thumbTintColor: {
+    color: '#FFFFFF',
   },
 });

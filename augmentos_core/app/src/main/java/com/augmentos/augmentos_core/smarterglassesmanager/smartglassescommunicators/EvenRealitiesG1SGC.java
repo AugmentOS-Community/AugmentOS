@@ -2082,18 +2082,13 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     }
 
     @Override
-    public void updateGlassesBrightness(int brightness) {
-        sendBrightnessCommand(brightness, false);
+    public void updateGlassesBrightness(int brightness, boolean autoLight) {
+        sendBrightnessCommand(brightness, autoLight);
     }
 
     @Override
     public void updateGlassesHeadUpAngle(int headUpAngle) {
         sendHeadUpAngleCommand(headUpAngle);
-    }
-
-    @Override
-    public void enableGlassesAutoBrightness() {
-        sendBrightnessCommand(50, true);
     }
 
     private static String bytesToHex(byte[] bytes) {

@@ -11,8 +11,10 @@ import com.augmentos.augmentos_core.AugmentosService;
 import com.augmentos.augmentos_core.R;
 import com.augmentos.augmentos_core.WindowManagerWithTimeouts;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.BypassVadForDebuggingEvent;
+import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.MicModeChangedEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.NewAsrLanguagesEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SmartGlassesConnectionEvent;
+import com.augmentos.augmentos_core.smarterglassesmanager.hci.PhoneMicrophoneManager;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.AndroidSGC;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.SmartGlassesFontSize;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassesconnection.SmartGlassesRepresentative;
@@ -361,6 +363,10 @@ public class SmartGlassesManager {
                 .getBoolean(context.getResources().getString(R.string.FORCE_CORE_ONBOARD_MIC), false);
     }
 
+    public static void setForceCoreOnboardMic(Context context, boolean toForce) {
+        saveForceCoreOnboardMic(context, toForce);
+    }
+    
     public static void saveForceCoreOnboardMic(Context context, boolean toForce) {
         PreferenceManager.getDefaultSharedPreferences(context)
                 .edit()
@@ -426,9 +432,9 @@ public class SmartGlassesManager {
         return smartGlassesRepresentative.smartGlassesDevice.glassesOs;
     }
 
-    public void updateGlassesBrightness(int brightness) {
+    public void updateGlassesBrightness(int brightness, boolean autoLight) {
         if (smartGlassesRepresentative != null) {
-            smartGlassesRepresentative.updateGlassesBrightness(brightness);
+            smartGlassesRepresentative.updateGlassesBrightness(brightness, autoLight);
         }
     }
 

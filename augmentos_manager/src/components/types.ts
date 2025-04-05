@@ -8,12 +8,13 @@ export type RootStackParamList = {
   SettingsPage: undefined;
   AppStore: undefined;
   AppStoreNative: undefined;
-  AppStoreWeb: undefined;
+  AppStoreWeb: { packageName?: string };
   PairPuckScreen: undefined;
   SplashScreen: undefined;
   VerifyEmailScreen: undefined;
   WelcomePage: undefined;
   Onboarding: undefined;
+  Testing: undefined;
   AppDetails: { app: AppStoreItem };
   ProfileSettings: undefined;
   GlassesMirror: undefined;
@@ -25,6 +26,7 @@ export type RootStackParamList = {
   SelectGlassesModelScreen: undefined;
   DashboardSettingsScreen: { isDarkTheme: boolean; toggleTheme: () => void };
   DeveloperSettingsScreen: undefined;
+  ScreenSettingsScreen: { isDarkTheme: boolean; toggleTheme: () => void };
   VersionUpdateScreen: {
     isDarkTheme: boolean;
     connectionError?: boolean;

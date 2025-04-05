@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.augmentos.augmentos_manager",
+    "sha256_cert_fingerprints": ["B2:90:C3:85:AA:B9:CC:DF:41:3D:34:3C:70:C5:3D:4E:2D:25:46:D9:82:62:2A:DF:D9:FC:99:B0:AB:58:D1:31"]
+  }
+}]

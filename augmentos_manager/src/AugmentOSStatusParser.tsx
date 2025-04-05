@@ -4,8 +4,12 @@ interface Glasses {
   model_name: string;
   battery_life: number;
   is_searching: boolean;
-  brightness: string | null; // 0-100
+  brightness: string;
+  auto_brightness: boolean;
   headUp_angle: number | null; // 0-60
+  dashboard_height: number | null; // 0-8
+  dashboard_distance: number | null; // ???
+  dashboard_x_offset: number | null; // 0-1
 }
 
 interface WifiConnection {
@@ -114,7 +118,8 @@ export class AugmentOSParser {
       model_name: 'Even Realities G1',
       battery_life: 60,
       is_searching: false,
-      brightness: "87%",
+      brightness: 87,
+      auto_brightness: false,
       headUp_angle: 20,
     },
     wifi: { is_connected: true, ssid: 'TP-LINK69', signal_strength: 100 },
@@ -220,17 +225,18 @@ export class AugmentOSParser {
     if (MOCK_CONNECTION) {return AugmentOSParser.mockStatus;}
     if (data && 'status' in data) {
       let status = data.status;
-
-      console.log(JSON.stringify(data));
+      let coreInfo = status.core_info ?? {};
+      let glassesInfo = status.connected_glasses ?? {};
+      let authInfo = status.auth ?? {};
       
       // First determine if we have connected glasses in the status
       const hasConnectedGlasses = status.connected_glasses && status.connected_glasses.model_name;
       
       return {
         core_info: {
-          augmentos_core_version: status.core_info.augmentos_core_version ?? null,
-          core_token: status.core_info.core_token ?? null,
-          cloud_connection_status: status.core_info.cloud_connection_status ?? 'DISCONNECTED',
+          augmentos_core_version: coreInfo.augmentos_core_version ?? null,
+          core_token: coreInfo.core_token ?? null,
+          cloud_connection_status: coreInfo.cloud_connection_status ?? 'DISCONNECTED',
           puck_connected: true,
           puck_battery_life: status.core_info.puck_battery_life ?? null,
           puck_charging_status: status.core_info.charging_status ?? false,
@@ -248,11 +254,15 @@ export class AugmentOSParser {
         },
         glasses_info: status.connected_glasses
           ? {
-            model_name: status.connected_glasses.model_name,
-            battery_life: status.connected_glasses.battery_life,
-            is_searching: status.connected_glasses.is_searching ?? false,
-            brightness: status.connected_glasses.brightness,
-            headUp_angle: status.connected_glasses.headUp_angle,
+            model_name: glassesInfo.model_name,
+            battery_life: glassesInfo.battery_life,
+            is_searching: glassesInfo.is_searching ?? false,
+            brightness: glassesInfo.brightness,
+            auto_brightness: glassesInfo.auto_brightness,
+            headUp_angle: glassesInfo.headUp_angle,
+            dashboard_height: glassesInfo.dashboard_height,
+            dashboard_distance: glassesInfo.dashboard_distance,
+            dashboard_x_offset: glassesInfo.dashboard_x_offset,
           }
           : null,
         wifi: status.wifi ?? AugmentOSParser.defaultStatus.wifi,
@@ -268,9 +278,9 @@ export class AugmentOSParser {
           type: app.type || 'APP',
         })) || [],
         auth: {
-          core_token_owner: status.auth.core_token_owner,
-          core_token_status: status.auth.core_token_status,
-          last_verification_timestamp: status.auth.last_verification_timestamp,
+          core_token_owner: authInfo.core_token_owner,
+          core_token_status: authInfo.core_token_status,
+          last_verification_timestamp: authInfo.last_verification_timestamp,
         },
       };
     }

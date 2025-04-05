@@ -24,7 +24,7 @@ export const getPairingGuide = (glassesModelName: string, isDarkTheme: boolean) 
       return <MentraLivePairingGuide isDarkTheme={isDarkTheme} />;
     case 'Audio Wearable':
       return <AudioWearablePairingGuide isDarkTheme={isDarkTheme} />;
-    case 'Virtual Wearable':
+    case 'Simulated Glasses':
       return <VirtualWearablePairingGuide isDarkTheme={isDarkTheme} />;
     default:
       return <View />;

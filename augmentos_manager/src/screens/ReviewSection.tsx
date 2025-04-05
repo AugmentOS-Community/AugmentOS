@@ -5,13 +5,13 @@ import React, {
 } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import SearchWithFilters from '../components/AppReview/SearchBar.tsx';
-import ReviewList from '../components/AppReview/ReviewList.tsx';
-import ReviewModal from '../components/AppReview/ReviewModal.tsx';
-import ReviewDetailsModal from '../components/AppReview/ReviewDetailsModal.tsx';
-import AnimatedChatBubble from '../components/AppReview/AnimatedChatBubble.tsx';
+import SearchWithFilters from '../components/AppReview/SearchBar';
+import ReviewList from '../components/AppReview/ReviewList';
+import ReviewModal from '../components/AppReview/ReviewModal';
+import ReviewDetailsModal from '../components/AppReview/ReviewDetailsModal';
+import AnimatedChatBubble from '../components/AppReview/AnimatedChatBubble';
 import BackendServerComms from '../backend_comms/BackendServerComms';
-import {GET_APP_STORE_DATA_ENDPOINT} from '../consts.tsx'; // Assuming BackendServerComms is correctly set up
+import {GET_APP_STORE_DATA_ENDPOINT} from '../consts'; // Assuming BackendServerComms is correctly set up
 
 interface ReviewSectionProps {
   route: any;

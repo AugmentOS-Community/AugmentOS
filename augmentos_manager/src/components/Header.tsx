@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert, AppState } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import { checkNotificationAccessSpecialPermission } from '../utils/NotificationServiceUtils';
+import { checkFeaturePermissions, PermissionFeatures } from '../logic/PermissionsUtils';
 
 interface HeaderProps {
   isDarkTheme: boolean;
@@ -9,6 +12,46 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ isDarkTheme, navigation }) => {
   const [isDropdownVisible, setDropdownVisible] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [hasNotificationListenerPermission, setHasNotificationListenerPermission] = useState(true);
+  const [hasCalendarPermission, setHasCalendarPermission] = useState(true);
+  const [appState, setAppState] = useState(AppState.currentState);
+
+  // Check permissions when component mounts
+  // and when app comes back to foreground
+  useEffect(() => {
+    const checkPermissions = async () => {
+      // Check notification permission
+      if (Platform.OS === 'android') {
+        const hasNotificationPermission = await checkNotificationAccessSpecialPermission();
+        setHasNotificationListenerPermission(hasNotificationPermission);
+      } else {
+        const hasNotificationPermission = await checkFeaturePermissions(PermissionFeatures.NOTIFICATIONS);
+        setHasNotificationListenerPermission(hasNotificationPermission);
+      }
+      
+      // Check calendar permission
+      const hasCalPermission = await checkFeaturePermissions(PermissionFeatures.CALENDAR);
+      setHasCalendarPermission(hasCalPermission);
+    };
+
+    // Check permissions on component mount
+    checkPermissions();
+    
+    // Set up AppState listener to check permissions when app comes back to foreground
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (appState.match(/inactive|background/) && nextAppState === 'active') {
+        // App has come to the foreground
+        console.log('App has come to foreground, checking permissions');
+        checkPermissions();
+      }
+      setAppState(nextAppState);
+    });
+
+    // Clean up subscription
+    return () => {
+      subscription.remove();
+    };
+  }, [appState]);
 
   const handleLogout = () => {
     setIsLoggedIn(false);
@@ -28,6 +71,15 @@ const Header: React.FC<HeaderProps> = ({ isDarkTheme, navigation }) => {
     }
   };
 
+  const handleNotificationAlert = () => {
+    // Navigate to PrivacySettingsScreen instead
+    if (navigation) {
+      navigation.navigate('PrivacySettingsScreen');
+    } else {
+      console.error('Navigation prop is undefined');
+    }
+  };
+
   const textColor = isDarkTheme ? '#FFFFFF' : '#000000';
   const dropdownBackgroundColor = isDarkTheme ? '#333333' : '#FFFFFF';
   const shadowColor = isDarkTheme ? '#FFFFFF' : '#000000';
@@ -37,6 +89,20 @@ const Header: React.FC<HeaderProps> = ({ isDarkTheme, navigation }) => {
       <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>
         AugmentOS
       </Text>
+      
+      {(!hasNotificationListenerPermission || !hasCalendarPermission) && (
+        <TouchableOpacity
+          style={styles.alertIconContainer}
+          onPress={handleNotificationAlert}
+        >
+          <Icon 
+            name="notifications-off" 
+            size={24} 
+            color="#FF3B30" 
+          />
+          <View style={styles.alertDot} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -44,15 +110,16 @@ const Header: React.FC<HeaderProps> = ({ isDarkTheme, navigation }) => {
 const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 16,
     marginLeft: 8,
     zIndex: 1,
     minHeight: 60,
     ...Platform.select({
       ios: {
-        paddingTop: 44, // Additional padding for iOS status bar
+        paddingTop: 16,
       },
       android: {
         paddingTop: 16,
@@ -83,6 +150,21 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     fontSize: 16,
     fontFamily: 'Montserrat-Regular',
+  },
+  alertIconContainer: {
+    position: 'relative',
+    padding: 8,
+  },
+  alertDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FF3B30',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
 });
 

@@ -16,5 +16,16 @@ module.exports = {
         allowUndefined: true,
       },
     ],
+    [
+      'module-resolver',
+      {
+        root: ['./src'],
+        extensions: ['.ios.js', '.android.js', '.js', '.ts', '.tsx', '.json'],
+        alias: {
+          // Helps resolve Supabase modules
+          '@supabase/storage-js': './node_modules/@supabase/storage-js'
+        },
+      },
+    ],
   ],
 };

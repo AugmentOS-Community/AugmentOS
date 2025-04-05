@@ -9,6 +9,7 @@ import {
   ScrollView,
   Animated,
   Alert,
+  AppState,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -19,6 +20,9 @@ import { loadSetting, saveSetting } from '../logic/SettingsHelper';
 import { SETTINGS_KEYS } from '../consts';
 import NavigationBar from '../components/NavigationBar';
 import { supabase } from '../supabaseClient';
+import { requestFeaturePermissions, PermissionFeatures, checkFeaturePermissions } from '../logic/PermissionsUtils';
+import { checkNotificationAccessSpecialPermission, checkAndRequestNotificationAccessSpecialPermission } from "../utils/NotificationServiceUtils";
+import { NotificationService } from '../logic/NotificationServiceUtils';
 
 interface PrivacySettingsScreenProps {
   isDarkTheme: boolean;
@@ -39,12 +43,74 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
   const [isContextualDashboardEnabled, setIsContextualDashboardEnabled] = React.useState(
     status.core_info.contextual_dashboard_enabled,
   );
+  const [notificationsEnabled, setNotificationsEnabled] = React.useState(false);
+  const [calendarEnabled, setCalendarEnabled] = React.useState(false);
+  const [appState, setAppState] = React.useState(AppState.currentState);
 
+  // Check permissions when screen loads
   React.useEffect(() => {
-    const loadInitialSettings = async () => { };
+    const checkPermissions = async () => {
+      console.log('Checking permissions in PrivacySettingsScreen');
+      // Check notification permissions
+      if (Platform.OS === 'android') {
+        const hasNotificationAccess = await checkNotificationAccessSpecialPermission();
+        setNotificationsEnabled(hasNotificationAccess);
+      } else {
+        const hasNotifications = await checkFeaturePermissions(PermissionFeatures.NOTIFICATIONS);
+        setNotificationsEnabled(hasNotifications);
+      }
+      
+      // Check calendar permissions
+      const hasCalendar = await checkFeaturePermissions(PermissionFeatures.CALENDAR);
+      setCalendarEnabled(hasCalendar);
+    };
 
-    loadInitialSettings();
+    checkPermissions();
   }, []);
+  
+  // Monitor app state to detect when user returns from settings
+  React.useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (appState.match(/inactive|background/) && nextAppState === 'active') {
+        // App has come to the foreground - recheck permissions
+        console.log('App returned to foreground, rechecking notification permissions');
+        (async () => {
+          if (Platform.OS === 'android') {
+            const hasNotificationAccess = await checkNotificationAccessSpecialPermission();
+            
+            // If permission was granted while away, enable notifications and start service
+            if (hasNotificationAccess && !notificationsEnabled) {
+              console.log('Notification permission was granted while away, enabling notifications');
+              setNotificationsEnabled(true);
+              
+              // Start notification listener service 
+              try {
+                await NotificationService.startNotificationListenerService();
+              } catch (error) {
+                console.error('Error starting notification service:', error);
+              }
+            }
+          } else {
+            const hasNotifications = await checkFeaturePermissions(PermissionFeatures.NOTIFICATIONS);
+            if (hasNotifications && !notificationsEnabled) {
+              setNotificationsEnabled(true);
+            }
+          }
+          
+          // Also recheck calendar permissions
+          const hasCalendar = await checkFeaturePermissions(PermissionFeatures.CALENDAR);
+          if (hasCalendar !== calendarEnabled) {
+            setCalendarEnabled(hasCalendar);
+          }
+        })();
+      }
+      setAppState(nextAppState);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [appState, notificationsEnabled, calendarEnabled]);
 
   const toggleSensing = async () => {
     let newSensing = !isSensingEnabled;
@@ -53,6 +119,23 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
   };
 
   const toggleForceCoreOnboardMic = async () => {
+    // First request microphone permission if we're enabling the mic
+    if (!forceCoreOnboardMic) {
+      // We're about to enable the mic, so request permission
+      const hasMicPermission = await requestFeaturePermissions(PermissionFeatures.MICROPHONE);
+      if (!hasMicPermission) {
+        // Permission denied, don't toggle the setting
+        console.log('Microphone permission denied, cannot enable onboard mic');
+        Alert.alert(
+          'Microphone Permission Required',
+          'Microphone permission is required to use the onboard microphone feature. Please grant microphone permission in settings.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+    }
+    
+    // Continue with toggling the setting if permission granted or turning off
     let newForceCoreOnboardMic = !forceCoreOnboardMic;
     await coreCommunicator.sendToggleForceCoreOnboardMic(newForceCoreOnboardMic);
     setForceCoreOnboardMic(newForceCoreOnboardMic);
@@ -64,23 +147,56 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
     setIsContextualDashboardEnabled(newContextualDashboardSetting);
   };
 
-  const toggleBypassVADForDebugging = async () => {
-    let newSetting = !isBypassVADForDebuggingEnabled;
-    await coreCommunicator.sendToggleBypassVadForDebugging(newSetting);
-    setIsBypassVADForDebuggingEnabled(newSetting);
-  };
-
-  const toggleBypassAudioEncodingForDebugging = async () => {
-    let newSetting = !isBypassAudioEncodingForDebuggingEnabled;
-    await coreCommunicator.sendToggleBypassAudioEncodingForDebugging(newSetting);
-    setIsBypassAudioEncodingForDebuggingEnabled(newSetting);
-  };
-
   const changeBrightness = async (newBrightness: number) => {
     if (status.glasses_info?.brightness === '-') {return;}
     await coreCommunicator.setGlassesBrightnessMode(newBrightness, false);
 
     console.log(`Brightness set to: ${newBrightness}`);
+  };
+  
+  const handleToggleNotifications = async () => {
+    if (!notificationsEnabled) {
+      if (Platform.OS === 'android') {
+        // Try to request notification access
+        await checkAndRequestNotificationAccessSpecialPermission();
+        
+        // Re-check permissions after the request
+        const hasAccess = await checkNotificationAccessSpecialPermission();
+        if (hasAccess) {
+          // Start notification listener service if permission granted
+          await NotificationService.startNotificationListenerService();
+          setNotificationsEnabled(true);
+        }
+      } else {
+        // iOS notification permissions
+        const granted = await requestFeaturePermissions(PermissionFeatures.NOTIFICATIONS);
+        if (granted) {
+          setNotificationsEnabled(true);
+        }
+      }
+    } else {
+      // If turning off, stop notification service on Android
+      if (Platform.OS === 'android') {
+        await NotificationService.stopNotificationListenerService();
+      }
+      setNotificationsEnabled(false);
+    }
+  };
+  
+  const handleToggleCalendar = async () => {
+    if (!calendarEnabled) {
+      const granted = await requestFeaturePermissions(PermissionFeatures.CALENDAR);
+      if (granted) {
+        setCalendarEnabled(true);
+      }
+    } else {
+      // We can't revoke the permission, but we can provide info
+      Alert.alert(
+        'Permission Management',
+        'To revoke calendar permission, please go to your device settings and modify app permissions.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
 
@@ -121,26 +237,61 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
       ]}>
       <ScrollView style={styles.scrollViewContainer}>
 
-        <TouchableOpacity
-          style={styles.settingItem}
-          onPress={() => {
-            navigation.navigate('PhoneNotificationSettings');
-          }}>
+        {/* Notification Permission - Android Only */}
+        {Platform.OS === 'android' && (
+          <View style={styles.settingItem}>
+            <View style={styles.settingTextContainer}>
+              <Text
+                style={[
+                  styles.label,
+                  isDarkTheme ? styles.lightText : styles.darkText
+                ]}>
+                Notification Access
+              </Text>
+              <Text
+                style={[
+                  styles.value,
+                  isDarkTheme ? styles.lightSubtext : styles.darkSubtext
+                ]}>
+                Allow AugmentOS to forward your phone notifications to your smart glasses.
+              </Text>
+            </View>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={handleToggleNotifications}
+              trackColor={switchColors.trackColor}
+              thumbColor={switchColors.thumbColor}
+              ios_backgroundColor={switchColors.ios_backgroundColor}
+            />
+          </View>
+        )}
+        
+        {/* Calendar Permission */}
+        <View style={styles.settingItem}>
           <View style={styles.settingTextContainer}>
             <Text
               style={[
                 styles.label,
-                isDarkTheme ? styles.lightText : styles.darkText,
+                isDarkTheme ? styles.lightText : styles.darkText
               ]}>
-              Notifications
+              Calendar Access
+            </Text>
+            <Text
+              style={[
+                styles.value,
+                isDarkTheme ? styles.lightSubtext : styles.darkSubtext
+              ]}>
+              Allow AugmentOS to display your calendar events on your smart glasses.
             </Text>
           </View>
-          <Icon
-            name="angle-right"
-            size={20}
-            color={isDarkTheme ? styles.lightIcon.color : styles.darkIcon.color}
+          <Switch
+            value={calendarEnabled}
+            onValueChange={handleToggleCalendar}
+            trackColor={switchColors.trackColor}
+            thumbColor={switchColors.thumbColor}
+            ios_backgroundColor={switchColors.ios_backgroundColor}
           />
-        </TouchableOpacity>
+        </View>
 
         <View style={styles.settingItem}>
           <View style={styles.settingTextContainer}>

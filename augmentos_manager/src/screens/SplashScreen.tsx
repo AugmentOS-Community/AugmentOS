@@ -12,7 +12,7 @@ interface SplashScreenProps {
   //navigation: any;
 }
 
-const SplashScreen: React.FC<SplashScreenProps> = ({}) => {
+const SplashScreen: React.FC<SplashScreenProps> = ({ }) => {
   const navigation = useNavigation<NavigationProps>();
   const { user, loading } = useAuth();
   const { status, initializeCoreConnection } = useStatus();
@@ -20,47 +20,30 @@ const SplashScreen: React.FC<SplashScreenProps> = ({}) => {
   useEffect(() => {
     const initializeApp = async () => {
 
-
       /*
       The purpose of SplashScreen is to route the user wherever the user needs to be
       If they're not logged in => login screen
       If they're logged in, but no perms => perm screen
       If they're logged in + perms => SimulatedPucK setup
       */
-     if (!user) {
+      if (!user) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+        return;
+      }
+
+      // We're now skipping the Grant Permissions screen completely
+      // Optional permissions will be handled via the Additional Permissions screen
+      // accessed through the alert icon on the homepage
+
+      initializeCoreConnection();
+
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Login' }],
+        routes: [{ name: 'ConnectingToPuck' }],
       });
-      return;
-     }
-
-     if (!(await doesHaveAllPermissions())){
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'GrantPermissionsScreen' }],
-      });
-      return;
-     }
-
-     initializeCoreConnection();
-
-     // Check if the user has completed onboarding
-     const onboardingCompleted = await loadSetting(SETTINGS_KEYS.ONBOARDING_COMPLETED, false);
-
-     if (onboardingCompleted) {
-       // If onboarding is completed, go directly to Home
-       navigation.reset({
-         index: 0,
-         routes: [{ name: 'ConnectingToPuck' }],
-       });
-     } else {
-       // If onboarding is not completed, go to WelcomePage
-       navigation.reset({
-         index: 0,
-         routes: [{ name: 'WelcomePage' }],
-       });
-     }
     };
 
     if (!loading) {

@@ -19,8 +19,8 @@ export const getGlassesImage = (glasses: string | null) => {
       case 'virtual-wearable':
       case 'Audio Wearable':
         return require('../assets/glasses/audio_wearable.png');
-      case 'Virtual Wearable':
-        return require('../assets/glasses/virtual_wearable.png');
+      case 'Simulated Glasses':
+        return require('../assets/glasses/phoneframe.png');
       default:
         return require('../assets/glasses/unknown_wearable.png');
     }

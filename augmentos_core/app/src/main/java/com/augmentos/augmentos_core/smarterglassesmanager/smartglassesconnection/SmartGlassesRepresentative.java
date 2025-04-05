@@ -15,9 +15,12 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.augmentos.augmentos_core.smarterglassesmanager.SmartGlassesManager;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.DisableBleScoAudioEvent;
+import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SmartGlassesConnectionEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.VirtualSGC;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.special.SelfSGC;
 import com.augmentos.augmentos_core.smarterglassesmanager.hci.AudioProcessingCallback;
+import com.augmentos.augmentos_core.smarterglassesmanager.hci.PhoneMicrophoneManager.PhoneMicListener;
+import com.augmentos.augmentos_core.smarterglassesmanager.hci.PhoneMicrophoneManager;
 import com.augmentos.augmentoslib.events.DisplayCustomContentRequestEvent;
 import com.augmentos.augmentoslib.events.DoubleTextWallViewRequestEvent;
 import com.augmentos.augmentoslib.events.HomeScreenEvent;
@@ -53,7 +56,7 @@ import java.util.Arrays;
 
 import io.reactivex.rxjava3.subjects.PublishSubject;
 
-public class SmartGlassesRepresentative {
+public class SmartGlassesRepresentative implements PhoneMicListener {
     private static final String TAG = "WearableAi_ASGRepresentative";
 
     //receive/send data stream
@@ -63,8 +66,10 @@ public class SmartGlassesRepresentative {
 
     public SmartGlassesDevice smartGlassesDevice;
     public SmartGlassesCommunicator smartGlassesCommunicator;
-    MicrophoneLocalAndBluetooth bluetoothAudio;
-
+    
+    // Enhanced microphone management
+    private PhoneMicrophoneManager phoneMicManager;
+    
     //timing settings
     long referenceCardDelayTime = 10000;
 
@@ -127,10 +132,21 @@ public class SmartGlassesRepresentative {
         }
 
         if (SmartGlassesManager.getSensingEnabled(context)) {
-            // If the glasses don't support a microphone, handle local microphone
+            // If the glasses don't support a microphone or we're forcing phone mic, use the phone mic manager
             if (!smartGlassesDevice.getHasInMic() || SmartGlassesManager.getForceCoreOnboardMic(context)) {
-                
-                connectAndStreamLocalMicrophone(true);
+                // Initialize the PhoneMicrophoneManager if needed
+                try {
+                    if (phoneMicManager == null) {
+                        Log.d(TAG, "Initializing PhoneMicrophoneManager for adaptive mic handling");
+                        phoneMicManager = new PhoneMicrophoneManager(context, audioProcessingCallback, this, this);
+                    } else {
+                        // If already initialized, start the preferred mode
+                        phoneMicManager.startPreferredMicMode();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error initializing PhoneMicrophoneManager: " + e.getMessage());
+                    // Continue without microphone - we'll lose audio functionality but glasses should still work
+                }
             }
         }
     }
@@ -182,6 +198,16 @@ public class SmartGlassesRepresentative {
                 ((AndroidSGC) communicator).registerSpeechRecSystem(audioProcessingCallback);
                 Log.d(TAG, "BATTERY OPTIMIZATION: Registered additional AudioSystem callback for AndroidSGC");
             }
+            
+            // Special case for VirtualSGC to ensure phone microphone is used
+            // if (communicator instanceof VirtualSGC) {
+            //     Log.d(TAG, "Enabling phone microphone for simulated glasses - this is required");
+            //     // Force use of phone's microphone with VirtualSGC/Simulated Glasses
+            //     SmartGlassesManager.setForceCoreOnboardMic(context, true);
+                
+            //     // Add extra debug logging to help diagnose audio issues
+            //     Log.d(TAG, "✅ Phone mic will be used for Simulated Glasses");
+            // }
         }
         
         return communicator;
@@ -196,9 +222,9 @@ public class SmartGlassesRepresentative {
     //            && comm.getDevice().equals(device);
     //}
 
-    public void updateGlassesBrightness(int brightness) {
+    public void updateGlassesBrightness(int brightness, boolean autoLight) {
         if (smartGlassesCommunicator != null) {
-            smartGlassesCommunicator.updateGlassesBrightness(brightness);
+            smartGlassesCommunicator.updateGlassesBrightness(brightness, autoLight);
         }
     }
 
@@ -214,24 +240,38 @@ public class SmartGlassesRepresentative {
         restartAudioWithNoBleSco();
     }
 
-    public void restartAudioWithNoBleSco(){
-        //kill current audio
-        if (bluetoothAudio != null) {
-            bluetoothAudio.destroy();
+    public void restartAudioWithNoBleSco() {
+        if (phoneMicManager != null) {
+            // Use the phone mic manager to switch to normal mode
+            Log.d(TAG, "Switching to normal phone mic mode via PhoneMicrophoneManager");
+            
+            // Check if phone mic is explicitly forced by the user
+            if (SmartGlassesManager.getForceCoreOnboardMic(context)) {
+                // If user explicitly wants phone mic, switch to normal (non-SCO) mode
+                phoneMicManager.switchToNormalMode();
+            } else {
+                // If we're just disabling SCO temporarily, try to use glasses mic if available
+                if (smartGlassesDevice != null && smartGlassesDevice.getHasInMic()) {
+                    phoneMicManager.switchToGlassesMic();
+                } else {
+                    // Fallback to normal mode if no glasses mic
+                    phoneMicManager.switchToNormalMode();
+                }
+            }
         }
-
-        //start new audio, with no bluetooth
-        connectAndStreamLocalMicrophone(false);
     }
 
-    public void changeBluetoothMicState(boolean enableBluetoothMic){
-        // kill current audio
-        if (bluetoothAudio != null) {
-            bluetoothAudio.destroy();
-        }
-
-        if (enableBluetoothMic) {
-            connectAndStreamLocalMicrophone(true);
+    public void changeBluetoothMicState(boolean enableBluetoothMic) {
+        if (phoneMicManager != null) {
+            if (enableBluetoothMic) {
+                // Use phone mic manager to switch to SCO mode
+                Log.d(TAG, "Enabling Bluetooth SCO mic via PhoneMicrophoneManager");
+                phoneMicManager.switchToScoMode();
+            } else {
+                // When disabling, fully pause the microphone
+                Log.d(TAG, "Disabling Bluetooth SCO mic via PhoneMicrophoneManager");
+                phoneMicManager.pauseRecording();
+            }
         }
     }
 
@@ -241,15 +281,6 @@ public class SmartGlassesRepresentative {
             handler = new Handler(Looper.getMainLooper());
         }
         return handler;
-    }
-    
-    private void connectAndStreamLocalMicrophone(boolean useBluetoothSco) {
-        //follow this order for speed
-        //start audio from bluetooth headset
-        getHandler().post(() -> {
-            bluetoothAudio = new MicrophoneLocalAndBluetooth(context, useBluetoothSco, 
-                chunk -> receiveChunk(chunk));
-        });
     }
 
     /**
@@ -267,7 +298,8 @@ public class SmartGlassesRepresentative {
     private int BYTES_PER_FRAME = 320;
 
     // data from the local microphone, convert to LC3, send
-    private void receiveChunk(ByteBuffer chunk) {
+    public void receiveChunk(ByteBuffer chunk) {
+        Log.d(TAG, "receiveChunk called - converting PCM to LC3 and sending to both PCM and LC3 callbacks");
         byte[] audio_bytes = chunk.array();
 
         // Append to remainder buffer
@@ -312,12 +344,12 @@ public class SmartGlassesRepresentative {
             Log.e(TAG, "Error unregistering from EventBus", e);
         }
 
-        if (bluetoothAudio != null) {
+        if (phoneMicManager != null) {
             try {
-                bluetoothAudio.destroy();
-                bluetoothAudio = null; // BATTERY OPTIMIZATION: Prevent memory leaks
+                phoneMicManager.destroy();
+                phoneMicManager = null; // BATTERY OPTIMIZATION: Prevent memory leaks
             } catch (Exception e) {
-                Log.e(TAG, "Error destroying bluetoothAudio", e);
+                Log.e(TAG, "Error destroying phoneMicManager", e);
             }
         }
 
@@ -453,4 +485,25 @@ public class SmartGlassesRepresentative {
     }
 
     public void changeMicrophoneState(boolean isMicrophoneEnabled) {}
+    
+    /**
+     * Implementation of PhoneMicListener interface
+     * Called when a permission error occurs in PhoneMicrophoneManager
+     */
+    @Override
+    public void onPermissionError() {
+        Log.e(TAG, "Permission error in PhoneMicrophoneManager, disconnecting");
+        try {
+            // Clean up resources
+            if (phoneMicManager != null) {
+                phoneMicManager.destroy();
+                phoneMicManager = null;
+            }
+            
+            // Notify via EventBus about the permission issue
+            EventBus.getDefault().post(new SmartGlassesConnectionEvent(SmartGlassesConnectionState.DISCONNECTED));
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling permission error", e);
+        }
+    }
 }

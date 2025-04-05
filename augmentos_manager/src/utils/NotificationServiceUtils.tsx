@@ -20,31 +20,48 @@ export async function checkAndRequestNotificationAccessSpecialPermission() {
     if (!hasAccess) {
       Alert.alert(
         'Enable Notification Access',
-        'We need permission to read your phone notifications and display them on the glasses. ' +
-         'On the next screen, please find \"AugmentOS Manager\" in the list and toggle it on.',
+        'AugmentOS needs permission to read your phone notifications to display them on your smart glasses.\n\n' +
+        'On the next screen:\n' +
+        '1. Find "AugmentOS Manager" in the list\n' +
+        '2. Toggle the switch to ON\n' +
+        '3. Tap ALLOW when prompted',
         [
           {
-            text: 'OK, Take Me There',
+            text: 'Go to Settings',
             onPress: () => {
               NotificationAccess.requestNotificationAccess()
                 .then(() => {
-                  console.log("YAY THE THING DID THE THING")
+                  console.log("Notification access settings opened successfully");
                 })
                 .catch((err: any) => {
                   console.error('Error opening notification settings:', err);
+                  Alert.alert(
+                    'Error',
+                    'Could not open notification settings. Please enable notification access manually in your device settings.',
+                    [{ text: 'OK' }]
+                  );
                 });
             },
           },
           {
-            text: 'Cancel',
+            text: 'Later',
             style: 'cancel',
           },
         ],
         { cancelable: true },
       );
+    } else {
+      console.log("Notification access already granted");
+      return true;
     }
+    return false;
   } catch (error) {
     console.error('Failed to check notification listener permission:', error);
-    throw error;
+    Alert.alert(
+      'Error',
+      'There was a problem checking notification permissions. Please try again later.',
+      [{ text: 'OK' }]
+    );
+    return false;
   }
 }

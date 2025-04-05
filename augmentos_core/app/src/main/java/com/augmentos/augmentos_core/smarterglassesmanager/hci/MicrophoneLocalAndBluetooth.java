@@ -15,6 +15,7 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -169,7 +170,8 @@ public class MicrophoneLocalAndBluetooth {
 
         mChunkCallback = chunkCallback;
 
-        mHandler = new Handler();
+        // Always use the main thread's Looper to prevent threading issues
+        mHandler = new Handler(Looper.getMainLooper());
 
         // Initialize the countdown timer
         initCountDownTimer();

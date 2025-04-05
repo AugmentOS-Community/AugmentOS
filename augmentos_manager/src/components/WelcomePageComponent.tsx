@@ -33,18 +33,18 @@ const WelcomePageComponent: React.FC<WelcomePageComponentProps> = ({
 
     navigation.reset({
       index: 0,
-      routes: [{ name: 'ConnectingToPuck' }],
+      routes: [{ name: 'Home' }],
     });
   };
 
-  // Continue to home but show onboarding there
+  // Continue to glasses selection screen
   const handleContinue = () => {
     // Mark that onboarding should be shown on Home screen
     saveSetting(SETTINGS_KEYS.ONBOARDING_COMPLETED, false);
 
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'ConnectingToPuck' }],
+    // Send to glasses selection instead of connecting to puck
+    navigation.navigate('SelectGlassesModelScreen', {
+      isDarkTheme: isDarkTheme
     });
   };
 

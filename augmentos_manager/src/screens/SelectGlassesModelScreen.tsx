@@ -33,15 +33,26 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
 }) => {
     const { status } = useStatus();
     const [glassesModelNameToPair, setGlassesModelNameToPair] = useState<string | null>(null);
+    const [isOnboarding, setIsOnboarding] = useState(false);
   
     const glassesOptions = [
         { modelName: 'Vuzix Z100', key: 'vuzix-z100' },
         { modelName: 'Mentra Mach1', key: 'mentra_mach1' },
         { modelName: 'Even Realities G1', key: 'evenrealities_g1' },
         { modelName: 'Audio Wearable', key: 'Audio Wearable' },
-        { modelName: 'Virtual Wearable', key: 'Virtual Wearable' },
+        { modelName: 'Simulated Glasses', key: 'Simulated Glasses' },
     ];
 
+    // Check onboarding status when component mounts
+    React.useEffect(() => {
+        const checkOnboardingStatus = async () => {
+            const onboardingCompleted = await loadSetting(SETTINGS_KEYS.ONBOARDING_COMPLETED, true);
+            setIsOnboarding(!onboardingCompleted);
+        };
+        
+        checkOnboardingStatus();
+    }, []);
+    
     React.useEffect(() => { }, [status]);
 
     const triggerGlassesPairingGuide = async (glassesModelName: string) => {
@@ -76,6 +87,21 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
                 isDarkTheme ? styles.darkBackground : styles.lightBackground,
             ]}
         >
+            {isOnboarding && (
+                <View style={[
+                    styles.onboardingBanner,
+                    {backgroundColor: isDarkTheme ? '#1e88e5' : '#bbdefb'}
+                ]}>
+                    <Text style={{
+                        color: isDarkTheme ? '#ffffff' : '#0d47a1',
+                        fontWeight: 'bold',
+                        textAlign: 'center',
+                        fontSize: 16
+                    }}>
+                        Select "Simulated Glasses" to continue the onboarding
+                    </Text>
+                </View>
+            )}
             <ScrollView style={styles.scrollViewContainer}>
                 {/** RENDER EACH GLASSES OPTION */}
                 {glassesOptions.map((glasses) => (
@@ -83,7 +109,13 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
                         key={glasses.key}
                         style={[
                             styles.settingItem,
-                            { backgroundColor: theme.cardBg, borderColor: theme.borderColor },
+                            { 
+                                backgroundColor: theme.cardBg, 
+                                borderColor: (isOnboarding && glasses.modelName === 'Simulated Glasses') 
+                                    ? '#2196F3' 
+                                    : theme.borderColor 
+                            },
+                            (isOnboarding && glasses.modelName === 'Simulated Glasses') ? { borderWidth: 2 } : {}
                         ]}
                         onPress={() => {
                             triggerGlassesPairingGuide(glasses.modelName)
@@ -98,18 +130,41 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
                                 style={[
                                     styles.label,
                                     {
-                                        color: theme.textColor,
+                                        color: (isOnboarding && glasses.modelName === 'Simulated Glasses') 
+                                            ? '#2196F3' 
+                                            : theme.textColor,
+                                        fontWeight: (isOnboarding && glasses.modelName === 'Simulated Glasses') 
+                                            ? '800' 
+                                            : '600',
                                     },
                                 ]}
                             >
                                 {glasses.modelName}
                             </Text>
+                            {isOnboarding && glasses.modelName === 'Simulated Glasses' && (
+                                <Text style={{ color: '#2196F3', marginTop: 5, fontSize: 14 }}>
+                                    Recommended for onboarding
+                                </Text>
+                            )}
                         </View>
-                        <Icon
-                            name="angle-right"
-                            size={24}
-                            color={theme.textColor}
-                        />
+                        {isOnboarding && glasses.modelName === 'Simulated Glasses' ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={{ color: '#2196F3', marginRight: 5, fontWeight: 'bold' }}>
+                                    Select
+                                </Text>
+                                <Icon
+                                    name="angle-right"
+                                    size={24}
+                                    color="#2196F3"
+                                />
+                            </View>
+                        ) : (
+                            <Icon
+                                name="angle-right"
+                                size={24}
+                                color={theme.textColor}
+                            />
+                        )}
                     </TouchableOpacity>
                 ))}
             </ScrollView>
@@ -125,6 +180,17 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingHorizontal: 20,
         paddingTop: 10,
+    },
+    onboardingBanner: {
+        paddingVertical: 12,
+        paddingHorizontal: 15,
+        marginBottom: 15,
+        borderRadius: 8,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
     },
     titleContainer: {
         paddingVertical: 15,

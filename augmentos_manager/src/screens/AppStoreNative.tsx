@@ -13,16 +13,16 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 import { RootStackParamList, AppStoreItem } from '../components/types';
 import NavigationBar from '../components/NavigationBar';
-import AppItem from '../components/AppStore/AppItem.tsx';
-import InternetConnectionFallbackComponent from '../components/InternetConnectionFallbackComponent.tsx';
+import AppItem from '../components/AppStore/AppItem';
+import InternetConnectionFallbackComponent from '../components/InternetConnectionFallbackComponent';
 import LoadingComponent from '../components/LoadingComponent'; // Import the LoadingComponent
 
 interface AppStoreProps {
   isDarkTheme: boolean;
 }
 
-import BackendServerComms from '../backend_comms/BackendServerComms.tsx';
-import { GET_APP_STORE_DATA_ENDPOINT } from '../consts.tsx';
+import BackendServerComms from '../backend_comms/BackendServerComms';
+import { GET_APP_STORE_DATA_ENDPOINT } from '../consts';
 
 const AppStoreNative: React.FC<AppStoreProps> = ({ isDarkTheme }) => {
   const navigation =

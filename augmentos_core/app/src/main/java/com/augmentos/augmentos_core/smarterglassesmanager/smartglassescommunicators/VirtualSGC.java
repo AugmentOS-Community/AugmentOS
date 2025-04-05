@@ -17,10 +17,11 @@ public class VirtualSGC extends SmartGlassesCommunicator {
 
     Context context;
     SmartGlassesDevice smartGlassesDevice;
-
+    
     public VirtualSGC(Context context, SmartGlassesDevice smartGlassesDevice){
         super();
         mConnectState = SmartGlassesConnectionState.DISCONNECTED;
+        this.context = context;
         this.smartGlassesDevice = smartGlassesDevice;
     }
 
@@ -28,6 +29,7 @@ public class VirtualSGC extends SmartGlassesCommunicator {
     }
 
     public void connectToSmartGlasses(){
+        Log.d(TAG, "Connecting to simulated glasses - enabling audio processing");
         connectionEvent(SmartGlassesConnectionState.CONNECTED);
     }
 
@@ -40,10 +42,24 @@ public class VirtualSGC extends SmartGlassesCommunicator {
 
     @Override
     public void destroy() {
-        mConnectState = SmartGlassesConnectionState.DISCONNECTED;
-        this.context = null;
-        this.smartGlassesDevice = null;
-        Log.d(TAG, "VirtualSGC destroyed successfully.");
+        try {
+            // Cleanup
+            mConnectState = SmartGlassesConnectionState.DISCONNECTED;
+            
+            // Clear the audio processing callback
+            if (audioProcessingCallback != null) {
+                Log.d(TAG, "Clearing audio processing callback for simulated glasses");
+            }
+            audioProcessingCallback = null;
+            
+            // Clear other references
+            this.context = null;
+            this.smartGlassesDevice = null;
+            
+            Log.d(TAG, "VirtualSGC destroyed successfully.");
+        } catch (Exception e) {
+            Log.e(TAG, "Error destroying VirtualSGC", e);
+        }
     }
 
 

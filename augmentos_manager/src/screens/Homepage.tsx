@@ -10,16 +10,20 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import Header from '../components/Header';
 import ConnectedDeviceInfo from '../components/ConnectedDeviceInfo';
+import ConnectedSimulatedGlassesInfo from '../components/ConnectedSimulatedGlassesInfo';
 import RunningAppsList from '../components/RunningAppsList';
 import YourAppsList from '../components/YourAppsList';
 import NavigationBar from '../components/NavigationBar';
-import { useStatus } from '../providers/AugmentOSStatusProvider.tsx';
+import { useStatus } from '../providers/AugmentOSStatusProvider';
 import { ScrollView } from 'react-native-gesture-handler';
-import BackendServerComms from '../backend_comms/BackendServerComms.tsx';
+import BackendServerComms from '../backend_comms/BackendServerComms';
 import semver from 'semver';
 import { Config } from 'react-native-config';
-import CloudConnection from '../components/CloudConnection.tsx';
+import CloudConnection from '../components/CloudConnection';
 import { loadSetting, saveSetting } from '../logic/SettingsHelper';
+
+import { NativeModules, NativeEventEmitter } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface HomepageProps {
   isDarkTheme: boolean;
@@ -32,7 +36,7 @@ interface AnimatedSectionProps extends PropsWithChildren {
 
 const Homepage: React.FC<HomepageProps> = ({ isDarkTheme, toggleTheme }) => {
   const navigation = useNavigation<NavigationProp<any>>();
-  const { status } = useStatus();
+  const { status, startBluetoothAndCore } = useStatus();
   const [isSimulatedPuck, setIsSimulatedPuck] = React.useState(false);
   const [isCheckingVersion, setIsCheckingVersion] = useState(false);
 
@@ -177,59 +181,89 @@ const Homepage: React.FC<HomepageProps> = ({ isDarkTheme, toggleTheme }) => {
   const currentThemeStyles = isDarkTheme ? darkThemeStyles : lightThemeStyles;
 
   return (
-    <View style={currentThemeStyles.container}>
-      <ScrollView style={currentThemeStyles.contentContainer}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={currentThemeStyles.container}>
         <AnimatedSection>
           <Header isDarkTheme={isDarkTheme} navigation={navigation} />
         </AnimatedSection>
+        <ScrollView style={currentThemeStyles.contentContainer}>
+          {status.core_info.cloud_connection_status !== 'CONNECTED' &&
+            <AnimatedSection>
+              <CloudConnection isDarkTheme={isDarkTheme} />
+            </AnimatedSection>
+          }
 
-        {status.core_info.cloud_connection_status !== 'CONNECTED' &&
           <AnimatedSection>
-            <CloudConnection isDarkTheme={isDarkTheme} />
+            {/* Use the simulated version if we're connected to simulated glasses */}
+            {status.glasses_info?.model_name && 
+             status.glasses_info.model_name.toLowerCase().includes('simulated') ? (
+              <ConnectedSimulatedGlassesInfo isDarkTheme={isDarkTheme} />
+            ) : (
+              <ConnectedDeviceInfo isDarkTheme={isDarkTheme} />
+            )}
           </AnimatedSection>
-        }
 
-        <AnimatedSection>
-          <ConnectedDeviceInfo isDarkTheme={isDarkTheme} />
-        </AnimatedSection>
+          {status.core_info.puck_connected && (
+            <>
+              {status.apps.length > 0 ? (
+                <>
+                  <AnimatedSection>
+                    <RunningAppsList isDarkTheme={isDarkTheme} />
+                  </AnimatedSection>
 
-        {status.core_info.puck_connected && (
-          <>
-            {status.apps.length > 0 ? (
-              <>
+                  <AnimatedSection>
+                    <YourAppsList
+                      isDarkTheme={isDarkTheme}
+                      key={`apps-list-${status.apps.length}`}
+                    />
+                  </AnimatedSection>
+                </>
+              ) : (
                 <AnimatedSection>
-                  <RunningAppsList isDarkTheme={isDarkTheme} />
+                  <Text style={currentThemeStyles.noAppsText}>
+                    No apps found. Visit the AugmentOS App Store to explore and
+                    download apps for your device.
+                  </Text>
                 </AnimatedSection>
-              </>
-            ) : null}
-          </>
-        )}
-
-        <AnimatedSection>
-          <YourAppsList isDarkTheme={isDarkTheme} />
-        </AnimatedSection>
-      </ScrollView>
-
-      <NavigationBar isDarkTheme={isDarkTheme} toggleTheme={toggleTheme} />
-    </View>
+              )}
+            </>
+          )}
+        </ScrollView>
+      </View>
+      <NavigationBar toggleTheme={toggleTheme} isDarkTheme={isDarkTheme} />
+    </SafeAreaView>
   );
 };
 
 const lightThemeStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    paddingBottom: 55,
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingBottom: 55,
   },
   noAppsText: {
     marginTop: 10,
     color: '#000000',
     fontFamily: 'Montserrat-Regular',
+  },
+  brightnessContainer: {
+    marginTop: 15,
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+  },
+  brightnessText: {
+    color: '#000000',
+    marginBottom: 5,
+    fontFamily: 'Montserrat-Regular',
+  },
+  brightnessRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });
 
@@ -237,7 +271,6 @@ const darkThemeStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
-    paddingBottom: 55,
   },
   contentContainer: {
     flex: 1,
@@ -247,6 +280,23 @@ const darkThemeStyles = StyleSheet.create({
   noAppsText: {
     color: '#ffffff',
     fontFamily: 'Montserrat-Regular',
+  },
+  brightnessContainer: {
+    marginTop: 15,
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: '#222222',
+    borderRadius: 8,
+  },
+  brightnessText: {
+    color: '#ffffff',
+    marginBottom: 5,
+    fontFamily: 'Montserrat-Regular',
+  },
+  brightnessRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });
 

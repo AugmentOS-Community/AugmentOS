@@ -3,22 +3,26 @@ import {
   View,
   Text,
   StyleSheet,
-  Switch,
   TouchableOpacity,
   Platform,
   ScrollView,
-  Animated,
-  Alert,
-  PermissionsAndroid,
-  Permission,
   AppState,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { displayPermissionDeniedWarning, doesHaveAllPermissions, requestGrantPermissions as requestGrantBasicPermissions } from '../logic/PermissionsUtils';
+import { 
+  displayPermissionDeniedWarning, 
+  doesHaveAllPermissions, 
+  requestGrantPermissions as requestGrantBasicPermissions,
+  requestAugmentOSPermissions,
+  PermissionFeatures,
+  requestFeaturePermissions,
+  requestBasicPermissions,
+  markPermissionRequested
+} from '../logic/PermissionsUtils';
 import Button from '../components/Button';
 import { checkNotificationPermission } from '../logic/NotificationServiceUtils';
 import { checkAndRequestNotificationAccessSpecialPermission, checkNotificationAccessSpecialPermission } from "../utils/NotificationServiceUtils";
-import { openCorePermissionsActivity } from '../bridge/CoreServiceStarter';
 
 interface GrantPermissionsScreenProps {
   isDarkTheme: boolean;
@@ -76,7 +80,11 @@ const GrantPermissionsScreen: React.FC<GrantPermissionsScreenProps> = ({
           console.log('App has come to foreground!');
 
           if (await doesHaveAllPermissions()) {
-            openCorePermissionsActivity();
+            // Check if we have background location
+            const hasBackgroundLocation = await requestFeaturePermissions(PermissionFeatures.BACKGROUND_LOCATION);
+            // Battery optimization temporarily disabled
+            // const hasBatteryOptimization = await requestFeaturePermissions(PermissionFeatures.BATTERY_OPTIMIZATION);
+            
             navigation.reset({
               index: 0,
               routes: [{ name: 'SplashScreen' }],
@@ -84,7 +92,7 @@ const GrantPermissionsScreen: React.FC<GrantPermissionsScreenProps> = ({
             return;
           }
           else {
-            await displayPermissionDeniedWarning();
+            await displayPermissionDeniedWarning('Required Permissions');
           }
         }
         setAppState(nextAppState);
@@ -99,26 +107,74 @@ const GrantPermissionsScreen: React.FC<GrantPermissionsScreenProps> = ({
   }, [appState, isMonitoringAppState]);
 
   const triggerGrantPermissions = async () => {
-    let allBasicPermissionsGranted = await requestGrantBasicPermissions();
-    console.log("DID WE GET ALL THE BASIC PERMISSIONS???");
-    console.log(allBasicPermissionsGranted);
+    // Request all basic permissions first
+    let basicPermissionsGranted = await requestBasicPermissions();
+    console.log("Basic permissions request completed");
+    
+    if (basicPermissionsGranted) {
+      // Request notification permissions with explanation
+      Alert.alert(
+        'Notification Access',
+        'AugmentOS would like to access your notifications to forward them to your smart glasses. This enhances your experience by showing phone notifications on your glasses.',
+        [
+          {
+            text: 'Grant Access',
+            onPress: async () => {
+              await requestFeaturePermissions(PermissionFeatures.NOTIFICATIONS);
+              requestCalendarAccess();
+            }
+          },
+          {
+            text: 'Skip for Now',
+            style: 'cancel',
+            onPress: () => requestCalendarAccess()
+          }
+        ]
+      );
+    } else {
+      // Basic permissions were denied
+      await displayPermissionDeniedWarning('Required Permissions');
+    }
+  }
+  
+  const requestCalendarAccess = () => {
+    // After notification permission flow, request optional calendar permission
+    Alert.alert(
+      'Calendar Access',
+      'AugmentOS would like to access your calendar to display events on your smart glasses. This permission is optional.',
+      [
+        {
+          text: 'Grant Access',
+          onPress: async () => {
+            await requestFeaturePermissions(PermissionFeatures.CALENDAR);
+            proceedToNextScreen();
+          }
+        },
+        {
+          text: 'Skip',
+          style: 'cancel',
+          onPress: () => proceedToNextScreen()
+        }
+      ]
+    );
+  }
 
-    if ((await doesHaveAllPermissions())) {
-      console.log("WE SUPPOSEDLY HAVE ALL THE PERMSSS");
-      openCorePermissionsActivity();
+  const proceedToNextScreen = async () => {
+    // Mark that we've shown all permission requests, even if some were skipped
+    // This will prevent the permissions screen from showing again
+    await markPermissionRequested(PermissionFeatures.BASIC);
+    await markPermissionRequested(PermissionFeatures.NOTIFICATIONS);
+    await markPermissionRequested(PermissionFeatures.CALENDAR);
+    
+    console.log("Proceeding to next screen regardless of optional permissions");
+    
+    // Add a small delay to ensure state updates have completed
+    setTimeout(() => {
       navigation.reset({
         index: 0,
         routes: [{ name: 'SplashScreen' }],
       });
-    } else {
-      console.log(" WE NEED MOR PERMS ");
-      let doesHaveSpecialNotificationPermission = await checkNotificationAccessSpecialPermission();
-      if(!doesHaveSpecialNotificationPermission) {
-        console.log("WE NEED MORE NOTIFICATION PERMSS");
-        checkAndRequestNotificationAccessSpecialPermission();
-        setIsMonitoringAppState(true);
-      }
-    }
+    }, 100);
   }
 
   return (

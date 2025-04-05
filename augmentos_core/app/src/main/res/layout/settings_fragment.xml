@@ -31,7 +31,7 @@
         android:layout_width="wrap_content"
         android:layout_height="32dp"
         android:layout_marginTop="10dp"
-        android:text="Virtual Wearable"
+        android:text="Simulated Glasses"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/kill_wearableai_service" />

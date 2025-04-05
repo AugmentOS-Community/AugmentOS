@@ -67,26 +67,21 @@ const PairingDeviceInfo: React.FC<PairingDeviceInfoProps> = ({ isDarkTheme, glas
 
   return (
     <View style={[styles.deviceInfoContainer, { backgroundColor: themeStyles.backgroundColor }]}>
-      {status.glasses_info?.model_name ? (
-        <View>
-          <Text>Navigating to homepage...</Text>
-        </View>
-      ) : (
-        <>
-          <View style={styles.disconnectedContent}>
-            <Image
-              source={getGlassesImage(glassesModelName)}
-              style={styles.glassesImage}
-            />
-            <Text style={[styles.connectText, { color: themeStyles.textColor }]}>
-              {`Searching for ${glassesModelName}`}
-            </Text>
-            {status.glasses_info?.is_searching && (
-              <ActivityIndicator size="small" color="#2196F3" />
-            )}
-          </View>
-        </>
-      )}
+
+      <View style={styles.disconnectedContent}>
+        <Image
+          source={getGlassesImage(glassesModelName)}
+          style={styles.glassesImage}
+        />
+        <Text style={[styles.connectText, { color: themeStyles.textColor }]}>
+          {`Searching for ${glassesModelName}`}
+        </Text>
+        {status.glasses_info?.is_searching && (
+          <ActivityIndicator size="small" color="#2196F3" />
+        )}
+      </View>
+
+
     </View>
   );
 };
