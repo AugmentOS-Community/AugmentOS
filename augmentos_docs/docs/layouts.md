@@ -2,7 +2,7 @@
 
 *Last updated: March 31, 2025*
 
-AugmentOS Cloud provides a set of pre-defined layouts for displaying content on the smart glasses' AR view. These layouts allow you to create visually consistent and user-friendly interfaces without needing to deal with low-level graphics programming. You interact with layouts through the `LayoutManager`, which is a property of the `TpaSession` object.
+AugmentOS Cloud provides a set of pre-defined layouts for displaying content on the smart glasses' AR view. These layouts allow you to create visually consistent and user-friendly interfaces without needing to deal with low-level graphics programming. You interact with layouts through the [`LayoutManager`](/reference/managers/layout-manager), which is a property of the [`TpaSession`](/reference/tpa-session) object.
 
 ```typescript
 // Example of accessing the LayoutManager
@@ -16,7 +16,7 @@ The SDK currently supports the following layout types:
 ### 1. `TextWall`
 
 *   **Purpose:** Displays a single block of text.  This is the most basic layout and is suitable for simple messages, status updates, and short notifications.
-*   **Type:** `LayoutType.TEXT_WALL`
+*   **Type:** [`LayoutType.TEXT_WALL`](/reference/enums#layouttype)
 *   **Properties:**
     *   `text`: The text content to display (string).
 
@@ -47,7 +47,7 @@ The SDK currently supports the following layout types:
 ### 2. `DoubleTextWall`
 
 *   **Purpose:** Displays two blocks of text, one above the other. This is useful for showing two related pieces of information, such as a title and a subtitle, or a before/after comparison.
-*   **Type:** `LayoutType.DOUBLE_TEXT_WALL`
+*   **Type:** [`LayoutType.DOUBLE_TEXT_WALL`](/reference/enums#layouttype)
 *   **Properties:**
     *   `topText`: The text for the top section.
     *   `bottomText`: The text for the bottom section.
@@ -64,7 +64,7 @@ The SDK currently supports the following layout types:
 ### 3. `ReferenceCard`
 
 *   **Purpose:**  Displays a card with a title and content text.  This is a more structured layout, suitable for displaying important information, notifications with titles, or key data points.
-*   **Type:** `LayoutType.REFERENCE_CARD`
+*   **Type:** [`LayoutType.REFERENCE_CARD`](/reference/enums#layouttype)
 *   **Properties:**
     *   `title`:  The title of the card (string).
     *   `text`:  The main content of the card (string).
@@ -81,7 +81,7 @@ The SDK currently supports the following layout types:
 ### 4. `DashboardCard`
 
 *   **Purpose:**  Displays a card with left-aligned and right-aligned text.  This layout is ideal for key-value pairs, metrics, and dashboard-style displays.
-*   **Type:** `LayoutType.DASHBOARD_CARD`
+*   **Type:** [`LayoutType.DASHBOARD_CARD`](/reference/enums#layouttype)
 *   **Properties:**
     *   `leftText`: Text for the left side (often a label or key).
     *   `rightText`: Text for the right side (often a value or status).
@@ -98,7 +98,7 @@ The SDK currently supports the following layout types:
 ### 5. `BitmapView`
 
 * **Purpose:** Displays a bitmap image on the glasses. The image data should be a base64 encoded string.
-* **Type:** `LayoutType.BITMAP_VIEW`
+* **Type:** [`LayoutType.BITMAP_VIEW`](/reference/enums#layouttype)
 * **Properties:**
   * `data`: A base64 encoded string representing the bitmap data.
 
@@ -137,8 +137,8 @@ interface LayoutOptions {
 }
 ```
 
-*   **`ViewType.MAIN` (default):** The main AR view that the user sees most of the time.
-*   **`ViewType.DASHBOARD`:**  A special dashboard view.  Currently, the user looks up to access the dashboard.
+*   **[`ViewType.MAIN`](/reference/enums#viewtype) (default):** The main AR view that the user sees most of the time.
+*   **[`ViewType.DASHBOARD`](/reference/enums#viewtype):**  A special dashboard view.  Currently, the user looks up to access the dashboard.
 
 ```typescript
 // Display in the main view (default)
@@ -166,6 +166,6 @@ const textWallLayout: TextWall = {
 *   **Keep it Concise:** The glasses display has limited space. Use short, clear text.  Avoid long paragraphs or complex layouts.
 *   **Prioritize Information:**  Display the most important information prominently.
 *   **Use Appropriate Layouts:**  Choose the layout type that best suits the content you're displaying.
-*   **Consider Head Position:** The `head_position` event lets you know if the user is looking up (at the dashboard) or down (at the main view).  You can use this to tailor the displayed content.
+*   **Consider Head Position:** The [`head_position`](/reference/interfaces/event-types#headposition) event lets you know if the user is looking up (at the dashboard) or down (at the main view).  You can use this to tailor the displayed content.
 *   **Avoid Flicker:** Rapidly changing the display can be visually jarring.  Use appropriate durations and consider debouncing or throttling updates if necessary.
 * **Text Wrapping:** The glasses have limited width, so it is important to handle text that is longer than can fit on one line. The `@augmentos/utils` package provides a `wrapText` utility function to handle this.

@@ -39,6 +39,40 @@ const sidebars: SidebarsConfig = {
         },
       ],
     },
+    {
+      type: 'category',
+      label: 'SDK Reference',
+      link: {
+        type: 'doc',
+        id: 'reference/index',
+      },
+      items: [
+        'reference/tpa-server',
+        'reference/tpa-session',
+        {
+          type: 'category',
+          label: 'Managers',
+          items: [
+            'reference/managers/event-manager',
+            'reference/managers/layout-manager',
+          ],
+        },
+        'reference/enums',
+        {
+          type: 'category',
+          label: 'Interfaces',
+          items: [
+            'reference/interfaces/config-types',
+            'reference/interfaces/event-types',
+            'reference/interfaces/layout-types',
+            'reference/interfaces/webhook-types',
+            'reference/interfaces/message-types',
+          ],
+        },
+        'reference/token-utils',
+        'reference/utilities',
+      ],
+    },
   ],
 };
 
