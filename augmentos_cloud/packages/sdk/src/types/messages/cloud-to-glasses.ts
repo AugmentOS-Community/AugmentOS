@@ -66,6 +66,25 @@ export interface MicrophoneStateChange extends BaseMessage {
 }
 
 /**
+ * Photo request to glasses
+ */
+export interface PhotoRequestToGlasses extends BaseMessage {
+  type: CloudToGlassesMessageType.PHOTO_REQUEST;
+  userSession: Partial<UserSession>;
+  requestId: string;
+  appId: string;
+}
+
+/**
+ * Video stream request to glasses
+ */
+export interface VideoStreamRequestToGlasses extends BaseMessage {
+  type: CloudToGlassesMessageType.VIDEO_STREAM_REQUEST;
+  userSession: Partial<UserSession>;
+  appId: string;
+}
+
+/**
  * Union type for all messages from cloud to glasses
  */
 export type CloudToGlassesMessage =
@@ -74,7 +93,9 @@ export type CloudToGlassesMessage =
   | AuthError
   | DisplayEvent
   | AppStateChange
-  | MicrophoneStateChange;
+  | MicrophoneStateChange
+  | PhotoRequestToGlasses
+  | VideoStreamRequestToGlasses;
 
 //===========================================================
 // Type guards
@@ -111,4 +132,12 @@ export function isAppStateChange(message: CloudToGlassesMessage): message is App
 
 export function isMicrophoneStateChange(message: CloudToGlassesMessage): message is MicrophoneStateChange {
   return message.type === CloudToGlassesMessageType.MICROPHONE_STATE_CHANGE;
+}
+
+export function isPhotoRequest(message: CloudToGlassesMessage): message is PhotoRequestToGlasses {
+  return message.type === CloudToGlassesMessageType.PHOTO_REQUEST;
+}
+
+export function isVideoStreamRequest(message: CloudToGlassesMessage): message is VideoStreamRequestToGlasses {
+  return message.type === CloudToGlassesMessageType.VIDEO_STREAM_REQUEST;
 }

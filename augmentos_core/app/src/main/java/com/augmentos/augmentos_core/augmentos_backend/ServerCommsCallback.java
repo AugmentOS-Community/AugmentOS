@@ -15,6 +15,20 @@ public interface ServerCommsCallback {
     void onAuthError();
     void onConnectionStatusChange(WebSocketManager.IncomingMessageHandler.WebSocketStatus status);
     void onRequestSingle(String dataType);
-
     void onMicrophoneStateChange(boolean isEnabled);
+    
+    /**
+     * Called when the server requests a photo to be taken
+     * 
+     * @param requestId Unique ID for this photo request
+     * @param appId ID of the app requesting the photo
+     */
+    void onPhotoRequest(String requestId, String appId);
+    
+    /**
+     * Called when the server requests a video stream
+     * 
+     * @param appId ID of the app requesting the video stream
+     */
+    void onVideoStreamRequest(String appId);
 }

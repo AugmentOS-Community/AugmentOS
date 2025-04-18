@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusProvider } from './providers/AugmentOSStatusProvider';
 import Homepage from './screens/Homepage';
@@ -46,6 +46,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import DeveloperSettingsScreen from './screens/DeveloperSettingsScreen.tsx';
 import DashboardSettingsScreen from './screens/DashboardSettingsScreen.tsx';
 import ScreenSettingsScreen from './screens/ScreenSettingsScreen.tsx';
+import GlassesWifiSetupScreen from './screens/GlassesWifiSetupScreen';
+import GlobalEventEmitter from './logic/GlobalEventEmitter';
 
 const linking = {
   prefixes: [
@@ -73,11 +75,41 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const App: React.FC = () => {
   const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const navigationRef = useRef(null);
 
   // Reset ignoreVersionCheck setting on app start
   useEffect(() => {
     saveSetting('ignoreVersionCheck', false);
     console.log('Reset version check ignore flag on app start');
+  }, []);
+
+  // Set up listener for WiFi credentials request
+  useEffect(() => {
+    const handleGlassesNeedWifiCredentials = (data: { deviceModel: string }) => {
+      console.log('Handling GLASSES_NEED_WIFI_CREDENTIALS event:', data);
+      
+      // Navigate to the WiFi setup screen if we have navigation available
+      if (navigationRef.current) {
+        // @ts-ignore - We know navigationRef.current has a navigate method
+        navigationRef.current.navigate('GlassesWifiSetupScreen', {
+          deviceModel: data.deviceModel
+        });
+      }
+    };
+
+    // Subscribe to the event
+    GlobalEventEmitter.addListener(
+      'GLASSES_NEED_WIFI_CREDENTIALS',
+      handleGlassesNeedWifiCredentials
+    );
+
+    // Clean up
+    return () => {
+      GlobalEventEmitter.removeListener(
+        'GLASSES_NEED_WIFI_CREDENTIALS',
+        handleGlassesNeedWifiCredentials
+      );
+    };
   }, []);
 
   const toggleTheme = () => {
@@ -94,7 +126,7 @@ const App: React.FC = () => {
                 <GlassesMirrorProvider>
                   <MessageBanner />
                   <ModalProvider isDarkTheme={isDarkTheme} />
-                  <NavigationContainer linking={linking}>
+                  <NavigationContainer ref={navigationRef} linking={linking}>
                     <Stack.Navigator initialRouteName="SplashScreen">
                       <Stack.Screen
                         name="SplashScreen"
@@ -367,6 +399,22 @@ const App: React.FC = () => {
                         component={ErrorReportScreen}
                         options={{ title: 'Report an Error' }}
                       />
+                      <Stack.Screen
+                        name="GlassesWifiSetupScreen"
+                        options={{ 
+                          title: 'WiFi Setup',
+                          presentation: 'modal',
+                          gestureEnabled: false,
+                        }}
+                      >
+                        {props => (
+                          <GlassesWifiSetupScreen
+                            {...props}
+                            toggleTheme={toggleTheme}
+                            isDarkTheme={isDarkTheme}
+                          />
+                        )}
+                      </Stack.Screen>
                       <Stack.Screen name="SelectGlassesModelScreen"
                         options={{ title: 'Select Glasses' }}
                       >

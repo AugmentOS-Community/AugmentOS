@@ -40,6 +40,9 @@ import {
   GlassesToCloudMessageType,
   LocationUpdate,
   MicrophoneStateChange,
+  PhotoRequest,
+  PhotoRequestToGlasses,
+  PhotoResponse,
   StartApp,
   StopApp,
   StreamType,
@@ -98,6 +101,13 @@ export class WebSocketService {
 
   // Global counter for generating sequential audio chunk numbers
   private globalAudioSequence: number = 0;
+  
+  // Map to track pending photo requests: requestId -> { appId, ws }
+  private pendingPhotoRequests = new Map<string, { 
+    appId: string,
+    ws: WebSocket,
+    timestamp: number
+  }>();
 
   constructor() {
     this.glassesWss = new WebSocketServer({ noServer: true });
@@ -695,6 +705,75 @@ export class WebSocketService {
       }
     }
   }
+  
+  /**
+   * Forward a photo response to the requesting TPA
+   * @param requestId The ID of the photo request
+   * @param photoUrl The URL of the uploaded photo
+   * @returns True if the response was forwarded, false if no pending request was found
+   */
+  forwardPhotoResponse(requestId: string, photoUrl: string): boolean {
+    // Find the pending request
+    const pendingRequest = this.pendingPhotoRequests.get(requestId);
+    
+    if (!pendingRequest) {
+      logger.warn(`[websocket.service]: No pending photo request found for requestId: ${requestId}`);
+      return false;
+    }
+    
+    // Check if the WebSocket is still open
+    if (pendingRequest.ws.readyState !== WebSocket.OPEN) {
+      logger.warn(`[websocket.service]: TPA WebSocket closed for requestId: ${requestId}`);
+      this.pendingPhotoRequests.delete(requestId);
+      return false;
+    }
+    
+    // Send the photo response to the TPA
+    const photoResponse = {
+      type: CloudToTpaMessageType.PHOTO_RESPONSE,
+      photoUrl,
+      requestId,
+      timestamp: new Date()
+    };
+    
+    pendingRequest.ws.send(JSON.stringify(photoResponse));
+    logger.info(`[websocket.service]: Photo response sent to TPA ${pendingRequest.appId}, requestId: ${requestId}`);
+    
+    // Clean up the pending request
+    this.pendingPhotoRequests.delete(requestId);
+    
+    return true;
+  }
+  
+  /**
+   * Forward a video stream response to the requesting TPA
+   * @param appId The ID of the app requesting the stream
+   * @param streamUrl The URL of the video stream
+   * @param userSession The user session
+   * @returns True if the response was forwarded, false if TPA not found or connection closed
+   */
+  forwardVideoStreamResponse(appId: string, streamUrl: string, userSession: UserSession): boolean {
+    // Find the TPA connection
+    const tpaWebSocket = userSession.appConnections.get(appId);
+    
+    if (!tpaWebSocket || tpaWebSocket.readyState !== WebSocket.OPEN) {
+      logger.warn(`[websocket.service]: Cannot forward video stream response, TPA ${appId} not connected`);
+      return false;
+    }
+    
+    // Send the video stream response to the TPA
+    const videoStreamResponse = {
+      type: CloudToTpaMessageType.VIDEO_STREAM_RESPONSE,
+      streamUrl,
+      appId,
+      timestamp: new Date()
+    };
+    
+    tpaWebSocket.send(JSON.stringify(videoStreamResponse));
+    logger.info(`[websocket.service]: Video stream response sent to TPA ${appId}`);
+    
+    return true;
+  }
   /**
    * ⚡️⚡️ Initializes the WebSocket servers for both glasses and TPAs.
    * @private
@@ -1099,6 +1178,41 @@ export class WebSocketService {
           this.broadcastToTpa(userSession.sessionId, message.type as any, message);
           break;
         }
+        
+        case 'photo_response': {
+          const photoUploadMessage = message as any;
+          userSession.logger.info(`[websocket.service]: Received photo response from glasses, requestId: ${photoUploadMessage.requestId}`);
+          
+          // Forward the photo response to the requesting TPA
+          const success = this.forwardPhotoResponse(photoUploadMessage.requestId, photoUploadMessage.photoUrl);
+          
+          if (!success) {
+            userSession.logger.warn(`[websocket.service]: Failed to forward photo response, no pending request found for requestId: ${photoUploadMessage.requestId}`);
+          }
+          break;
+        }
+        
+        case 'video_stream_response': {
+          const videoStreamResponse = message as any;
+          userSession.logger.info(`[websocket.service]: Received video stream response from glasses, appId: ${videoStreamResponse.appId}`);
+          
+          // Get the appId from the response
+          const appId = videoStreamResponse.appId;
+          const streamUrl = videoStreamResponse.streamUrl;
+          
+          if (!appId || !streamUrl) {
+            userSession.logger.warn(`[websocket.service]: Invalid video stream response, missing appId or streamUrl`);
+            return;
+          }
+          
+          // Forward the video stream response to the requesting TPA
+          const success = this.forwardVideoStreamResponse(appId, streamUrl, userSession);
+          
+          if (!success) {
+            userSession.logger.warn(`[websocket.service]: Failed to forward video stream response to TPA ${appId}`);
+          }
+          break;
+        }
 
         // All other message types are broadcast to TPAs.
         default: {
@@ -1242,6 +1356,108 @@ export class WebSocketService {
 
               const displayMessage = message as DisplayRequest;
               sessionService.updateDisplay(userSession.sessionId, displayMessage);
+              break;
+            }
+
+            case 'photo_request': {
+              if (!userSession) {
+                ws.close(1008, 'No active session');
+                return;
+              }
+
+              // Check if app has permission to request photos
+              const photoRequestMessage = message as PhotoRequest;
+              const appId = photoRequestMessage.packageName;
+              
+              // Check if the app is currently running
+              if (!userSession.activeAppSessions || !userSession.activeAppSessions[appId]) {
+                this.sendError(ws, {
+                  type: CloudToTpaMessageType.CONNECTION_ERROR,
+                  message: 'App not currently running'
+                });
+                return;
+              }
+
+              // Generate a unique request ID
+              const requestId = crypto.randomUUID();
+              
+              // Store pending request
+              this.pendingPhotoRequests.set(requestId, {
+                appId,
+                ws,
+                timestamp: Date.now()
+              });
+              
+              // Build request to glasses
+              const photoRequestToGlasses: PhotoRequestToGlasses = {
+                type: CloudToGlassesMessageType.PHOTO_REQUEST,
+                userSession: {
+                  sessionId: userSession.sessionId,
+                  userId: userSession.userId
+                },
+                requestId,
+                appId,
+                timestamp: new Date()
+              };
+              
+              // Send request to glasses
+              userSession.websocket.send(JSON.stringify(photoRequestToGlasses));
+              userSession.logger.info(`[websocket.service]: Photo request sent to glasses, requestId: ${requestId}`);
+              
+              // Set timeout for request (30 seconds)
+              setTimeout(() => {
+                if (this.pendingPhotoRequests.has(requestId)) {
+                  // Request timed out, send error to TPA
+                  const pendingRequest = this.pendingPhotoRequests.get(requestId);
+                  if (pendingRequest && pendingRequest.ws.readyState === WebSocket.OPEN) {
+                    this.sendError(pendingRequest.ws, {
+                      type: CloudToTpaMessageType.CONNECTION_ERROR,
+                      message: 'Photo request timed out'
+                    });
+                  }
+                  // Clean up pending request
+                  this.pendingPhotoRequests.delete(requestId);
+                  userSession.logger.warn(`[websocket.service]: Photo request timed out, requestId: ${requestId}`);
+                }
+              }, 30000); // 30 second timeout
+              
+              break;
+            }
+            
+            case 'video_stream_request': {
+              if (!userSession) {
+                ws.close(1008, 'No active session');
+                return;
+              }
+
+              // Check if app has permission to request video stream
+              const videoStreamRequestMessage = message as VideoStreamRequest;
+              const appId = videoStreamRequestMessage.packageName;
+              
+              // Check if the app is currently running
+              if (!userSession.activeAppSessions || !userSession.activeAppSessions[appId]) {
+                this.sendError(ws, {
+                  type: CloudToTpaMessageType.CONNECTION_ERROR,
+                  message: 'App not currently running'
+                });
+                return;
+              }
+              
+              // Build request to glasses
+              const videoStreamRequestToGlasses: VideoStreamRequestToGlasses = {
+                type: CloudToGlassesMessageType.VIDEO_STREAM_REQUEST,
+                userSession: {
+                  sessionId: userSession.sessionId,
+                  userId: userSession.userId
+                },
+                appId,
+                timestamp: new Date()
+              };
+              
+              // Send request to glasses
+              userSession.websocket.send(JSON.stringify(videoStreamRequestToGlasses));
+              userSession.logger.info(`[websocket.service]: Video stream request sent to glasses for app: ${appId}`);
+              
               break;
             }
           }

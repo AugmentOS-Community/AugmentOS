@@ -47,6 +47,7 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
             { modelName: 'Simulated Glasses', key: 'Simulated Glasses' }, // Moved to first position
             { modelName: 'Vuzix Z100', key: 'vuzix-z100' },
             { modelName: 'Mentra Mach1', key: 'mentra_mach1' },
+            { modelName: 'Mentra Live', key: 'mentra_live' },
             { modelName: 'Even Realities G1', key: 'evenrealities_g1' },
             { modelName: 'Audio Wearable', key: 'Audio Wearable' },
           ];

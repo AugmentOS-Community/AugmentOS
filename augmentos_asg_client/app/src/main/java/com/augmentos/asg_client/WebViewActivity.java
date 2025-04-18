@@ -163,7 +163,7 @@ public class WebViewActivity extends AppCompatActivity {
                     Log.d(TAG, "Retrying to load the page...");
                     webView.loadUrl(publicWebUrl);
                 } else {
-                    Log.d(TAG, "Page loaded successfully, no need to reload.");
+                    //Log.d(TAG, "Page loaded successfully, no need to reload.");
                 }
                 // Schedule the next check
                 handler.postDelayed(this, 5000); // 5 seconds

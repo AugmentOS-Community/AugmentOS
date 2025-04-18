@@ -1,5 +1,5 @@
 server/config.json
-
+K900_server_sdk/*
 ### REACT
 .idea/
 .vscode/

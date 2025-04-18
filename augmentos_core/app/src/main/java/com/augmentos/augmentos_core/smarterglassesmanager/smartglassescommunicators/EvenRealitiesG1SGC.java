@@ -549,7 +549,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
                             if(batteryLeft != -1 && batteryRight != -1) {
                                 int minBatt = Math.min(batteryLeft, batteryRight);
                                 //Log.d(TAG, "Minimum Battery Level: " + minBatt);
-                                EventBus.getDefault().post(new BatteryLevelEvent(minBatt));
+                                EventBus.getDefault().post(new BatteryLevelEvent(minBatt, false));
                             }
                         }
                         //HEARTBEAT RESPONSE

@@ -29,6 +29,7 @@ import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SetFo
 import com.augmentos.augmentoslib.events.TextWallViewRequestEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.AudioWearableSGC;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.EvenRealitiesG1SGC;
+import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.MentraLiveSGC;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.UltraliteSGC;
 import com.augmentos.augmentoslib.events.BulletPointListViewRequestEvent;
 import com.augmentos.augmentoslib.events.FinalScrollingTextRequestEvent;
@@ -180,6 +181,10 @@ public class SmartGlassesRepresentative implements PhoneMicListener {
                 
             case SELF_OS_GLASSES:
                 communicator = new SelfSGC(context, smartGlassesDevice);
+                break;
+                
+            case MENTRA_LIVE_OS:
+                communicator = new MentraLiveSGC(context, smartGlassesDevice, dataObservable);
                 break;
                 
             default:

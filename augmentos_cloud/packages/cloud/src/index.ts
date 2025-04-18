@@ -29,6 +29,7 @@ import devRoutes from './routes/developer.routes';
 import serverRoutes from './routes/server.routes';
 import adminRoutes from './routes/admin.routes';
 import tpaServerRoutes from './routes/tpa-server.routes';
+import photoRoutes from './routes/photos.routes';
 
 import path from 'path';
 
@@ -128,6 +129,7 @@ app.use('/api/dev', devRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/tpa-server', tpaServerRoutes);
 app.use('/api/server', serverRoutes);
+app.use('/api/photos', photoRoutes);
 
 app.use(errorReportRoutes);
 app.use(transcriptRoutes);
@@ -139,6 +141,9 @@ app.get('/health', (req, res) => {
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, './public')));
+
+// Serve uploaded photos
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Initialize WebSocket service
 webSocketService.setupWebSocketServers(server);

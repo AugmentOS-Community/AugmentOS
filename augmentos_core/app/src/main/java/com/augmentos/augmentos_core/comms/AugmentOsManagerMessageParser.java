@@ -33,9 +33,10 @@ public class AugmentOsManagerMessageParser {
                 break;
 
                 case "connect_wearable":
-                    Log.d(TAG,"GOT A COMMAND TO CONNECT TO WEARABLE????");
+                    Log.d(TAG,"GOT A COMMAND TO CONNECT TO WEARABLE");
                     String modelName = commandObject.getJSONObject("params").getString("model_name");
                     String deviceName = commandObject.getJSONObject("params").getString("device_name");
+                    Log.d(TAG,"Connect to model: " + modelName + ", device address: " + deviceName);
                     callback.connectToWearable(modelName, deviceName);
                     break;
 
@@ -145,6 +146,12 @@ public class AugmentOsManagerMessageParser {
                 case "update_glasses_headUp_angle":
                     int headUpAngle = commandObject.getJSONObject("params").getInt("headUpAngle");
                     callback.updateGlassesHeadUpAngle(headUpAngle);
+                    break;
+                    
+                case "set_glasses_wifi_credentials":
+                    String ssid = commandObject.getJSONObject("params").getString("ssid");
+                    String password = commandObject.getJSONObject("params").getString("password");
+                    callback.setGlassesWifiCredentials(ssid, password);
                     break;
 
                 default:

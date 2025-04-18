@@ -105,6 +105,24 @@ export interface DataStream extends BaseMessage {
 }
 
 /**
+ * Photo response to TPA
+ */
+export interface PhotoResponse extends BaseMessage {
+  type: CloudToTpaMessageType.PHOTO_RESPONSE;
+  photoUrl: string;
+  requestId: string;
+}
+
+/**
+ * Video stream response to TPA
+ */
+export interface VideoStreamResponse extends BaseMessage {
+  type: CloudToTpaMessageType.VIDEO_STREAM_RESPONSE;
+  streamUrl: string;
+  appId: string;
+}
+
+/**
  * Union type for all messages from cloud to TPAs
  */
 export type CloudToTpaMessage =
@@ -117,7 +135,9 @@ export type CloudToTpaMessage =
   | AudioChunk
   | LocationUpdate
   | CalendarEvent
-  | DataStream;
+  | DataStream
+  | PhotoResponse
+  | VideoStreamResponse;
 
 //===========================================================
 // Type guards
@@ -145,4 +165,12 @@ export function isDataStream(message: CloudToTpaMessage): message is DataStream 
 
 export function isAudioChunk(message: CloudToTpaMessage): message is AudioChunk {
   return message.type === StreamType.AUDIO_CHUNK;
+}
+
+export function isPhotoResponse(message: CloudToTpaMessage): message is PhotoResponse {
+  return message.type === CloudToTpaMessageType.PHOTO_RESPONSE;
+}
+
+export function isVideoStreamResponse(message: CloudToTpaMessage): message is VideoStreamResponse {
+  return message.type === CloudToTpaMessageType.VIDEO_STREAM_RESPONSE;
 }

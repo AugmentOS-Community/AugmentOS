@@ -212,14 +212,26 @@ public class MainActivity extends AppCompatActivity {
     if (!isMyServiceRunning(AsgClientService.class)) return;
     Intent stopIntent = new Intent(this, AsgClientService.class);
     stopIntent.setAction(AsgClientService.ACTION_STOP_FOREGROUND_SERVICE);
-    startService(stopIntent);
+    
+    // For Android O+, use startForegroundService 
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+      startForegroundService(stopIntent);
+    } else {
+      startService(stopIntent);
+    }
   }
 
   public void sendAsgClientServiceMessage(String message) {
     if (!isMyServiceRunning(AsgClientService.class)) return;
     Intent messageIntent = new Intent(this, AsgClientService.class);
     messageIntent.setAction(message);
-    startService(messageIntent);
+    
+    // For Android O+, use startForegroundService
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+      startForegroundService(messageIntent);
+    } else {
+      startService(messageIntent);
+    }
   }
 
   public void startAsgClientService() {
@@ -231,7 +243,15 @@ public class MainActivity extends AppCompatActivity {
     Log.d(TAG, "Starting Augmentos service.");
     Intent startIntent = new Intent(this, AsgClientService.class);
     startIntent.setAction(AsgClientService.ACTION_START_FOREGROUND_SERVICE);
-    startService(startIntent);
+    
+    // Use startForegroundService instead of startService for Android O+
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+      Log.d(TAG, "Using startForegroundService for Android O+");
+      startForegroundService(startIntent);
+    } else {
+      startService(startIntent);
+    }
+    
     bindAsgClientService();
   }
 

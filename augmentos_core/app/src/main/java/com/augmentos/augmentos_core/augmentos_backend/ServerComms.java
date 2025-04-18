@@ -536,6 +536,46 @@ public class ServerComms {
             Log.e(TAG, "Error building location_update JSON", e);
         }
     }
+    
+    /**
+     * Sends a photo response message to the server
+     * 
+     * @param requestId The unique ID of the photo request
+     * @param photoUrl URL of the uploaded photo
+     */
+    public void sendPhotoResponse(String requestId, String photoUrl) {
+        try {
+            JSONObject event = new JSONObject();
+            event.put("type", "photo_response");
+            event.put("requestId", requestId);
+            event.put("photoUrl", photoUrl);
+            event.put("timestamp", System.currentTimeMillis());
+            wsManager.sendText(event.toString());
+            Log.d(TAG, "Sent photo response for requestId: " + requestId);
+        } catch (JSONException e) {
+            Log.e(TAG, "Error building photo_response JSON", e);
+        }
+    }
+    
+    /**
+     * Sends a video stream response message to the server
+     * 
+     * @param appId The ID of the app requesting the stream
+     * @param streamUrl URL of the video stream
+     */
+    public void sendVideoStreamResponse(String appId, String streamUrl) {
+        try {
+            JSONObject event = new JSONObject();
+            event.put("type", "video_stream_response");
+            event.put("appId", appId);
+            event.put("streamUrl", streamUrl);
+            event.put("timestamp", System.currentTimeMillis());
+            wsManager.sendText(event.toString());
+            Log.d(TAG, "Sent video stream response for appId: " + appId);
+        } catch (JSONException e) {
+            Log.e(TAG, "Error building video_stream_response JSON", e);
+        }
+    }
 
     // ------------------------------------------------------------------------
     // INTERNAL: Message Handling
@@ -591,6 +631,27 @@ public class ServerComms {
                 //Log.d(TAG, "Received turn_microphone_on message." + isMicrophoneEnabled);
                 if (serverCommsCallback != null)
                     serverCommsCallback.onMicrophoneStateChange(isMicrophoneEnabled);
+                break;
+                
+            case "photo_request":
+                String requestId = msg.optString("requestId");
+                String appId = msg.optString("appId");
+                Log.d(TAG, "Received photo_request, requestId: " + requestId + ", appId: " + appId);
+                if (serverCommsCallback != null && !requestId.isEmpty() && !appId.isEmpty()) {
+                    serverCommsCallback.onPhotoRequest(requestId, appId);
+                } else {
+                    Log.e(TAG, "Invalid photo request: missing requestId or appId");
+                }
+                break;
+                
+            case "video_stream_request":
+                String videoAppId = msg.optString("appId");
+                Log.d(TAG, "Received video_stream_request, appId: " + videoAppId);
+                if (serverCommsCallback != null && !videoAppId.isEmpty()) {
+                    serverCommsCallback.onVideoStreamRequest(videoAppId);
+                } else {
+                    Log.e(TAG, "Invalid video stream request: missing appId");
+                }
                 break;
 
             case "display_event":

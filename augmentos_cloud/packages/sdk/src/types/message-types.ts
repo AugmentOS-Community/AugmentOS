@@ -53,6 +53,8 @@ export enum CloudToGlassesMessageType {
   DISPLAY_EVENT = 'display_event',
   APP_STATE_CHANGE = 'app_state_change',
   MICROPHONE_STATE_CHANGE = 'microphone_state_change',
+  PHOTO_REQUEST = 'photo_request',
+  VIDEO_STREAM_REQUEST = 'video_stream_request',
 
   WEBSOCKET_ERROR = 'websocket_error'
 }
@@ -66,7 +68,9 @@ export enum TpaToCloudMessageType {
   SUBSCRIPTION_UPDATE = 'subscription_update',
   
   // Requests
-  DISPLAY_REQUEST = 'display_event'
+  DISPLAY_REQUEST = 'display_event',
+  PHOTO_REQUEST = 'photo_request',
+  VIDEO_STREAM_REQUEST = 'video_stream_request'
 }
 
 /**
@@ -83,6 +87,10 @@ export enum CloudToTpaMessageType {
   
   // Stream data
   DATA_STREAM = 'data_stream',
+  
+  // Media responses
+  PHOTO_RESPONSE = 'photo_response',
+  VIDEO_STREAM_RESPONSE = 'video_stream_response',
 
   WEBSOCKET_ERROR = 'websocket_error'
 }
@@ -129,5 +137,7 @@ export const ResponseTypes = [
 export const UpdateTypes = [
   CloudToGlassesMessageType.DISPLAY_EVENT,
   CloudToGlassesMessageType.APP_STATE_CHANGE,
-  CloudToGlassesMessageType.MICROPHONE_STATE_CHANGE
+  CloudToGlassesMessageType.MICROPHONE_STATE_CHANGE,
+  CloudToGlassesMessageType.PHOTO_REQUEST,
+  CloudToGlassesMessageType.VIDEO_STREAM_REQUEST
 ] as const;

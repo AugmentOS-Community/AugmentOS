@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StatusBar,
   BackHandler,
+  Image,
 } from 'react-native';
 import { RNCamera } from 'react-native-camera';
 import { useNavigation } from '@react-navigation/native';
@@ -28,6 +29,7 @@ const GlassesMirrorFullscreen: React.FC<GlassesMirrorFullscreenProps> = ({ isDar
   const { status } = useStatus();
   const { events } = useGlassesMirror(); // From context
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
+  const [cameraType, setCameraType] = useState(RNCamera.Constants.Type.front);
   const cameraRef = useRef<RNCamera | null>(null);
   const navigation = useNavigation<NavigationProps>();
 
@@ -71,6 +73,15 @@ const GlassesMirrorFullscreen: React.FC<GlassesMirrorFullscreenProps> = ({ isDar
     StatusBar.setHidden(false);
     navigation.goBack();
   };
+  
+  // Toggle camera between front and back
+  const toggleCamera = () => {
+    setCameraType(
+      cameraType === RNCamera.Constants.Type.front
+        ? RNCamera.Constants.Type.back
+        : RNCamera.Constants.Type.front
+    );
+  };
 
   return (
     <View style={styles.fullscreenContainer}>
@@ -81,7 +92,7 @@ const GlassesMirrorFullscreen: React.FC<GlassesMirrorFullscreenProps> = ({ isDar
             <RNCamera
               ref={cameraRef}
               style={styles.cameraBackground}
-              type={RNCamera.Constants.Type.front}
+              type={cameraType}
               captureAudio={false}
               androidCameraPermissionOptions={{
                 title: 'Camera Permission',
@@ -113,6 +124,18 @@ const GlassesMirrorFullscreen: React.FC<GlassesMirrorFullscreenProps> = ({ isDar
           >
             <Text style={styles.exitFullscreenText}>Exit</Text>
           </TouchableOpacity>
+          
+          {/* Camera flip button */}
+          {hasCameraPermission && (
+            <TouchableOpacity
+              style={styles.flipCameraButton}
+              onPress={toggleCamera}
+            >
+              <Text style={styles.flipCameraText}>
+                {cameraType === RNCamera.Constants.Type.front ? 'Flip to Back' : 'Flip to Front'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </>
       ) : (
         <View style={styles.fallbackContainer}>
@@ -191,6 +214,21 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   exitFullscreenText: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'Montserrat-Bold',
+  },
+  flipCameraButton: {
+    position: 'absolute',
+    top: 40,
+    left: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    zIndex: 20,
+  },
+  flipCameraText: {
     color: 'white',
     fontSize: 16,
     fontFamily: 'Montserrat-Bold',

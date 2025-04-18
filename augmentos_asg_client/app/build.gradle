@@ -18,7 +18,7 @@ if (envFile.exists()) {
 
 android {
     namespace 'com.augmentos.asg_client'
-    compileSdk 33
+    compileSdk 34
 
     buildFeatures {
         aidl = true
@@ -115,5 +115,8 @@ dependencies {
 
     // For demo
     implementation 'org.nanohttpd:nanohttpd:2.3.1'
+    
+    // Uncomment to use Nordic's BLE library
+    implementation 'no.nordicsemi.android:ble:2.4.0'
 
 }
