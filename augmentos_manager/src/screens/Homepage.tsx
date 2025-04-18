@@ -213,6 +213,7 @@ const Homepage: React.FC<HomepageProps> = ({ isDarkTheme, toggleTheme }) => {
 
                   <AnimatedSection>
                     <YourAppsList
+                    navigation={navigation}
                       isDarkTheme={isDarkTheme}
                       key={`apps-list-${status.apps.length}`}
                     />

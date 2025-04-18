@@ -34,14 +34,14 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
     const { status } = useStatus();
     const [glassesModelNameToPair, setGlassesModelNameToPair] = useState<string | null>(null);
     const [isOnboarding, setIsOnboarding] = useState(false);
-  
+
     // Platform-specific glasses options
-    let glassesOptions = Platform.OS === 'ios' 
+    let glassesOptions = Platform.OS === 'ios'
         ? [
             // iOS only supports these two options
             { modelName: 'Simulated Glasses', key: 'Simulated Glasses' }, // Moved to first position
             { modelName: 'Even Realities G1', key: 'evenrealities_g1' },
-          ]
+        ]
         : [
             // Android supports all options
             { modelName: 'Simulated Glasses', key: 'Simulated Glasses' }, // Moved to first position
@@ -49,7 +49,7 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
             { modelName: 'Mentra Mach1', key: 'mentra_mach1' },
             { modelName: 'Even Realities G1', key: 'evenrealities_g1' },
             { modelName: 'Audio Wearable', key: 'Audio Wearable' },
-          ];
+        ];
 
     // Check onboarding status when screen comes into focus
     useFocusEffect(
@@ -59,11 +59,11 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
                 console.log("ONBOARDING COMPLETED IN SELECTGLASSESMODELSCREEN???: " + onboardingCompleted);
                 setIsOnboarding(!onboardingCompleted);
             };
-            
+
             checkOnboardingStatus();
         }, [])
     );
-    
+
     React.useEffect(() => { }, [status]);
 
     const triggerGlassesPairingGuide = async (glassesModelName: string) => {
@@ -101,9 +101,11 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
             {isOnboarding && (
                 <View style={[
                     styles.onboardingBanner,
-                    {backgroundColor: isDarkTheme ? '#1e88e5' : '#bbdefb'}
+                    { backgroundColor: isDarkTheme ? '#1e88e5' : '#bbdefb' }
                 ]}>
-                    <Icon name="info-circle" size={20} color={isDarkTheme ? '#ffffff' : '#0d47a1'} style={{marginRight: 8}} />
+                    <Icon name="info-circle" size={20} color={isDarkTheme ? '#ffffff' : '#0d47a1'} style={{ marginRight: 8 }} />
+
+
                     <Text style={{
                         color: isDarkTheme ? '#ffffff' : '#0d47a1',
                         fontWeight: 'bold',
@@ -111,7 +113,7 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
                         fontSize: 16,
                         flex: 1
                     }}>
-                        Please select "Simulated Glasses" below to continue the tutorial
+                        Select your smart glasses model below. If you don't have smart glasses yet, you can select "Simulated Glasses" to try AugmentOS in demo mode.
                     </Text>
                 </View>
             )}
@@ -122,32 +124,23 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
                         key={glasses.key}
                         style={[
                             styles.settingItem,
-                            { 
-                                backgroundColor: theme.cardBg, 
-                                borderColor: (isOnboarding && glasses.modelName === 'Simulated Glasses') 
-                                    ? '#2196F3' 
+                            {
+                                backgroundColor: theme.cardBg,
+                                borderColor: (isOnboarding && glasses.modelName === 'Simulated Glasses')
+                                    ? '#2196F3'
                                     : theme.borderColor,
                                 borderWidth: 1,
-                                // Grey out non-Simulated Glasses options during onboarding
-                                opacity: (isOnboarding && glasses.modelName !== 'Simulated Glasses' && isOnboarding) ? 0.4 : 1
                             },
-                            // Special styling for Simulated Glasses during onboarding
-                            (isOnboarding && glasses.modelName === 'Simulated Glasses') 
-                                ? { 
+                            (isOnboarding && glasses.modelName === 'Simulated Glasses')
+                                ? {
                                     borderWidth: 2,
                                     backgroundColor: isDarkTheme ? '#2c2c2c' : '#f0f7ff'
-                                  } 
+                                }
                                 : {}
                         ]}
                         onPress={() => {
-                            // If onboarding, only allow selecting Simulated Glasses
-                            if (isOnboarding && glasses.modelName !== 'Simulated Glasses') {
-                                // Show alert or visual feedback that they need to select Simulated Glasses
-                                return;
-                            }
                             triggerGlassesPairingGuide(glasses.modelName)
                         }}
-                        disabled={isOnboarding && glasses.modelName !== 'Simulated Glasses'}
                     >
                         <Image
                             source={getGlassesImage(glasses.modelName)}
@@ -158,11 +151,11 @@ const SelectGlassesModelScreen: React.FC<SelectGlassesModelScreenProps> = ({
                                 style={[
                                     styles.label,
                                     {
-                                        color: (isOnboarding && glasses.modelName === 'Simulated Glasses') 
-                                            ? '#2196F3' 
+                                        color: (isOnboarding && glasses.modelName === 'Simulated Glasses')
+                                            ? '#2196F3'
                                             : theme.textColor,
-                                        fontWeight: (isOnboarding && glasses.modelName === 'Simulated Glasses') 
-                                            ? '800' 
+                                        fontWeight: (isOnboarding && glasses.modelName === 'Simulated Glasses')
+                                            ? '800'
                                             : '600',
                                     },
                                 ]}

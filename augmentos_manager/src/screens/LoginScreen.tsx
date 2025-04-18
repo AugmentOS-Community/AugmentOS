@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
   Image,
+  ScrollView,
   AppState,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -40,6 +41,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const translateY = useRef(new Animated.Value(20)).current;
   const formScale = useRef(new Animated.Value(0)).current;
   const authOverlayOpacity = useRef(new Animated.Value(0)).current;
+
+  //pswd visibility
+  const [showPassword, setShowPassword] = useState(false);
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+
 
   useEffect(() => {
     Animated.parallel([
@@ -108,8 +117,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         } catch (err) {
           console.error('Exception during setSession:', err);
         }
-      } 
-      
+      }
+
       // Always hide the loading overlay when we get any deep link callback
       // This ensures it gets hidden even if auth was not completed
       console.log('Deep link received, hiding auth overlay');
@@ -155,14 +164,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     try {
       // Start auth flow
       setIsAuthLoading(true);
-      
+
       // Show the auth loading overlay
       Animated.timing(authOverlayOpacity, {
         toValue: 1,
         duration: 300,
         useNativeDriver: true,
       }).start();
-      
+
       // Automatically hide the overlay after 5 seconds regardless of what happens
       // This is a failsafe in case the auth flow is interrupted
       setTimeout(() => {
@@ -170,7 +179,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         setIsAuthLoading(false);
         authOverlayOpacity.setValue(0);
       }, 5000);
-      
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -192,7 +201,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       if (data?.url) {
         console.log("Opening browser with:", data.url);
         await Linking.openURL(data.url);
-        
+
         // Directly hide the loading overlay when we leave the app
         // This ensures it won't be shown when user returns without completing auth
         setIsAuthLoading(false);
@@ -368,37 +377,40 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-          <View style={styles.card}>
-            {/* Auth Loading Overlay */}
-            {isAuthLoading && (
-              <Animated.View 
-                style={[
-                  styles.authLoadingOverlay,
-                  { opacity: authOverlayOpacity }
-                ]}
-              >
-                <View style={styles.authLoadingContent}>
-                  {/* Logo image commented out until we have a new one */}
-                  {/* <Image 
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.card}>
+              {/* Auth Loading Overlay */}
+              {isAuthLoading && (
+                <Animated.View
+                  style={[
+                    styles.authLoadingOverlay,
+                    { opacity: authOverlayOpacity }
+                  ]}
+                >
+                  <View style={styles.authLoadingContent}>
+                    {/* Logo image commented out until we have a new one */}
+                    {/* <Image 
                     source={require('../assets/AOS.png')} 
                     style={styles.authLoadingLogo} 
                   /> */}
-                  <View style={styles.authLoadingLogoPlaceholder} />
-                  <ActivityIndicator size="large" color="#2196F3" style={styles.authLoadingIndicator} />
-                  <Text style={styles.authLoadingText}>Connecting to your account...</Text>
-                </View>
-              </Animated.View>
-            )}
-            <Animated.Text
-              style={[styles.title, { opacity, transform: [{ translateY }] }]}>
-              AugmentOS
-            </Animated.Text>
-            <Animated.Text
-              style={[styles.subtitle, { opacity, transform: [{ translateY }] }]}>
-              The future of smart glasses starts here.
-            </Animated.Text>
-            {/* <Animated.View
+                    <View style={styles.authLoadingLogoPlaceholder} />
+                    <ActivityIndicator size="large" color="#2196F3" style={styles.authLoadingIndicator} />
+                    <Text style={styles.authLoadingText}>Connecting to your account...</Text>
+                  </View>
+                </Animated.View>
+              )}
+              <Animated.Text
+                style={[styles.title, { opacity, transform: [{ translateY }] }]}>
+                AugmentOS
+              </Animated.Text>
+              <Animated.Text
+                style={[styles.subtitle, { opacity, transform: [{ translateY }] }]}>
+                The future of smart glasses starts here.
+              </Animated.Text>
+              {/* <Animated.View
             style={[styles.header, { opacity, transform: [{ translateY }] }]}>
             <Animated.Image
               source={require('../assets/AOS.png')}
@@ -406,109 +418,116 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             />
           </Animated.View> */}
 
-            <Animated.View
-              style={[styles.content, { opacity, transform: [{ translateY }] }]}>
-              {isSigningUp ? (
-                <Animated.View
-                  style={[styles.form, { transform: [{ scale: formScale }] }]}>
+              <Animated.View
+                style={[styles.content, { opacity, transform: [{ translateY }] }]}>
+                {isSigningUp ? (
+                  <Animated.View
+                    style={[styles.form, { transform: [{ scale: formScale }] }]}>
 
 
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Email</Text>
-                    <View style={styles.enhancedInputContainer}>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Email</Text>
+                      <View style={styles.enhancedInputContainer}>
+                        <Icon
+                          name="envelope"
+                          size={16}
+                          color="#6B7280"
+                          style={styles.inputIcon}
+                        />
+                        <TextInput
+                          style={styles.enhancedInput}
+                          placeholder="you@example.com"
+                          value={email}
+                          onChangeText={setEmail}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          placeholderTextColor="#9CA3AF"
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Password</Text>
+                      <View style={styles.enhancedInputContainer}>
+                        <Icon
+                          name="lock"
+                          size={16}
+                          color="#6B7280"
+                          style={styles.inputIcon}
+                        />
+                        <TextInput
+                          style={styles.enhancedInput}
+                          placeholder="Enter your password"
+                          value={password}
+                          onChangeText={setPassword}
+                          secureTextEntry={!showPassword}
+                          placeholderTextColor="#9CA3AF"
+                        />
+                        <TouchableOpacity onPress={togglePasswordVisibility}>
+                          <Icon
+                            name={showPassword ? "eye" : "eye-slash"}
+                            size={18}
+                            color="#6B7280"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.enhancedPrimaryButton}
+                      onPress={() => { handleEmailSignIn(email, password) }}
+                      disabled={isFormLoading}>
+                      <LinearGradient
+                        colors={['#2196F3', '#1E88E5']}
+                        style={styles.buttonGradient}>
+                        <Text style={styles.enhancedPrimaryButtonText}>
+                          Log in
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.enhancedPrimaryButton}
+                      onPress={() => { handleEmailSignUp(email, password) }}
+                      disabled={isFormLoading}>
+                      <LinearGradient
+                        colors={['#2196F3', '#1E88E5']}
+                        style={styles.buttonGradient}>
+                        <Text style={styles.enhancedPrimaryButtonText}>
+                          Create Account
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.enhancedGhostButton}
+                      onPress={() => setIsSigningUp(false)}>
                       <Icon
-                        name="envelope"
+                        name="arrow-left"
                         size={16}
                         color="#6B7280"
-                        style={styles.inputIcon}
+                        style={styles.backIcon}
                       />
-                      <TextInput
-                        style={styles.enhancedInput}
-                        placeholder="you@example.com"
-                        value={email}
-                        onChangeText={setEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        placeholderTextColor="#9CA3AF"
-                        autoCorrect={false}
-                      />
-                    </View>
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Password</Text>
-                    <View style={styles.enhancedInputContainer}>
-                      <Icon
-                        name="lock"
-                        size={16}
-                        color="#6B7280"
-                        style={styles.inputIcon}
-                      />
-                      <TextInput
-                        style={styles.enhancedInput}
-                        placeholder="Enter your password"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                        placeholderTextColor="#9CA3AF"
-                      />
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.enhancedPrimaryButton}
-                    onPress={() => { handleEmailSignIn(email, password) }}
-                    disabled={isFormLoading}>
-                    <LinearGradient
-                      colors={['#2196F3', '#1E88E5']}
-                      style={styles.buttonGradient}>
-                      <Text style={styles.enhancedPrimaryButtonText}>
-                        Log in
+                      <Text style={styles.enhancedGhostButtonText}>
+                        Back to Sign In Options
                       </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.enhancedPrimaryButton}
-                    onPress={() => { handleEmailSignUp(email, password) }}
-                    disabled={isFormLoading}>
-                    <LinearGradient
-                      colors={['#2196F3', '#1E88E5']}
-                      style={styles.buttonGradient}>
-                      <Text style={styles.enhancedPrimaryButtonText}>
-                        Create Account
+                    </TouchableOpacity>
+                  </Animated.View>
+                ) : (
+                  <View style={styles.signInOptions}>
+                    <TouchableOpacity
+                      style={[styles.socialButton, styles.googleButton]}
+                      onPress={handleGoogleSignIn}>
+                      <View style={styles.socialIconContainer}>
+                        <GoogleIcon />
+                      </View>
+                      <Text style={styles.socialButtonText}>
+                        Continue with Google
                       </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.enhancedGhostButton}
-                    onPress={() => setIsSigningUp(false)}>
-                    <Icon
-                      name="arrow-left"
-                      size={16}
-                      color="#6B7280"
-                      style={styles.backIcon}
-                    />
-                    <Text style={styles.enhancedGhostButtonText}>
-                      Back to Sign In Options
-                    </Text>
-                  </TouchableOpacity>
-                </Animated.View>
-              ) : (
-                <View style={styles.signInOptions}>
-                  <TouchableOpacity
-                    style={[styles.socialButton, styles.googleButton]}
-                    onPress={handleGoogleSignIn}>
-                    <View style={styles.socialIconContainer}>
-                      <GoogleIcon />
-                    </View>
-                    <Text style={styles.socialButtonText}>
-                      Continue with Google
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* {Platform.OS == 'ios' && (
+                    {/* {Platform.OS == 'ios' && (
                   <TouchableOpacity
                     style={[styles.socialButton, styles.appleButton]}
                     onPress={handleAppleSignIn}>
@@ -522,37 +541,38 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   </TouchableOpacity>
                 )} */}
 
-                  <View style={styles.dividerContainer}>
-                    <View style={styles.divider} />
-                    <Text style={styles.dividerText}>Or</Text>
-                    <View style={styles.divider} />
+                    <View style={styles.dividerContainer}>
+                      <View style={styles.divider} />
+                      <Text style={styles.dividerText}>Or</Text>
+                      <View style={styles.divider} />
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.enhancedEmailButton}
+                      onPress={() => setIsSigningUp(true)}>
+                      <LinearGradient
+                        colors={['#2196F3', '#1E88E5']}
+                        style={styles.buttonGradient}>
+                        <Icon
+                          name="envelope"
+                          size={16}
+                          color="white"
+                          style={styles.emailIcon}
+                        />
+                        <Text style={styles.enhancedEmailButtonText}>
+                          Sign up with Email
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
                   </View>
+                )}
+              </Animated.View>
 
-                  <TouchableOpacity
-                    style={styles.enhancedEmailButton}
-                    onPress={() => setIsSigningUp(true)}>
-                    <LinearGradient
-                      colors={['#2196F3', '#1E88E5']}
-                      style={styles.buttonGradient}>
-                      <Icon
-                        name="envelope"
-                        size={16}
-                        color="white"
-                        style={styles.emailIcon}
-                      />
-                      <Text style={styles.enhancedEmailButtonText}>
-                        Sign up with Email
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </Animated.View>
-
-            <Animated.Text style={[styles.termsText, { opacity }]}>
-              By continuing, you agree to our Terms of Service and Privacy Policy
-            </Animated.Text>
-          </View>
+              <Animated.Text style={[styles.termsText, { opacity }]}>
+                By continuing, you agree to our Terms of Service and Privacy Policy
+              </Animated.Text>
+            </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
@@ -823,6 +843,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Montserrat-Regular',
     marginTop: 8,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+
   },
 });
 

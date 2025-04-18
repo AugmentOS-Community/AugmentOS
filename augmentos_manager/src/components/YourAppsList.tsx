@@ -23,9 +23,10 @@ import { useFocusEffect } from '@react-navigation/native';
 
 interface YourAppsListProps {
     isDarkTheme: boolean;
+    navigation: any;
 }
 
-const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
+const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme, navigation }) => {
     const { status } = useStatus();
     const [_isLoading, setIsLoading] = React.useState(false);
     const [showOnboardingTip, setShowOnboardingTip] = useState(false);
@@ -33,7 +34,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
     const [onboardingCompleted, setOnboardingCompleted] = useState(true);
     const [inLiveCaptionsPhase, setInLiveCaptionsPhase] = useState(false);
     const [showSettingsHint, setShowSettingsHint] = useState(false);
-  
+
     const [containerWidth, setContainerWidth] = React.useState(0);
     const arrowAnimation = React.useRef(new Animated.Value(0)).current;
 
@@ -50,7 +51,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
             const checkOnboardingStatus = async () => {
                 const completed = await loadSetting(SETTINGS_KEYS.ONBOARDING_COMPLETED, true);
                 setOnboardingCompleted(completed);
-                
+
                 if (!completed) {
                     // Always show the tip to tap Live Captions
                     setShowOnboardingTip(true);
@@ -58,14 +59,14 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
                     setShowSettingsHint(false); // Hide settings hint during onboarding
                 } else {
                     setShowOnboardingTip(false);
-                    
+
                     // If onboarding is completed, check how many times settings have been accessed
                     const settingsAccessCount = await loadSetting(SETTINGS_KEYS.SETTINGS_ACCESS_COUNT, 0);
                     // Only show hint if they've accessed settings less than 1 times
                     setShowSettingsHint(settingsAccessCount < 1);
                 }
             };
-            
+
             checkOnboardingStatus();
         }, [])
     );
@@ -87,7 +88,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
             setOnboardingCompleted(completed);
             setShowOnboardingTip(!completed);
         };
-        
+
         checkOnboardingStatus();
     }, []);
 
@@ -97,12 +98,12 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
         setOnboardingCompleted(true);
         setShowOnboardingTip(false);
         setInLiveCaptionsPhase(false); // Reset any live captions phase state
-        
+
         // Make sure to post an update to ensure all components re-render
         // This is important to immediately hide any UI elements that depend on these states
         setTimeout(() => {
             // Force a re-render by setting state again
-            setShowOnboardingTip(false);                    
+            setShowOnboardingTip(false);
             setShowSettingsHint(true);
         }, 100);
     };
@@ -112,13 +113,13 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
         // If onboarding is not completed, only allow starting Live Captions
         if (!onboardingCompleted) {
             console.log("STARTAPP: ONBOARDING NOT COMPLETED")
-            if (packageName !== 'com.augmentos.livecaptions') {
-                console.log("STARTAPP: ONBOARDING NOT COMPLETED: PKGNAME NOT CAPTIONS")
+            if (packageName !== 'com.augmentos.livecaptions' && packageName !== "cloud.augmentos.live-captions") {
+                console.log("STARTAPP: ONBOARDING NOT COMPLETED: PKGNAME NOT CAPTIONS IT IS INSTEAD: " + packageName)
                 showAlert(
                     "Complete Onboarding",
                     "Please tap the Live Captions app to complete the onboarding process.",
                     [{ text: "OK" }],
-                    { 
+                    {
                         isDarkTheme,
                         iconName: "information-outline"
                     }
@@ -132,24 +133,25 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
                 setShowOnboardingTip(false); // Immediately hide the tip
             }
         }
-        
+
         setIsLoading(true);
         try {
             BackendServerComms.getInstance().startApp(packageName);
-            
+
             // Display a special message for Live Captions when starting the app
             if (!onboardingCompleted && packageName === 'com.augmentos.livecaptions') {
+                console.log("STARTAPP: ONBOARDING NOT COMPLETED: PKGNAME === cAPTIONS!!!")
                 // If this is the Live Captions app, make sure we've hidden the tip
                 setShowOnboardingTip(false);
-                
+
                 setTimeout(() => {
                     showAlert(
                         "Try Live Captions!",
                         "Start talking now to see your speech transcribed on your glasses in real-time!",
                         [{ text: "OK" }],
-                        { 
+                        {
                             isDarkTheme,
-                            iconName: "microphone" 
+                            iconName: "microphone"
                         }
                     );
                 }, 500);
@@ -164,8 +166,6 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
     const textColor = isDarkTheme ? '#FFFFFF' : '#000000';
     // const backgroundColor = isDarkTheme ? '#1E1E1E' : '#F5F5F5';
 
-    // console.log('status.apps', status.apps);
-
     // Optional: Filter out duplicate apps
     const uniqueApps = React.useMemo(() => {
         const seen = new Set();
@@ -177,6 +177,15 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
             return true;
         });
     }, [status.apps]);
+
+    const [isSensingEnabled, setIsSensingEnabled] = React.useState(
+        status.core_info.sensing_enabled,
+    );
+    useEffect(() => {
+        setIsSensingEnabled(status.core_info.sensing_enabled);
+    }, [status.core_info.sensing_enabled]);
+
+
 
     // Remove all animations - we're keeping animation reference for compatibility
 
@@ -201,14 +210,41 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
                     Your Apps
                 </Text>
             </View>
-            
+
+            {/* Sensing Disabled Warning */}
+            {!isSensingEnabled && (
+                <View style={[
+                    styles.sensingWarningContainer, 
+                    { backgroundColor: '#FFF3E0', borderColor: '#FFB74D' }
+                ]}>
+                    <View style={styles.warningContent}>
+                        <Icon name="microphone-off" size={22} color="#FF9800" />
+                        <Text style={styles.warningText}>
+                            Sensing is disabled. Microphone and sensors won't work in apps.
+                        </Text>
+                    </View>
+                    <TouchableOpacity 
+                        style={styles.settingsButton}
+                        onPress={() => {
+                            // Navigate to the Settings page
+                            navigation.navigate('PrivacySettingsScreen');
+                        }}
+                    >
+                        <Text style={styles.settingsButtonText}>Settings</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+
             {/* Settings hint - only shown after onboarding and if settings accessed count < 3 */}
             {showSettingsHint && (
-                <View 
+                <View
                     style={[
-                        styles.settingsHintContainer, 
-                        { backgroundColor: isDarkTheme ? '#1A2733' : '#E3F2FD', 
-                          borderColor: isDarkTheme ? '#1E88E5' : '#BBDEFB' }
+                        styles.settingsHintContainer,
+                        {
+                            backgroundColor: isDarkTheme ? '#1A2733' : '#E3F2FD',
+                            borderColor: isDarkTheme ? '#1E88E5' : '#BBDEFB'
+                        }
                     ]}
                 >
                     <View style={styles.hintContent}>
@@ -242,9 +278,9 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
                                         <Text style={styles.arrowBubbleText}>
                                             Tap to start
                                         </Text>
-                                        <Icon 
+                                        <Icon
                                             name="gesture-tap"
-                                            size={20} 
+                                            size={20}
                                             color="#FFFFFF"
                                             style={styles.bubbleIcon}
                                         />
@@ -254,13 +290,13 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
                                         isDarkTheme ? styles.arrowIconContainerDark : styles.arrowIconContainerLight
                                     ]}>
                                         <View style={styles.glowEffect} />
-                                        <Icon 
-                                            name="arrow-down-bold" 
-                                            size={30} 
+                                        <Icon
+                                            name="arrow-down-bold"
+                                            size={30}
                                             color="#FFFFFF"
                                             style={{
                                                 textShadowColor: 'rgba(0, 0, 0, 0.3)',
-                                                textShadowOffset: {width: 0, height: 1},
+                                                textShadowOffset: { width: 0, height: 1 },
                                                 textShadowRadius: 3,
                                             }}
                                         />
@@ -272,7 +308,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
                             app={app}
                             isDarkTheme={isDarkTheme}
                             onClick={() => startApp(app.packageName)}
-                            // size={itemWidth * 0.8} // Adjust size relative to itemWidth
+                        // size={itemWidth * 0.8} // Adjust size relative to itemWidth
                         />
                     </View>
                 ))}
@@ -311,12 +347,12 @@ const styles = StyleSheet.create({
         paddingLeft: 0,
     },
     sectionTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      fontFamily: 'Montserrat-Bold',
-      lineHeight: 22,
-      letterSpacing: 0.38,
-      marginBottom: 10,
+        fontSize: 18,
+        fontWeight: '600',
+        fontFamily: 'Montserrat-Bold',
+        lineHeight: 22,
+        letterSpacing: 0.38,
+        marginBottom: 10,
     },
     adjustableText: {
         minHeight: 0,
@@ -439,7 +475,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
         marginRight: 6,
         textShadowColor: 'rgba(0, 0, 0, 0.3)',
-        textShadowOffset: {width: 0, height: 1},
+        textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 2,
     },
     bubbleIcon: {
@@ -476,6 +512,39 @@ const styles = StyleSheet.create({
         top: -15,
         left: -15,
         opacity: 0, // Remove glow effect completely
+    },
+    sensingWarningContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        marginBottom: 12,
+    },
+    warningContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    warningText: {
+        marginLeft: 10,
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#E65100',
+        flex: 1,
+    },
+    settingsButton: {
+        backgroundColor: '#FF9800',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6,
+        marginLeft: 8,
+    },
+    settingsButtonText: {
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontWeight: 'bold',
     },
 });
 
