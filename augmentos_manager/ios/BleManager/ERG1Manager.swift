@@ -93,6 +93,10 @@ enum GlassesError: Error {
   @Published public var caseCharging = false
   @Published public var caseOpen = false
   public var isDisconnecting = false
+  private var reconnectionTimer: Timer?
+  private var reconnectionAttempts: Int = 0
+  private let maxReconnectionAttempts: Int = -1 // unlimited reconnection attempts
+  private let reconnectionInterval: TimeInterval = 30.0 // Seconds between reconnection attempts
   
   enum AiMode: String {
     case AI_REQUESTED
@@ -263,6 +267,9 @@ enum GlassesError: Error {
     }
     print("g1Ready set to \(leftReady) \(rightReady) \(leftReady && rightReady)")
     g1Ready = leftReady && rightReady
+    if g1Ready {
+      stopReconnectionTimer()
+    }
   }
   
   @objc func RN_stopScan() {
@@ -401,6 +408,7 @@ enum GlassesError: Error {
       attempts += 1
       if !result && (attempts >= maxAttempts) {
         semaphore.signal()// increment the count
+        startReconnectionTimer()
         break
       }
     }
@@ -1134,7 +1142,6 @@ extension ERG1Manager: CBCentralManagerDelegate, CBPeripheralDelegate {
     
   }
   
-  // Update didConnect to set timestamp
   public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
     peripheral.delegate = self
     peripheral.discoverServices([UART_SERVICE_UUID])
@@ -1169,8 +1176,68 @@ extension ERG1Manager: CBCentralManagerDelegate, CBPeripheralDelegate {
       leftPeripheral = nil
       rightPeripheral = nil
       setReadiness(left: false, right: false)
-      RN_startScan()// attempt reconnect
+      startReconnectionTimer()// Start periodic reconnection attempts
     }
+  }
+  
+  private func startReconnectionTimer() {
+      // Cancel any existing timer
+      stopReconnectionTimer()
+      
+      // Reset attempt counter
+      reconnectionAttempts = 0
+      
+      // Create a new timer on a background queue
+      let queue = DispatchQueue(label: "com.sample.reconnectionTimerQueue", qos: .background)
+      queue.async { [weak self] in
+          guard let self = self else {
+            return
+          }
+          self.reconnectionTimer = Timer.scheduledTimer(
+              timeInterval: self.reconnectionInterval,
+              target: self,
+              selector: #selector(self.attemptReconnection),
+              userInfo: nil,
+              repeats: true
+          )
+        
+          guard let recon = reconnectionTimer else {
+            return
+          }
+          
+          // Fire immediately for first attempt
+          recon.fire()
+          
+          // Add timer to the run loop
+          RunLoop.current.add(recon, forMode: .default)
+          RunLoop.current.run()
+      }
+  }
+
+  private func stopReconnectionTimer() {
+      reconnectionTimer?.invalidate()
+      reconnectionTimer = nil
+  }
+
+  @objc private func attemptReconnection() {
+      // Check if we're already connected
+      if g1Ready {
+          stopReconnectionTimer()
+          return
+      }
+      
+      // Check if we've exceeded maximum attempts
+      if maxReconnectionAttempts > 0 && reconnectionAttempts >= maxReconnectionAttempts {
+          print("Maximum reconnection attempts reached. Stopping reconnection timer.")
+          stopReconnectionTimer()
+          return
+      }
+      
+      reconnectionAttempts += 1
+      print("Attempting reconnection (attempt \(reconnectionAttempts))...")
+      
+      // Start a new scan
+      RN_startScan()
   }
   
   public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
