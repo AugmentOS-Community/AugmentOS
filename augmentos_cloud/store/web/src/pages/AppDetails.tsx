@@ -109,9 +109,17 @@ const AppDetails: React.FC = () => {
     try {
       setInstallingApp(true);
 
-      const success = await api.app.uninstallApp(app.packageName);
+      // First stop the app
+      const stopSuccess = await api.app.stopApp(app.packageName);
+      if (!stopSuccess) {
+        toast.error('Failed to stop app before uninstallation');
+        return;
+      }
 
-      if (success) {
+      // Then uninstall the app
+      const uninstallSuccess = await api.app.uninstallApp(app.packageName);
+
+      if (uninstallSuccess) {
         toast.success('App uninstalled successfully');
         setApp(prev => prev ? { ...prev, isInstalled: false, installedDate: undefined } : null);
       } else {
@@ -119,7 +127,7 @@ const AppDetails: React.FC = () => {
       }
     } catch (err) {
       console.error('Error uninstalling app:', err);
-      toast.error('Failed to uninstall app');
+      toast.error('Failed to uninstall app. Please try again.');
     } finally {
       setInstallingApp(false);
     }

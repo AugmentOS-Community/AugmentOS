@@ -8,11 +8,11 @@
     "build": "cd packages/sdk && bun run build && cd ../utils && bun run build && cd ../agents && bun run build && cd ../apps/dashboard-manager && bun run build",
     "setup-deps": "bun install --no-link",
 
-    "dev": "bun run dev:stop && bun run dev:rebuild && docker-compose -f docker-compose.dev.yml -p dev up",
-    "dev:core": "docker-compose -f docker-compose.dev.yml -p dev up shared-packages cloud",
-    "dev:detached": "docker-compose -f docker-compose.dev.yml -p dev up -d",
-    "dev:rebuild": "docker-compose -f docker-compose.dev.yml -p dev up -d --build --remove-orphans",
-    "dev:stop": "docker-compose -f docker-compose.dev.yml -p dev down --timeout 5 || docker kill $(docker ps -q)",
+    "dev": "bun run dev:stop && bun run dev:rebuild && docker compose -f docker-compose.dev.yml -p dev up",
+    "dev:core": "docker compose -f docker-compose.dev.yml -p dev up shared-packages cloud",
+    "dev:detached": "docker compose -f docker-compose.dev.yml -p dev up -d",
+    "dev:rebuild": "docker compose -f docker-compose.dev.yml -p dev up -d --build --remove-orphans",
+    "dev:stop": "docker compose -f docker-compose.dev.yml -p dev down --timeout 5 || docker kill $(docker ps -q)",
     "dev:setup-network": "docker network create augmentos-network-dev",
     "dev:clean": "docker compose -f docker-compose.dev.yml -p dev down -v && docker system prune -f",
 
@@ -22,11 +22,11 @@
     "prod:stop": "docker compose -f docker-compose.yml -p prod down",
     "prod:deploy": "bun run prod:stop && bun run prod",
     "prod:setup-network": "docker network create augmentos-network",
-    "prod:logs": "docker-compose -f docker-compose.yml -p prod logs -f --tail=10",
+    "prod:logs": "docker compose -f docker-compose.yml -p prod logs -f --tail=10",
 
     "logs": "docker compose -f docker-compose.dev.yml -p dev logs -f --tail=0",
-    "logs:prod": "docker-compose -f docker-compose.yml -p prod logs -f --tail=10",
-    "logs:cloud": "docker-compose -f docker-compose.dev.yml -p dev logs -f cloud --tail=0",
+    "logs:prod": "docker compose -f docker-compose.yml -p prod logs -f --tail=10",
+    "logs:cloud": "docker compose -f docker-compose.dev.yml -p dev logs -f cloud --tail=0",
 
     "test": "bun run packages/cloud/src/tests/run-tests.ts",
     "test:display": "bun run packages/cloud/src/tests/display-manager.test.ts"

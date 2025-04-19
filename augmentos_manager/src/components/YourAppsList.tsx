@@ -5,44 +5,30 @@ import {
     Text,
     StyleSheet,
     TouchableOpacity,
-    Alert,
-    Animated,
-    Easing,
-    Modal,
+    ScrollView,
 } from 'react-native';
 import showAlert from '../utils/AlertUtils';
 import MessageModal from './MessageModal';
 import { useStatus } from '../providers/AugmentOSStatusProvider';
-import AppIcon from './AppIcon';
-import coreCommunicator from '../bridge/CoreCommunicator';
 import BackendServerComms from '../backend_comms/BackendServerComms';
 import { loadSetting, saveSetting } from '../logic/SettingsHelper';
 import { SETTINGS_KEYS } from '../consts';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import AppIcon from './AppIcon';
+import { NavigationProps } from './types';
 
 interface YourAppsListProps {
     isDarkTheme: boolean;
 }
 
 const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
-    const { status } = useStatus();
+    const { status, updateAppStatus, startAppOperation, endAppOperation, isAppOperationPending } = useStatus();
     const [_isLoading, setIsLoading] = React.useState(false);
-    const [showOnboardingTip, setShowOnboardingTip] = useState(false);
     const [onboardingModalVisible, setOnboardingModalVisible] = useState(false);
     const [onboardingCompleted, setOnboardingCompleted] = useState(true);
-    const [inLiveCaptionsPhase, setInLiveCaptionsPhase] = useState(false);
-    const [showSettingsHint, setShowSettingsHint] = useState(false);
-  
-    const [containerWidth, setContainerWidth] = React.useState(0);
-    const arrowAnimation = React.useRef(new Animated.Value(0)).current;
-
-    // Constants for grid item sizing
-    const GRID_MARGIN = 6; // Total horizontal margin per item (left + right)
-    const numColumns = 4; // Desired number of columns
-
-    // Calculate the item width based on container width and margins
-    const itemWidth = containerWidth > 0 ? (containerWidth - (GRID_MARGIN * numColumns)) / numColumns : 0;
+    const textColor = isDarkTheme ? '#FFFFFF' : '#000000';
+    const navigation = useNavigation<NavigationProps>();
 
     // Check onboarding status whenever the screen comes into focus
     useFocusEffect(
@@ -52,17 +38,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
                 setOnboardingCompleted(completed);
                 
                 if (!completed) {
-                    // Always show the tip to tap Live Captions
-                    setShowOnboardingTip(true);
                     setOnboardingModalVisible(true);
-                    setShowSettingsHint(false); // Hide settings hint during onboarding
-                } else {
-                    setShowOnboardingTip(false);
-                    
-                    // If onboarding is completed, check how many times settings have been accessed
-                    const settingsAccessCount = await loadSetting(SETTINGS_KEYS.SETTINGS_ACCESS_COUNT, 0);
-                    // Only show hint if they've accessed settings less than 1 times
-                    setShowSettingsHint(settingsAccessCount < 1);
                 }
             };
             
@@ -70,50 +46,9 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
         }, [])
     );
 
-    // Set arrow to static position (no animation)
-    useEffect(() => {
-        // Just set to a fixed value instead of animating
-        if (showOnboardingTip) {
-            arrowAnimation.setValue(0.5); // Middle value for static appearance
-        } else {
-            arrowAnimation.setValue(0);
-        }
-    }, [showOnboardingTip]);
-
-    // Check if onboarding is completed on initial load
-    useEffect(() => {
-        const checkOnboardingStatus = async () => {
-            const completed = await loadSetting(SETTINGS_KEYS.ONBOARDING_COMPLETED, true);
-            setOnboardingCompleted(completed);
-            setShowOnboardingTip(!completed);
-        };
-        
-        checkOnboardingStatus();
-    }, []);
-
-    // Mark onboarding as completed and ensure all UI elements are updated
-    const completeOnboarding = () => {
-        saveSetting(SETTINGS_KEYS.ONBOARDING_COMPLETED, true);
-        setOnboardingCompleted(true);
-        setShowOnboardingTip(false);
-        setInLiveCaptionsPhase(false); // Reset any live captions phase state
-        
-        // Make sure to post an update to ensure all components re-render
-        // This is important to immediately hide any UI elements that depend on these states
-        setTimeout(() => {
-            // Force a re-render by setting state again
-            setShowOnboardingTip(false);                    
-            setShowSettingsHint(true);
-        }, 100);
-    };
-
     const startApp = async (packageName: string) => {
-        console.log("STARTAPP: ECHECK ONBOARDING??")
-        // If onboarding is not completed, only allow starting Live Captions
         if (!onboardingCompleted) {
-            console.log("STARTAPP: ONBOARDING NOT COMPLETED")
             if (packageName !== 'com.augmentos.livecaptions') {
-                console.log("STARTAPP: ONBOARDING NOT COMPLETED: PKGNAME NOT CAPTIONS")
                 showAlert(
                     "Complete Onboarding",
                     "Please tap the Live Captions app to complete the onboarding process.",
@@ -125,23 +60,29 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
                 );
                 return;
             } else {
-                console.log("STARTAPP: ONBOARDING NOT COMPLETED: PKGNAME === cAPTIONS!!!")
-                // Mark onboarding as completed and immediately hide the onboarding tip
-                // when they start Live Captions
                 completeOnboarding();
-                setShowOnboardingTip(false); // Immediately hide the tip
             }
         }
         
+        if (isAppOperationPending(packageName)) {
+            console.log(`Cannot start app ${packageName}: operation already in progress`);
+            return;
+        }
+        
+        if (!startAppOperation(packageName, 'start')) {
+            console.log(`Cannot start app ${packageName}: operation rejected`);
+            return;
+        }
+        
+        // Update UI immediately
+        updateAppStatus(packageName, true, true);
+        
+        // Start the operation in the background
         setIsLoading(true);
         try {
-            BackendServerComms.getInstance().startApp(packageName);
+            await BackendServerComms.getInstance().startApp(packageName);
             
-            // Display a special message for Live Captions when starting the app
             if (!onboardingCompleted && packageName === 'com.augmentos.livecaptions') {
-                // If this is the Live Captions app, make sure we've hidden the tip
-                setShowOnboardingTip(false);
-                
                 setTimeout(() => {
                     showAlert(
                         "Try Live Captions!",
@@ -155,132 +96,84 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
                 }, 500);
             }
         } catch (error) {
+            // Only revert the status if the operation failed
+            updateAppStatus(packageName, false, false);
             console.error('start app error:', error);
         } finally {
             setIsLoading(false);
+            endAppOperation(packageName);
         }
     };
 
-    const textColor = isDarkTheme ? '#FFFFFF' : '#000000';
-    // const backgroundColor = isDarkTheme ? '#1E1E1E' : '#F5F5F5';
-
-    // console.log('status.apps', status.apps);
-
-    // Optional: Filter out duplicate apps
-    const uniqueApps = React.useMemo(() => {
-        const seen = new Set();
-        return status.apps.filter(app => {
-            if (seen.has(app.packageName)) {
-                return false;
-            }
-            seen.add(app.packageName);
-            return true;
+    const openAppSettings = (app: any) => {
+        navigation.navigate('AppSettings', {
+            packageName: app.packageName,
+            appName: app.name
         });
-    }, [status.apps]);
+    };
 
-    // Remove all animations - we're keeping animation reference for compatibility
+    const completeOnboarding = () => {
+        saveSetting(SETTINGS_KEYS.ONBOARDING_COMPLETED, true);
+        setOnboardingCompleted(true);
+    };
+
+    // Filter out duplicate apps and running apps
+    const availableApps = status.apps.filter(app => {
+        if (app.is_running) {
+            return false;
+        }
+        // Check if this is the first occurrence of this package name
+        const firstIndex = status.apps.findIndex(a => a.packageName === app.packageName);
+        return firstIndex === status.apps.indexOf(app);
+    });
 
     return (
-        <View
-            style={[styles.appsContainer]}
-            onLayout={(event) => {
-                const { width } = event.nativeEvent.layout;
-                setContainerWidth(width);
-            }}
-        >
+        <View style={styles.appsContainer}>
             <View style={styles.titleContainer}>
-                <Text
-                    style={[
-                        styles.sectionTitle,
-                        { color: textColor },
-                        styles.adjustableText,
-                    ]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                >
-                    Your Apps
+                <Text style={[styles.sectionTitle, { color: textColor }]}>
+                    Inactive Apps ({availableApps.length})
                 </Text>
             </View>
             
-            {/* Settings hint - only shown after onboarding and if settings accessed count < 3 */}
-            {showSettingsHint && (
-                <View 
-                    style={[
-                        styles.settingsHintContainer, 
-                        { backgroundColor: isDarkTheme ? '#1A2733' : '#E3F2FD', 
-                          borderColor: isDarkTheme ? '#1E88E5' : '#BBDEFB' }
-                    ]}
-                >
-                    <View style={styles.hintContent}>
-                        <Icon name="gesture-tap-hold" size={22} color="#2196F3" />
-                        <Text style={[
-                            styles.hintText,
-                            { color: isDarkTheme ? '#FFFFFF' : '#0D47A1' }
-                        ]}>
-                            Long-press any app to access its settings
-                        </Text>
-                    </View>
-                </View>
-            )}
-
-            <View style={styles.gridContainer}>
-                {uniqueApps.map((app, index) => (
-                    <View
+            <ScrollView 
+                style={styles.listContainer}
+                showsVerticalScrollIndicator={false}
+            >
+                {availableApps.map((app, index) => (
+                    <TouchableOpacity
                         key={app.packageName}
-                        style={[
-                            styles.itemContainer,
-                            {
-                                width: itemWidth,
-                                margin: GRID_MARGIN / 2,
-                            },
-                        ]}
+                        onPress={() => startApp(app.packageName)}
+                        onLongPress={() => openAppSettings(app)}
+                        delayLongPress={500}
+                        style={styles.appItem}
+                        disabled={isAppOperationPending(app.packageName)}
                     >
-                        {showOnboardingTip && app.packageName === 'com.augmentos.livecaptions' && (
-                            <View style={styles.arrowContainer}>
-                                <View style={styles.arrowWrapper}>
-                                    <View style={styles.arrowBubble}>
-                                        <Text style={styles.arrowBubbleText}>
-                                            Tap to start
-                                        </Text>
-                                        <Icon 
-                                            name="gesture-tap"
-                                            size={20} 
-                                            color="#FFFFFF"
-                                            style={styles.bubbleIcon}
-                                        />
-                                    </View>
-                                    <View style={[
-                                        styles.arrowIconContainer,
-                                        isDarkTheme ? styles.arrowIconContainerDark : styles.arrowIconContainerLight
-                                    ]}>
-                                        <View style={styles.glowEffect} />
-                                        <Icon 
-                                            name="arrow-down-bold" 
-                                            size={30} 
-                                            color="#FFFFFF"
-                                            style={{
-                                                textShadowColor: 'rgba(0, 0, 0, 0.3)',
-                                                textShadowOffset: {width: 0, height: 1},
-                                                textShadowRadius: 3,
-                                            }}
-                                        />
-                                    </View>
-                                </View>
+                        <View style={styles.appContent}>
+                            <AppIcon
+                                app={app}
+                                isDarkTheme={isDarkTheme}
+                                onClick={() => startApp(app.packageName)}
+                                style={styles.appIconStyle}
+                            />
+                            <View style={styles.appTextContainer}>
+                                <Text style={[styles.appName, {color: textColor}]}>
+                                    {app.name || 'Convoscope'}
+                                </Text>
                             </View>
-                        )}
-                        <AppIcon
-                            app={app}
-                            isDarkTheme={isDarkTheme}
-                            onClick={() => startApp(app.packageName)}
-                            // size={itemWidth * 0.8} // Adjust size relative to itemWidth
-                        />
-                    </View>
+                            <TouchableOpacity 
+                                onPress={() => openAppSettings(app)}
+                                style={styles.settingsButton}
+                                disabled={isAppOperationPending(app.packageName)}
+                            >
+                                <Icon name="cog-outline" size={24} color={textColor} />
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
                 ))}
-            </View>
+            </ScrollView>
 
-            {/* Modal overlay to prevent interaction until onboarding is completed */}
             <MessageModal
-                visible={onboardingModalVisible && uniqueApps.length > 0}
+                visible={onboardingModalVisible && availableApps.length > 0}
                 title="Start Live Captions"
                 message="To continue, start the Live Captions app."
                 buttons={[
@@ -296,7 +189,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({ isDarkTheme }) => {
 
 const styles = StyleSheet.create({
     appsContainer: {
-        marginTop: -10,
+        marginTop: -8,
         marginBottom: 0,
         width: '100%',
         paddingHorizontal: 0,
@@ -311,171 +204,41 @@ const styles = StyleSheet.create({
         paddingLeft: 0,
     },
     sectionTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      fontFamily: 'Montserrat-Bold',
-      lineHeight: 22,
-      letterSpacing: 0.38,
-      marginBottom: 10,
-    },
-    adjustableText: {
-        minHeight: 0,
-    },
-    gridContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'flex-start',
-    },
-    itemContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    tipButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 15,
-    },
-    tipText: {
-        marginLeft: 5,
-        fontSize: 14,
+        fontSize: 18,
         fontWeight: '600',
+        fontFamily: 'Montserrat-Bold',
+        lineHeight: 22,
+        letterSpacing: 0.38,
+        marginBottom: 10,
     },
-    onboardingTip: {
+    listContainer: {
+        gap: 4,
+    },
+    appItem: {
+        backgroundColor: '#E8E8E8',
+        borderRadius: 12,
+        padding: 10,
+        marginBottom: 9,
+    },
+    appContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
-        borderRadius: 10,
-        marginBottom: 15,
+        minHeight: 44,
     },
-    onboardingTipLight: {
-        backgroundColor: '#E3F2FD',
-        borderColor: '#BBDEFB',
-        borderWidth: 1,
-    },
-    onboardingTipDark: {
-        backgroundColor: '#1A2733',
-        borderColor: '#1E88E5',
-        borderWidth: 1,
-    },
-    onboardingTipText: {
+    appTextContainer: {
         flex: 1,
-        marginLeft: 10,
-        fontSize: 14,
-        lineHeight: 20,
+        marginLeft: 8,
     },
-    onboardingTipTextLight: {
-        color: '#0D47A1',
-    },
-    onboardingTipTextDark: {
-        color: '#FFFFFF',
-    },
-    gotItButton: {
-        backgroundColor: '#2196F3',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 15,
-        marginLeft: 10,
-    },
-    gotItButtonText: {
-        color: '#FFFFFF',
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-    settingsHintContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 12,
-        borderRadius: 8,
-        borderWidth: 1,
-        marginBottom: 12,
-    },
-    hintContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    },
-    hintText: {
-        marginLeft: 10,
-        fontSize: 14,
+    appName: {
+        fontSize: 16,
         fontWeight: '500',
-        flex: 1,
     },
-    arrowContainer: {
-        position: 'absolute',
-        top: -90,
-        zIndex: 10,
-        alignItems: 'center',
+    settingsButton: {
+        padding: 4,
     },
-    arrowWrapper: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    arrowBubble: {
-        backgroundColor: '#2196F3',
-        borderRadius: 16,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        marginBottom: 8,
-        flexDirection: 'row',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.5,
-        shadowRadius: 8,
-        elevation: 10,
-        borderWidth: 1,
-        borderColor: '#1E88E5',
-    },
-    arrowBubbleText: {
-        color: '#FFFFFF',
-        fontWeight: 'bold',
-        fontSize: 15,
-        marginRight: 6,
-        textShadowColor: 'rgba(0, 0, 0, 0.3)',
-        textShadowOffset: {width: 0, height: 1},
-        textShadowRadius: 2,
-    },
-    bubbleIcon: {
-        marginLeft: 2,
-    },
-    arrowIconContainer: {
-        width: 45,
-        height: 45,
-        borderRadius: 23,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.6,
-        shadowRadius: 8,
-        elevation: 12,
-        overflow: 'hidden',
-        position: 'relative',
-        borderWidth: 2,
-        borderColor: '#1E88E5',
-    },
-    arrowIconContainerLight: {
-        backgroundColor: '#2196F3', // Match the bubble color
-    },
-    arrowIconContainerDark: {
-        backgroundColor: '#2196F3', // Keep consistent color in both themes
-    },
-    glowEffect: {
-        position: 'absolute',
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        backgroundColor: '#FFFFFF',
-        top: -15,
-        left: -15,
-        opacity: 0, // Remove glow effect completely
+    appIconStyle: {
+        width: 48,
+        height: 48,
     },
 });
 

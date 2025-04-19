@@ -139,10 +139,9 @@ public class SmartGlassesRepresentative implements PhoneMicListener {
                     if (phoneMicManager == null) {
                         Log.d(TAG, "Initializing PhoneMicrophoneManager for adaptive mic handling");
                         phoneMicManager = new PhoneMicrophoneManager(context, audioProcessingCallback, this, this);
-                    } else {
-                        // If already initialized, start the preferred mode
-                        phoneMicManager.startPreferredMicMode();
                     }
+
+                    phoneMicManager.pauseRecording();
                 } catch (Exception e) {
                     Log.e(TAG, "Error initializing PhoneMicrophoneManager: " + e.getMessage());
                     // Continue without microphone - we'll lose audio functionality but glasses should still work

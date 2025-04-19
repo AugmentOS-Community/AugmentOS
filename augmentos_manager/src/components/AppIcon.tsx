@@ -17,6 +17,7 @@ interface AppIconProps {
     onClick?: () => void;
     style?: object;
     isDarkTheme?: boolean;
+    showLabel?: boolean;
 }
 
 const AppIcon: React.FC<AppIconProps> = ({
@@ -25,8 +26,9 @@ const AppIcon: React.FC<AppIconProps> = ({
     onClick,
     style,
     isDarkTheme = false,
+    showLabel = false,
 }) => {
-  const navigation = useNavigation<NavigationProps>();
+    const navigation = useNavigation<NavigationProps>();
 
     const openAppSettings = async () => {
         // Mark onboarding as completed when user long-presses an app icon
@@ -58,71 +60,37 @@ const AppIcon: React.FC<AppIconProps> = ({
             accessibilityLabel={`Launch ${app.name}`}
             accessibilityRole="button"
         >
-            <LinearGradient
-                colors={isForegroundApp ? ['#ADE7FF', '#FFB2F9', '#FFE396'] : ['transparent', 'transparent']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.linearGradient}
-            >
-                <View
+            <View style={[styles.appIconWrapper, style]}>
+                <FallbackImageBackground
+                    source={getAppImage(app)}
+                    style={[styles.appIcon, style]}
+                    imageStyle={styles.appIconRounded}
+                />
+            </View>
+
+            {showLabel && (
+                <Text
                     style={[
-                        styles.appIconWrapper,
-                        isDarkTheme ? styles.appIconWrapperDark : styles.appIconWrapperLight,
+                        styles.appName,
+                        isDarkTheme ? styles.appNameDark : styles.appNameLight,
                     ]}
+                    numberOfLines={2}
                 >
-                    <FallbackImageBackground
-                        source={getAppImage(app)}
-                        // source={{ uri: app.icon }}
-                        style={styles.appIcon}
-                        imageStyle={styles.appIconRounded}
-                    />
-                </View>
-            </LinearGradient>
-
-            {isForegroundApp && (
-                <View style={styles.squareBadge}>
-                    <FontAwesome name="star" size={12} color="#FFFFFF" />
-                </View>
+                    {app.name}
+                </Text>
             )}
-
-            <Text
-                style={[
-                    styles.appName,
-                    isDarkTheme ? styles.appNameDark : styles.appNameLight,
-                ]}
-                numberOfLines={2}
-            >
-                {app.name}
-            </Text>
         </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
-    linearGradient: {
-        borderRadius: 23,
-        padding: 2,
-    },
     appWrapper: {
         alignItems: 'center',
-        width: 70,
-        height: 100,
-        borderColor: '#E5E5EA',
     },
     appIconWrapper: {
-        width: 65,
-        height: 65,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 0,
         overflow: 'hidden',
-        // borderWidth: 1,
-    },
-    appIconWrapperLight: {
-        borderColor: '#E5E5EA',
-    },
-    appIconWrapperDark: {
-        borderColor: '#333333',
     },
     appIcon: {
         width: '100%',
@@ -130,7 +98,7 @@ const styles = StyleSheet.create({
         resizeMode: 'cover',
     },
     appIconRounded: {
-        borderRadius: 15,
+        borderRadius: 8,
     },
     appName: {
         marginTop: 5,

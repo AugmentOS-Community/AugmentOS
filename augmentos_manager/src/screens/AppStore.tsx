@@ -13,10 +13,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 import { RootStackParamList, AppStoreItem } from '../components/types';
-import NavigationBar from '../components/NavigationBar';
 import AppItem from '../components/AppStore/AppItem';
 import InternetConnectionFallbackComponent from '../components/InternetConnectionFallbackComponent';
-import LoadingComponent from '../components/LoadingComponent'; // Import the LoadingComponent
+import LoadingComponent from '../components/LoadingComponent';
 
 interface AppStoreProps {
   isDarkTheme: boolean;
@@ -155,124 +154,113 @@ const AppStore: React.FC<AppStoreProps> = ({ isDarkTheme }) => {
   // );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
-      {/* Conditionally render Header and Search Bar when there is no error and not loading */}
-      {!isError && !isLoading && (
-        <View
-          style={[
-            styles.headerContainer,
-            {
-              backgroundColor: theme.headerBg,
-              borderBottomColor: theme.borderColor,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.header,
-              isDarkTheme ? styles.headerTextDark : styles.headerTextLight,
-            ]}
-          >
-            AugmentOS Store
-          </Text>
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
+        {/* Conditionally render Header and Search Bar when there is no error and not loading */}
+        {!isError && !isLoading && (
           <View
             style={[
-              styles.searchContainer,
+              styles.headerContainer,
               {
-                backgroundColor: theme.searchBg,
+                backgroundColor: theme.headerBg,
+                borderBottomColor: theme.borderColor,
               },
             ]}
           >
-            <MaterialCommunityIcons
-              name="magnify"
-              size={20}
-              color={isDarkTheme ? '#FFFFFF' : '#aaaaaa'}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={[styles.searchInput, { color: theme.textColor }]}
-              placeholder="Search for apps..."
-              placeholderTextColor={isDarkTheme ? '#999999' : '#aaaaaa'}
-              value={searchQuery}
-              onChangeText={handleSearch}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={() => handleSearch('')}
-                style={styles.clearButton}
-              >
-                <MaterialCommunityIcons
-                  name="close-circle"
-                  size={18}
-                  color={isDarkTheme ? '#999999' : '#aaaaaa'}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      )}
-
-      {/* Content Section */}
-      <View style={styles.contentContainer}>
-        {isLoading ? (
-          // Render Loading Component when data is loading
-          <LoadingComponent
-            message="Fetching App Store data..."
-            theme={theme}
-          />
-        ) : isError ? (
-          // Render Error Component when there is an error
-          <InternetConnectionFallbackComponent
-            isDarkTheme={isDarkTheme}
-            retry={fetchAppStoreData}
-          />
-        ) : (
-          // Render Main Content when there is no error and data is loaded
-          <>
-            {/* Recommended Section */}
-            <View style={styles.recommendSection}>
-              <Text style={[styles.recommendHeader, { color: theme.textColor }]}>
-                Recommended for You
-              </Text>
-              {/* Uncomment and implement when ready
-              <FlatList
-                data={AppStoreData.slice(0, 5)}
-                horizontal
-                renderItem={renderRecommendedItem}
-                keyExtractor={item => item.identifier_code}
-                contentContainerStyle={styles.recommendList}
-                showsHorizontalScrollIndicator={false}
-              /> */}
-            </View>
-
-            {/* App List Section */}
-            <View style={styles.listContainer}>
-              <FlatList
-                data={filteredApps}
-                renderItem={renderItem}
-                keyExtractor={item => item.identifierCode}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                windowSize={5}
-                maxToRenderPerBatch={5}
-                removeClippedSubviews={true}
+            <Text
+              style={[
+                styles.header,
+                isDarkTheme ? styles.headerTextDark : styles.headerTextLight,
+              ]}
+            >
+              AugmentOS Store
+            </Text>
+            <View
+              style={[
+                styles.searchContainer,
+                {
+                  backgroundColor: theme.searchBg,
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="magnify"
+                size={20}
+                color={isDarkTheme ? '#FFFFFF' : '#aaaaaa'}
+                style={styles.searchIcon}
               />
+              <TextInput
+                style={[styles.searchInput, { color: theme.textColor }]}
+                placeholder="Search for apps..."
+                placeholderTextColor={isDarkTheme ? '#999999' : '#aaaaaa'}
+                value={searchQuery}
+                onChangeText={handleSearch}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => handleSearch('')}
+                  style={styles.clearButton}
+                >
+                  <MaterialCommunityIcons
+                    name="close-circle"
+                    size={18}
+                    color={isDarkTheme ? '#999999' : '#aaaaaa'}
+                  />
+                </TouchableOpacity>
+              )}
             </View>
-          </>
+          </View>
         )}
-      </View>
 
-      {/* Navigation Bar remains visible regardless of connection */}
-      <View
-        style={[
-          styles.navigationBarContainer,
-          {
-            backgroundColor: theme.headerBg,
-            borderTopColor: theme.borderColor,
-          },
-        ]}
-      >
-        <NavigationBar toggleTheme={() => {}} isDarkTheme={isDarkTheme} />
+        {/* Content Section */}
+        <View style={styles.contentContainer}>
+          {isLoading ? (
+            // Render Loading Component when data is loading
+            <LoadingComponent
+              message="Fetching App Store data..."
+              theme={theme}
+            />
+          ) : isError ? (
+            // Render Error Component when there is an error
+            <InternetConnectionFallbackComponent
+              isDarkTheme={isDarkTheme}
+              retry={fetchAppStoreData}
+            />
+          ) : (
+            // Render Main Content when there is no error and data is loaded
+            <>
+              {/* Recommended Section */}
+              <View style={styles.recommendSection}>
+                <Text style={[styles.recommendHeader, { color: theme.textColor }]}>
+                  Recommended for You
+                </Text>
+                {/* Uncomment and implement when ready
+                <FlatList
+                  data={AppStoreData.slice(0, 5)}
+                  horizontal
+                  renderItem={renderRecommendedItem}
+                  keyExtractor={item => item.identifier_code}
+                  contentContainerStyle={styles.recommendList}
+                  showsHorizontalScrollIndicator={false}
+                /> */}
+              </View>
+
+              {/* App List Section */}
+              <View style={styles.listContainer}>
+                <FlatList
+                  data={filteredApps}
+                  renderItem={renderItem}
+                  keyExtractor={item => item.identifierCode}
+                  contentContainerStyle={styles.listContent}
+                  showsVerticalScrollIndicator={false}
+                  windowSize={5}
+                  maxToRenderPerBatch={5}
+                  removeClippedSubviews={true}
+                />
+              </View>
+            </>
+          )}
+        </View>
       </View>
     </SafeAreaView>
   );

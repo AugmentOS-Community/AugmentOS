@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useStatus } from '../providers/AugmentOSStatusProvider';
 import coreCommunicator from '../bridge/CoreCommunicator';
-import NavigationBar from '../components/NavigationBar';
 
 interface DeveloperSettingsScreenProps {
   isDarkTheme: boolean;
@@ -64,12 +63,8 @@ const DeveloperSettingsScreen: React.FC<DeveloperSettingsScreenProps> = ({
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        isDarkTheme ? styles.darkBackground : styles.lightBackground,
-      ]}>
-      <ScrollView style={styles.scrollViewContainer}>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView}>
         {/* Bypass VAD for Debugging Toggle */}
         <View style={styles.settingItem}>
           <View style={styles.settingTextContainer}>
@@ -124,15 +119,12 @@ const DeveloperSettingsScreen: React.FC<DeveloperSettingsScreenProps> = ({
           />
         </View> */}
       </ScrollView>
-      
-      {/* Your app's bottom navigation bar */}
-      <NavigationBar toggleTheme={toggleTheme} isDarkTheme={isDarkTheme} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollViewContainer: {
+  scrollView: {
     marginBottom: 55,
   },
   container: {

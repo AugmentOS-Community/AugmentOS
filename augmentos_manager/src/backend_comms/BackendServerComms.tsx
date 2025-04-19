@@ -11,24 +11,21 @@ interface Callback {
 export default class BackendServerComms {
   private static instance: BackendServerComms;
   private TAG = 'MXT2_BackendServerComms';
-  private serverUrl;
+  private serverUrl: string;
+  private appStoreUrl: string;
   private coreToken: string | null = null;
 
-  public getServerUrl(): string {
+  private constructor() {
     const secure = Config.AUGMENTOS_SECURE === 'true';
     const host = Config.AUGMENTOS_HOST;
     const port = Config.AUGMENTOS_PORT;
     const protocol = secure ? 'https' : 'http';
-    const serverUrl = `${protocol}://${host}:${port}`;
-    console.log("Got a new server url: ");
-    console.log(serverUrl);
-    //console.log('React Native Config:', Config);
-    //console.log("\n\n\n");
-    return serverUrl;
+    this.serverUrl = `${protocol}://${host}:${port}`;
+    this.appStoreUrl = `https://prod.augmentos.cloud`;
   }
 
-  private constructor() {
-    this.serverUrl = this.getServerUrl();
+  public getServerUrl(): string {
+    return this.serverUrl;
   }
 
   public static getInstance(): BackendServerComms {
@@ -243,7 +240,7 @@ export default class BackendServerComms {
         //console.error('Error starting app:', error.message || error);
         //GlobalEventEmitter.emit('SHOW_BANNER', { message: 'Error starting app: ' + error.message || error, type: 'error' })
         GlobalEventEmitter.emit('SHOW_BANNER', { message: `Could not connect to ${packageName}`, type: "error" });
-        //throw error;
+        throw error;
       }
     }
   
@@ -293,7 +290,7 @@ export default class BackendServerComms {
       throw new Error('No core token available for authentication');
     }
 
-    const url = `${this.serverUrl}/apps/${packageName}/uninstall`;
+    const url = `${this.appStoreUrl}/api/apps/uninstall/${packageName}`;
     console.log('Uninstalling app:', packageName);
 
     const config: AxiosRequestConfig = {

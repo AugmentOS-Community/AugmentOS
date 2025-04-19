@@ -1891,6 +1891,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     private void startMicBeat(int delay) {
         Log.d(TAG, "Starting micbeat");
         if (micBeatCount > 0) stopMicBeat();
+        setMicEnabled(true, 10);
 
         micBeatRunnable = new Runnable() {
             @Override
@@ -2017,6 +2018,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     }
 
     private void stopMicBeat() {
+        setMicEnabled(false, 10);
         if (micBeatHandler != null) {
             micBeatHandler.removeCallbacksAndMessages(null);
             micBeatHandler.removeCallbacksAndMessages(micBeatRunnable);
@@ -2117,7 +2119,14 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
 
     //microphone stuff
     public void setMicEnabled(boolean enable, int delay) {
-        Log.d(TAG, "Running set mic enabled: " + enable);
+        // Log.d(TAG, "^^^^^^^^^^^^^");
+        // Log.d(TAG, "^^^^^^^^^^^^^");
+        // Log.d(TAG, "^^^^^^^^^^^^^");
+        // Log.d(TAG, "Running set mic enabled: " + enable);
+        // Log.d(TAG, "^^^^^^^^^^^^^");
+        // Log.d(TAG, "^^^^^^^^^^^^^");
+        // Log.d(TAG, "^^^^^^^^^^^^^");
+
         isMicrophoneEnabled = enable; // Update the state tracker
         EventBus.getDefault().post(new isMicEnabledForFrontendEvent(enable));
         micEnableHandler.postDelayed(new Runnable() {
@@ -2828,11 +2837,11 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         Log.d(TAG, "Microphone state changed: " + isMicrophoneEnabled);
         if (isMicrophoneEnabled) {
             Log.d(TAG, "Microphone enabled, starting audio input handling");
-            setMicEnabled(true, 10);
+            // setMicEnabled(true, 10);
             startMicBeat((int) MICBEAT_INTERVAL_MS);
         } else {
             Log.d(TAG, "Microphone disabled, stopping audio input handling");
-            setMicEnabled(false, 10);
+            // setMicEnabled(false, 10);
             stopMicBeat();
         }
     }

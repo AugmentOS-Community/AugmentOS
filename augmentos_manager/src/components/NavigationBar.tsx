@@ -12,7 +12,7 @@ interface NavigationBarProps {
   variant?: 'v1' | 'v2' | 'v3' | 'v4';
 }
 
-const NavigationBar: React.FC<NavigationBarProps> = ({
+const NavigationBar: React.FC<NavigationBarProps> = React.memo(({
   isDarkTheme = false,
   variant = 'v1',
 }) => {
@@ -101,7 +101,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
       </TouchableOpacity>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   navBarContainer: {

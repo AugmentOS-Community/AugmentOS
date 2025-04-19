@@ -17,7 +17,6 @@ import { useStatus } from '../providers/AugmentOSStatusProvider';
 import coreCommunicator from '../bridge/CoreCommunicator';
 import { stopExternalService } from '../bridge/CoreServiceStarter';
 import { loadSetting, saveSetting } from '../logic/SettingsHelper.tsx';
-import NavigationBar from '../components/NavigationBar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SETTINGS_KEYS } from '../consts';
 import { supabase } from '../supabaseClient';
@@ -461,7 +460,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           </TouchableOpacity>
         </ScrollView>
       </View>
-      <NavigationBar toggleTheme={toggleTheme} isDarkTheme={isDarkTheme} />
     </SafeAreaView>
   );
 };

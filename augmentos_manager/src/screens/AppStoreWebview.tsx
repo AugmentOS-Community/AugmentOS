@@ -3,7 +3,6 @@ import { View, StyleSheet, Text, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Config from 'react-native-config';
 import { useStatus } from '../providers/AugmentOSStatusProvider';
-import NavigationBar from '../components/NavigationBar';
 import LoadingComponent from '../components/LoadingComponent';
 import InternetConnectionFallbackComponent from '../components/InternetConnectionFallbackComponent';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -99,7 +98,6 @@ const AppStoreWeb: React.FC<AppStoreWebProps> = ({ isDarkTheme, route }) => {
           />
         </View>
       )}
-      <NavigationBar toggleTheme={() => {}} isDarkTheme={isDarkTheme} />
     </SafeAreaView>
   );
 };

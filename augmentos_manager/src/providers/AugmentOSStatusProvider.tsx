@@ -7,12 +7,23 @@ import BackendServerComms from '../backend_comms/BackendServerComms';
 import { useAuth } from '../AuthContext';
 import coreCommunicator from '../bridge/CoreCommunicator';
 
+// Track pending app operations
+interface PendingOperation {
+    packageName: string;
+    operation: 'start' | 'stop';
+    timestamp: number;
+}
+
 interface AugmentOSStatusContextType {
     status: AugmentOSMainStatus;
     initializeCoreConnection: () => void;
     refreshStatus: (data: any) => void;
     screenMirrorItems: { id: string; name: string }[]
     getCoreToken: () => string | null;
+    updateAppStatus: (packageName: string, isRunning: boolean, isForeground?: boolean) => void;
+    isAppOperationPending: (packageName: string) => boolean;
+    startAppOperation: (packageName: string, operation: 'start' | 'stop') => boolean;
+    endAppOperation: (packageName: string) => void;
 }
 
 const AugmentOSStatusContext = createContext<AugmentOSStatusContextType | undefined>(undefined);
@@ -21,6 +32,42 @@ export const StatusProvider = ({ children }: { children: ReactNode }) => {
     const [status, setStatus] = useState(AugmentOSParser.parseStatus({}));
     const [isInitialized, setIsInitialized] = useState(false);
     const [screenMirrorItems, setScreenMirrorItems] = useState<{ id: string; name: string }[]>([]);
+    // Track pending app operations to prevent race conditions
+    const [pendingOperations, setPendingOperations] = useState<PendingOperation[]>([]);
+    
+    // Minimum time between operations on the same app (milliseconds)
+    const MIN_OPERATION_INTERVAL = 800;
+
+    // Check if an app has a pending operation
+    const isAppOperationPending = useCallback((packageName: string) => {
+        return pendingOperations.some(op => op.packageName === packageName);
+    }, [pendingOperations]);
+
+    // Start an app operation (returns false if operation can't be started)
+    const startAppOperation = useCallback((packageName: string, operation: 'start' | 'stop') => {
+        // Check if there's already an operation in progress for this app
+        const existingOp = pendingOperations.find(op => op.packageName === packageName);
+        const now = Date.now();
+        
+        // If there's an existing operation and it's too recent, don't allow a new one
+        if (existingOp && (now - existingOp.timestamp < MIN_OPERATION_INTERVAL)) {
+            console.log(`Operation ${operation} rejected: Previous operation ${existingOp.operation} still pending`);
+            return false;
+        }
+        
+        // Add the new operation
+        setPendingOperations(prev => [
+            ...prev.filter(op => op.packageName !== packageName), // Remove any existing operation for this app
+            { packageName, operation, timestamp: now }
+        ]);
+        
+        return true;
+    }, [pendingOperations, MIN_OPERATION_INTERVAL]);
+
+    // End an app operation
+    const endAppOperation = useCallback((packageName: string) => {
+        setPendingOperations(prev => prev.filter(op => op.packageName !== packageName));
+    }, []);
 
     const refreshStatus = useCallback((data: any) => {
         if (!(data && 'status' in data)) {return;}
@@ -98,13 +145,37 @@ export const StatusProvider = ({ children }: { children: ReactNode }) => {
         return BackendServerComms.getInstance().getCoreToken();
     }, []);
 
+    // Add a method to update app status locally
+    const updateAppStatus = useCallback((packageName: string, isRunning: boolean, isForeground: boolean = true) => {
+        setStatus(prevStatus => {
+            // Create a new copy of the apps array with the updated app
+            const updatedApps = prevStatus.apps.map(app => {
+                if (app.packageName === packageName) {
+                    return { ...app, is_running: isRunning, is_foreground: isForeground };
+                }
+                // If setting a new foreground app, make sure other apps aren't foreground
+                if (isForeground && isRunning && app.is_foreground) {
+                    return { ...app, is_foreground: false };
+                }
+                return app;
+            });
+            
+            // Return a new status object with the updated apps
+            return { ...prevStatus, apps: updatedApps };
+        });
+    }, []);
+
     return (
         <AugmentOSStatusContext.Provider value={{ 
             initializeCoreConnection,
             screenMirrorItems, 
             status, 
             refreshStatus,
-            getCoreToken
+            getCoreToken,
+            updateAppStatus,
+            isAppOperationPending,
+            startAppOperation,
+            endAppOperation
         }}>
             {children}
         </AugmentOSStatusContext.Provider>

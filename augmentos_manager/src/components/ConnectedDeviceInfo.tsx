@@ -286,12 +286,13 @@ const ConnectedDeviceInfo: React.FC<ConnectedDeviceInfoProps> = ({ isDarkTheme }
 
 const styles = StyleSheet.create({
   deviceInfoContainer: {
-    padding: 10,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 12,
     width: '100%',
     minHeight: 230,
     justifyContent: 'center',
     marginTop: 15,
+    backgroundColor: '#E5E5EA',
   },
   connectedContent: {
     flex: 1,

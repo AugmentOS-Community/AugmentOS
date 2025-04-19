@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import NavigationBar from '../components/NavigationBar';
 import GlassesDisplayMirror from '../components/GlassesDisplayMirror';
 import { useStatus } from '../providers/AugmentOSStatusProvider';
 import { useGlassesMirror } from '../providers/GlassesMirrorContext';
@@ -17,7 +16,6 @@ import { NavigationProps } from '../components/types';
 interface GlassesMirrorProps {
   isDarkTheme: boolean;
 }
-
 
 const GlassesMirror: React.FC<GlassesMirrorProps> = ({ isDarkTheme }) => {
   const { status } = useStatus();
@@ -100,11 +98,9 @@ const GlassesMirror: React.FC<GlassesMirrorProps> = ({ isDarkTheme }) => {
           )}
         </View>
       </View>
-      <NavigationBar isDarkTheme={isDarkTheme} toggleTheme={() => {}} />
     </SafeAreaView>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
