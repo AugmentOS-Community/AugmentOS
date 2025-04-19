@@ -469,13 +469,13 @@ Represent data streams and entities in AugmentOS.
 ```typescript
 export interface TranscriptionData extends BaseMessage {
   type: StreamType.TRANSCRIPTION;
-  text: string;
-  isFinal: boolean;
-  language?: string;
-  startTime: number;
-  endTime: number;
-  speakerId?: string;
-  duration?: number;
+  text: string;  // The transcribed text
+  isFinal: boolean;  // Whether this is a final transcription
+  transcribeLanguage?: string;  // The requested language for transcription
+  startTime: number;  // Start time in milliseconds relative to session start
+  endTime: number;  // End time in milliseconds relative to session start
+  speakerId?: string;  // ID of the speaker if available
+  duration?: number;  // Audio duration in milliseconds (usually for final)
 }
 ```
 

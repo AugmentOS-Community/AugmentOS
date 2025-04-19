@@ -73,6 +73,7 @@ export interface TranscriptionData extends BaseMessage {
 export interface TranslationData extends BaseMessage {
   type: StreamType.TRANSLATION;
   text: string;  // The transcribed text
+  originalText?: string; // The original transcribed text before translation
   isFinal: boolean;  // Whether this is a final transcription
   startTime: number;  // Start time in milliseconds
   endTime: number;  // End time in milliseconds
@@ -80,6 +81,7 @@ export interface TranslationData extends BaseMessage {
   duration?: number;  // Audio duration in milliseconds
   transcribeLanguage?: string;  // The language code of the transcribed text
   translateLanguage?: string;  // The language code of the translated text
+  detectedLanguage?: string; // The language code detected by the speech service for this segment (e.g., "en-US")
 }
 
 /**
