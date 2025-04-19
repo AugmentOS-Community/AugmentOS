@@ -1,8 +1,10 @@
 // cloud/server/src/models/app.model.ts
 import mongoose, { Schema, Document, Types } from 'mongoose';
-import { AppI as _AppI, TpaType } from '@augmentos/sdk';
+import { AppI as _AppI, TpaType, ToolSchema, ToolParameterSchema } from '@augmentos/sdk';
 
 export type AppStoreStatus = 'DEVELOPMENT' | 'SUBMITTED' | 'REJECTED' | 'PUBLISHED';
+
+
 
 // Extend the AppI interface for our MongoDB document
 export interface AppI extends _AppI, Document {
@@ -15,6 +17,7 @@ export interface AppI extends _AppI, Document {
   reviewNotes?: string;
   reviewedBy?: string;
   reviewedAt?: Date;
+  tools?: ToolSchema[];
 }
 
 // Using existing schema with flexible access
@@ -42,7 +45,46 @@ const AppSchema = new Schema({
   },
   reviewedAt: {
     type: Date
-  }
+  },
+  
+  // TPA AI Tools
+  tools: [{
+    id: {
+      type: String,
+      required: true
+    },
+    description: {
+      type: String,
+      required: true
+    },
+    activationPhrases: {
+      type: [String],
+      required: false
+    },
+    parameters: {
+      type: Map,
+      of: new Schema({
+        type: {
+          type: String,
+          enum: ['string', 'number', 'boolean'],
+          required: true
+        },
+        description: {
+          type: String,
+          required: true
+        },
+        enum: {
+          type: [String],
+          required: false
+        },
+        required: {
+          type: Boolean,
+          default: false
+        }
+      }),
+      required: false
+    }
+  }]
 }, { 
   strict: false,
   timestamps: true 

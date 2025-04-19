@@ -117,6 +117,13 @@ const appService = {
    */
   uninstallApp: async (packageName: string): Promise<boolean> => {
     try {
+      // First stop the app and verify it was successful
+      const stopSuccess = await appService.stopApp(packageName);
+      if (!stopSuccess) {
+        throw new Error(`Failed to stop app ${packageName} before uninstallation`);
+      }
+      
+      // Then uninstall it
       const response = await axios.post<ApiResponse<null>>(
         `${getBaseUrl()}/api/apps/uninstall/${packageName}`
       );

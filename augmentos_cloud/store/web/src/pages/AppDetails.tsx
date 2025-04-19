@@ -205,15 +205,22 @@ const AppDetails: React.FC = () => {
                       {isAuthenticated ? (
                         app.isInstalled ? (
                           <Button
-                            variant="outline"
+                            variant="destructive"
                             onClick={handleUninstall}
                             disabled={installingApp}
                             className="w-full md:w-48"
                           >
                             {installingApp ? (
-                              <div className="animate-spin h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full mr-2"></div>
-                            ) : null}
-                            Uninstall
+                              <>
+                                <div className="animate-spin h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full mr-2"></div>
+                                Uninstalling...
+                              </>
+                            ) : (
+                              <>
+                                <X className="h-4 w-4 mr-1" />
+                                Uninstall
+                              </>
+                            )}
                           </Button>
                         ) : (
                           <Button
@@ -222,11 +229,16 @@ const AppDetails: React.FC = () => {
                             className="w-full md:w-48"
                           >
                             {installingApp ? (
-                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                              <>
+                                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                                Installing...
+                              </>
                             ) : (
-                              <Download className="h-4 w-4 mr-1" />
+                              <>
+                                <Download className="h-4 w-4 mr-1" />
+                                Install
+                              </>
                             )}
-                            Install
                           </Button>
                         )
                       ) : (

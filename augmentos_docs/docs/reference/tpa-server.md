@@ -70,6 +70,47 @@ protected onStop(
 
 **Returns:** A Promise that resolves when session cleanup is complete
 
+### onToolCall() _[protected]_
+
+Override this method to handle tool calls from Mira AI. This is where you implement your app's tool functionality.
+
+For a comprehensive guide on implementing AI tools, see [AI Tools](/tools).
+
+```typescript
+protected onToolCall(
+  toolCall: ToolCall
+): Promise<string | undefined>
+```
+
+**Parameters:**
+- `toolCall`: A [ToolCall](/reference/interfaces/tool-types#toolcall) object containing the tool ID, parameters, user ID, and timestamp
+
+**Returns:** A Promise that resolves to an optional string response that will be sent back to Mira
+
+**Example:**
+```typescript
+protected async onToolCall(toolCall: ToolCall): Promise<string | undefined> {
+  console.log(`Tool called: ${toolCall.toolId}`);
+  console.log(`Tool call timestamp: ${toolCall.timestamp}`);
+  console.log(`Tool call userId: ${toolCall.userId}`);
+  
+  if (toolCall.toolParameters && Object.keys(toolCall.toolParameters).length > 0) {
+    console.log("Tool call parameter values:", toolCall.toolParameters);
+  }
+
+  if (toolCall.toolId === "add_todo") {
+    const reminder = addReminder(
+      toolCall.userId, 
+      toolCall.toolParameters.todo_item as string, 
+      toolCall.toolParameters.due_date as string | undefined
+    );
+    return `Added reminder: ${reminder.text}`;
+  }
+
+  return undefined;
+}
+```
+
 ### start()
 
 Starts the TPA server, making it listen for incoming webhook requests.

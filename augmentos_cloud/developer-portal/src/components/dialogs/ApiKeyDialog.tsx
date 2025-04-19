@@ -4,27 +4,33 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Copy, KeyRound, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
-// import { TPA } from "@/types/tpa";
 import api from '@/services/api.service';
 import { AppI } from '@augmentos/sdk';
-import { TPA } from '@/types/tpa';
 
 interface ApiKeyDialogProps {
   tpa: AppI | null;
   apiKey: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onKeyRegenerated?: (newKey: string) => void;
 }
 
-const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ tpa, open, onOpenChange, apiKey }) => {
+const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ 
+  tpa, 
+  open, 
+  onOpenChange, 
+  apiKey,
+  onKeyRegenerated 
+}) => {
   // Local states for dialog
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [_apiKey, setApiKey] = useState(apiKey); // Start with empty string
+  const [_apiKey, setApiKey] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [lastRegenerated, setLastRegenerated] = useState(new Date());
+  const [currentTpaId, setCurrentTpaId] = useState<string | null>(null);
 
   // Format API key to be partially masked
   const formatApiKey = (key: string): string => {
@@ -32,13 +38,11 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ tpa, open, onOpenChange, ap
     
     // If there's no key or invalid key, show a masked placeholder
     if (!key || key.length < 10) {
-      return "********-****-****-****-************";
+      return "";
     }
     
-    // It's a real key, show partially masked
-    const prefix = key.substring(0, 10);
-    const suffix = key.substring(key.length - 5);
-    return `${prefix}...${suffix}`;
+    // It's a real key, show it fully (since it's one-time view)
+    return key;
   };
 
   // Copy API key to clipboard
@@ -70,10 +74,18 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ tpa, open, onOpenChange, ap
     try {
       // Call API to regenerate key
       const response = await api.apps.apiKey.regenerate(tpa.packageName);
-      setApiKey(response.apiKey);
+      const newKey = response.apiKey;
+      
+      // Update local state
+      setApiKey(newKey);
       setLastRegenerated(new Date());
       setSuccess("API key regenerated successfully");
       setShowConfirmation(false);
+      
+      // Notify parent component
+      if (onKeyRegenerated) {
+        onKeyRegenerated(newKey);
+      }
     } catch (err: unknown) {
       console.error(err);
       setError("Failed to regenerate API key. Please try again.");
@@ -82,28 +94,50 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ tpa, open, onOpenChange, ap
     }
   };
 
+  // Complete reset of dialog state when TPA changes
+  useEffect(() => {
+    if (tpa) {
+      const tpaId = tpa.packageName;
+      
+      // Only reset state if TPA has changed
+      if (currentTpaId !== tpaId) {
+        console.log(`TPA changed from ${currentTpaId} to ${tpaId}, resetting dialog state`);
+        
+        // Reset all state
+        setApiKey('');
+        setError(null);
+        setSuccess(null);
+        setShowConfirmation(false);
+        setIsCopied(false);
+        
+        // Update current TPA ID tracker
+        setCurrentTpaId(tpaId);
+      }
+    }
+  }, [tpa, currentTpaId]);
+
   // Update local state when apiKey prop changes (only if it's a real key)
   useEffect(() => {
     if (apiKey && apiKey.length > 10 && !apiKey.includes("********")) {
+      console.log("Setting API key from props:", apiKey.substring(0, 5) + "...");
       setApiKey(apiKey);
-      // Only show success message if we have a real, newly generated key
       setSuccess("API key regenerated successfully");
     }
   }, [apiKey]);
 
   // Reset dialog state when opened
   useEffect(() => {
-    if (open && tpa) {
+    if (open) {
+      if (!tpa) {
+        console.warn("ApiKeyDialog opened without a TPA");
+        return;
+      }
+      
       // Use the apiKey provided by props if available
       if (apiKey && apiKey.length > 10) {
         setApiKey(apiKey);
       }
       
-      // Always reset these states when dialog opens
-      if (!apiKey || apiKey.length <= 10) {
-        setSuccess(null); // Only clear success if we don't have a newly generated key
-      }
-      setError(null);
       setShowConfirmation(false);
       setIsCopied(false);
     }
@@ -112,18 +146,22 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ tpa, open, onOpenChange, ap
   // When dialog closes, reset states
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
-      // Reset states when dialog closes
+      // Reset dialog state when closing
       setShowConfirmation(false);
       setError(null);
       setSuccess(null);
       setIsCopied(false);
+      
+      // Important: Reset the API key when dialog closes
+      // This prevents leaking keys between different TPAs
+      setApiKey('');
     }
     onOpenChange(newOpen);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md overflow-y-auto max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <KeyRound className="h-5 w-5" />
@@ -194,27 +232,43 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ tpa, open, onOpenChange, ap
                   Your API key is used to authenticate your app with AugmentOS cloud services.
                   Keep it secure and never share it publicly.
                 </p>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 font-mono text-sm p-2 border rounded-md bg-gray-50 overflow-x-auto">
-                    {formatApiKey(_apiKey)}
+                {_apiKey ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 font-mono text-sm p-2 border rounded-md bg-gray-50 overflow-x-auto break-all">
+                        {formatApiKey(_apiKey)}
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleCopyApiKey}
+                        className="shrink-0"
+                      >
+                        {isCopied ? 
+                          <CheckCircle className="h-4 w-4 text-green-600" /> : 
+                          <Copy className="h-4 w-4" />
+                        }
+                      </Button>
+                    </div>
+                    <p className="text-xs text-red-500 font-medium mt-1">
+                      Important: This key is only shown once. Please copy it now!
+                    </p>
+                  </>
+                ) : (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
+                    <p className="text-sm text-amber-800">
+                      No API key is available to view. API keys are only shown once when generated and are securely stored.
+                    </p>
+                    <p className="text-sm text-amber-800 mt-1">
+                      Click "Regenerate Key" to create a new API key. This will invalidate any previous keys.
+                    </p>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleCopyApiKey}
-                    className="shrink-0"
-                  >
-                    {isCopied ? 
-                      <CheckCircle className="h-4 w-4 text-green-600" /> : 
-                      <Copy className="h-4 w-4" />
-                    }
-                  </Button>
-                </div>
+                )}
               </div>
               
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">Webhook URL</h3>
-                <div className="font-mono text-sm p-2 border rounded-md bg-gray-50 overflow-x-auto">
+                <div className="font-mono text-sm p-2 border rounded-md bg-gray-50 overflow-x-auto break-all">
                   {tpa?.publicUrl ? `${tpa.publicUrl}/webhook` : 'No server URL defined'}
                 </div>
                 <p className="text-xs text-gray-500">
@@ -226,11 +280,11 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ tpa, open, onOpenChange, ap
         </div>
         
         {!showConfirmation && (
-          <DialogFooter className="flex items-center justify-between sm:justify-between">
+          <DialogFooter className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-4 sm:gap-2 mt-4">
             <p className="text-xs text-gray-500">
               Last regenerated: {lastRegenerated.toLocaleDateString()}
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto justify-end">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Close
               </Button>

@@ -7,10 +7,11 @@
  * to maintain core functionality regardless of database state.
  */
 
-import { AppI, StopWebhookRequest, TpaType, WebhookResponse, AppState, SessionWebhookRequest } from '@augmentos/sdk';
+import { AppI, StopWebhookRequest, TpaType, WebhookResponse, AppState, SessionWebhookRequest, ToolCall } from '@augmentos/sdk';
 import axios, { AxiosError } from 'axios';
 import { systemApps } from './system-apps';
 import App from '../../models/app.model';
+import { ToolSchema, ToolParameterSchema } from '@augmentos/sdk';
 import { User } from '../../models/user.model';
 import crypto from 'crypto';
 
@@ -371,13 +372,84 @@ export class AppService {
   }
 
   /**
+   * Validates tool definitions against the schema requirements
+   * @param tools Array of tool definitions to validate
+   * @returns Validated and sanitized tools array or throws error if invalid
+   */
+  private validateToolDefinitions(tools: any[]): ToolSchema[] {
+    console.log('Validating tool definitions:', tools);
+    if (!Array.isArray(tools)) {
+      throw new Error('Tools must be an array');
+    }
+    
+    return tools.map(tool => {
+      // Validate required fields
+      if (!tool.id || typeof tool.id !== 'string') {
+        throw new Error('Tool id is required and must be a string');
+      }
+      
+      if (!tool.description || typeof tool.description !== 'string') {
+        throw new Error('Tool description is required and must be a string');
+      }
+      
+      // Activation phrases can be null or empty, no validation needed
+      // We'll just ensure it's an array if provided
+      if (tool.activationPhrases && !Array.isArray(tool.activationPhrases)) {
+        throw new Error('Tool activationPhrases must be an array if provided');
+      }
+      
+      // Validate parameters if they exist
+      const validatedParameters: Record<string, ToolParameterSchema> = {};
+      
+      if (tool.parameters) {
+        Object.entries(tool.parameters).forEach(([key, param]: [string, any]) => {
+          if (!param.type || !['string', 'number', 'boolean'].includes(param.type)) {
+            throw new Error(`Parameter ${key} has invalid type. Must be string, number, or boolean`);
+          }
+          
+          if (!param.description || typeof param.description !== 'string') {
+            throw new Error(`Parameter ${key} requires a description`);
+          }
+          
+          validatedParameters[key] = {
+            type: param.type as 'string' | 'number' | 'boolean',
+            description: param.description,
+            required: !!param.required
+          };
+          
+          // Add enum values if present
+          if (param.enum && Array.isArray(param.enum)) {
+            validatedParameters[key].enum = param.enum;
+          }
+        });
+      }
+      
+      return {
+        id: tool.id,
+        description: tool.description,
+        activationPhrases: tool.activationPhrases.map((p: string) => p.trim()),
+        parameters: Object.keys(validatedParameters).length > 0 ? validatedParameters : undefined
+      };
+    });
+  }
+
+  /**
    * Create a new app
    */
   async createApp(appData: any, developerId: string): Promise<{ app: AppI, apiKey: string }> {
     // Generate API key
     const apiKey = crypto.randomBytes(32).toString('hex');
     const hashedApiKey = this.hashApiKey(apiKey);
-
+    
+    // Parse and validate tools if present
+    if (appData.tools) {
+      try {
+        appData.tools = this.validateToolDefinitions(appData.tools);
+      } catch (error: any) {
+        throw new Error(`Invalid tool definitions: ${error.message}`);
+      }
+    }
+    
     // Create app
     const app = await App.create({
       ...appData,
@@ -411,7 +483,16 @@ export class AppService {
     if (app.developerId.toString() !== developerId) {
       throw new Error('You do not have permission to update this app');
     }
-
+    
+    // Parse and validate tools if present
+    if (appData.tools) {
+      try {
+        appData.tools = this.validateToolDefinitions(appData.tools);
+      } catch (error: any) {
+        throw new Error(`Invalid tool definitions: ${error.message}`);
+      }
+    }
+    
     // If developerInfo is provided, ensure it's properly structured
     if (appData.developerInfo) {
       // Make sure only valid fields are included
@@ -604,6 +685,161 @@ export class AppService {
     return App.find({ appStoreStatus: 'PUBLISHED' });
   }
 
+  /**
+   * Triggers the TPA tool webhook for Mira AI integration
+   * @param packageName - The package name of the TPA to send the tool to
+   * @param payload - The tool webhook payload containing tool details
+   * @returns Promise resolving to the webhook response or error
+   */
+  async triggerTpaToolWebhook(packageName: string, payload: ToolCall): Promise<{
+    status: number;
+    data: any;
+  }> {
+    // Look up the TPA by packageName
+    const app = await this.getApp(packageName);
+
+    console.log('🔨 Triggering tool webhook for:', packageName);
+    
+    if (!app) {
+      throw new Error(`App ${packageName} not found`);
+    }
+    
+    if (!app.publicUrl) {
+      throw new Error(`App ${packageName} does not have a public URL`);
+    }
+    
+    // Get the app document from MongoDB
+    const appDoc = await App.findOne({ packageName });
+    if (!appDoc) {
+      throw new Error(`App ${packageName} not found in database`);
+    }
+    
+    // For security reasons, we can't retrieve the original API key
+    // Instead, we'll use a special header that identifies this as a system request
+    // The TPA server will need to validate this using the hashedApiKey
+    
+    // Construct the webhook URL from the app's public URL
+    const webhookUrl = `${app.publicUrl}/tool`;
+    
+    // Set up retry configuration
+    const maxRetries = 2;
+    const baseDelay = 1000; // 1 second
+
+    console.log('🔨 Sending tool webhook to:', webhookUrl);
+    console.log('🔨 Payload:', payload);
+    
+    // Attempt to send the webhook with retries
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const response = await axios.post(webhookUrl, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-TPA-API-Key': appDoc.hashedApiKey, // Use the hashed API key for authentication
+          },
+          timeout: 10000 // 10 second timeout
+        });
+        
+        // Return successful response
+        return {
+          status: response.status,
+          data: response.data
+        };
+      } catch (error: unknown) {
+        // If this is the last retry attempt, throw an error
+        if (attempt === maxRetries - 1) {
+          if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError;
+            console.error(`Tool webhook failed for ${packageName}: ${axiosError.message}`);
+            console.error(`URL: ${webhookUrl}`);
+            console.error(`Response: ${axiosError.response?.data}`);
+            console.error(`Status: ${axiosError.response?.status}`);
+            
+            // Return a standardized error response
+            return {
+              status: axiosError.response?.status || 500,
+              data: {
+                error: true,
+                message: `Webhook failed: ${axiosError.message}`,
+                details: axiosError.response?.data || {}
+              }
+            };
+          } else {
+            // Handle non-Axios errors
+            const genericError = error as Error;
+            return {
+              status: 500,
+              data: {
+                error: true,
+                message: `Webhook failed: ${genericError.message || 'Unknown error'}`
+              }
+            };
+          }
+        }
+        
+        // Exponential backoff before retry
+        await new Promise(resolve => setTimeout(resolve, baseDelay * Math.pow(2, attempt)));
+      }
+    }
+    
+    // This should never be reached due to the error handling above,
+    // but TypeScript requires a return value
+    return {
+      status: 500,
+      data: {
+        error: true,
+        message: 'Unknown error occurred'
+      }
+    };
+  }
+
+  /**
+   * Gets all tool definitions for a TPA
+   * Used by Mira AI to discover available tools
+   * @param packageName - The package name of the TPA
+   * @returns Array of tool definitions
+   */
+  async getTpaTools(packageName: string): Promise<ToolSchema[]> {
+    // Look up the TPA by packageName
+    const app = await this.getApp(packageName);
+    
+    if (!app) {
+      throw new Error(`App ${packageName} not found`);
+    }
+    
+    if (!app.publicUrl) {
+      throw new Error(`App ${packageName} does not have a public URL`);
+    }
+
+    console.log('Getting TPA tools for:', packageName);
+    
+    try {
+      // Fetch the tpa_config.json from the app's publicUrl
+      const configUrl = `${app.publicUrl}/tpa_config.json`;
+      const response = await axios.get(configUrl, { timeout: 5000 });
+
+      // Check if the response contains a tools array
+      const config = response.data;
+      if (config && Array.isArray(config.tools)) {
+        // Validate the tools before returning them
+        console.log(`Found ${config.tools.length} tools in ${packageName}, validating...`);
+        return this.validateToolDefinitions(config.tools);
+      }
+      
+      // If no tools found, return empty array
+      return [];
+    } catch (error) {
+      // Check if error is a 404 (file not found) and silently ignore
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        // Config file doesn't exist, silently return empty array
+        console.log(`No tpa_config.json found for app ${packageName} (404)`);
+        return [];
+      }
+      
+      // Log other errors but still return empty array
+      //console.error(`Failed to fetch tpa_config.json for app ${packageName}:`, error);
+      return [];
+    }
+  }
 
 }
 

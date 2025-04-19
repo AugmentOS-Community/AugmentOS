@@ -12,8 +12,11 @@ import { ArrowLeftIcon, AlertCircle, CheckCircle } from "lucide-react";
 // import { Switch } from "@/components/ui/switch";
 import DashboardLayout from "../components/DashboardLayout";
 import ApiKeyDialog from "../components/dialogs/ApiKeyDialog";
+import TpaSuccessDialog from "../components/dialogs/TpaSuccessDialog";
 import api, { AppResponse } from '@/services/api.service';
 import { AppI } from '@augmentos/sdk';
+import { normalizeUrl } from '@/libs/utils';
+import { toast } from 'sonner';
 // import { TPA } from '@/types/tpa';
 
 const CreateTPA: React.FC = () => {
@@ -37,10 +40,11 @@ const CreateTPA: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // API key dialog state
+  // Dialog states
   const [createdTPA, setCreatedTPA] = useState<AppResponse | null>(null);
   const [apiKey, setApiKey] = useState<string>('');
   const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
 
   // Handle form changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -126,6 +130,7 @@ const CreateTPA: React.FC = () => {
     // Validate form
     if (!validateForm()) {
       setFormError('Please fix the errors in the form');
+      toast.error('Please fix the errors in the form');
       return;
     }
 
@@ -133,20 +138,50 @@ const CreateTPA: React.FC = () => {
     setFormError(null);
 
     try {
+      // Normalize URLs before submission
+      const normalizedFormData = {
+        ...formData,
+        publicUrl: normalizeUrl(formData.publicUrl || ''),
+        webviewURL: formData.webviewURL ? normalizeUrl(formData.webviewURL) : undefined
+      };
+
       // Call API to create TPA
-      const result = await api.apps.create(formData as AppI);
+      const result = await api.apps.create(normalizedFormData as AppI);
 
       console.log('TPA created:', result);
 
       // Set success message and state for dialog
       setSuccessMessage(`${formData.name} was created successfully!`);
-      setCreatedTPA(result.tpa);
-      setApiKey(result.apiKey);
+      setCreatedTPA(result.app);
 
-      // Show API key dialog
+      // Store the API key from the result
+      if (result.apiKey) {
+        setApiKey(result.apiKey);
+      }
+
+      // Show a success toast without actions to avoid confusion
+      toast.success(
+        `${formData.name} was created successfully!`,
+        {
+          description: "Opening API key dialog...",
+          duration: 3000, // Short duration
+        }
+      );
+
+      // Use React state to directly open the API key dialog
+      console.log("Setting isApiKeyDialogOpen to true");
+
+      // First attempt
+      setIsApiKeyDialogOpen(true);
+
+      // Ensure dialog appears with a fallback
       setTimeout(() => {
+        console.log("Fallback: Setting isApiKeyDialogOpen to true again");
         setIsApiKeyDialogOpen(true);
-      }, 100);
+      }, 300);
+
+      // Scroll to top without animation to avoid distractions
+      window.scrollTo(0, 0);
 
     } catch (error: unknown) {
       console.error('Error creating TPA:', error);
@@ -163,19 +198,36 @@ const CreateTPA: React.FC = () => {
       }
 
       setFormError(errorMessage);
+      toast.error('Failed to create app', {
+        description: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle dialog close
+  // Handle API key dialog close - simplified to be more direct
   const handleApiKeyDialogClose = (open: boolean) => {
+    console.log("API Key dialog state changing to:", open);
     setIsApiKeyDialogOpen(open);
 
-    // Navigate to TPA list when dialog is closed
+    // If dialog is closing, navigate to TPA list
     if (!open) {
       navigate('/tpas');
     }
+  };
+
+  // Handle success dialog close
+  const handleSuccessDialogClose = (open: boolean) => {
+    setIsSuccessDialogOpen(open);
+  };
+
+  // Handle view API key button click
+  const handleViewApiKey = () => {
+    console.log("View API Key button clicked");
+    setIsSuccessDialogOpen(false);
+    // Open API key dialog immediately
+    setIsApiKeyDialogOpen(true);
   };
 
   return (
@@ -188,7 +240,7 @@ const CreateTPA: React.FC = () => {
           </Link>
         </div>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm card border-2 transition-colors duration-300">
           <form onSubmit={handleSubmit}>
             <CardHeader>
               <CardTitle className="text-2xl">Create New TPA</CardTitle>
@@ -201,13 +253,6 @@ const CreateTPA: React.FC = () => {
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{formError}</AlertDescription>
-                </Alert>
-              )}
-
-              {successMessage && (
-                <Alert className="bg-green-50 border-green-200 text-green-800">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-700">{successMessage}</AlertDescription>
                 </Alert>
               )}
 
@@ -290,6 +335,7 @@ const CreateTPA: React.FC = () => {
                 <p className="text-xs text-gray-500">
                   The base URL of your server where AugmentOS will communicate with your app.
                   We'll automatically append "/webhook" to handle events when your app is activated.
+                  Do not include a trailing slash - it will be automatically removed.
                 </p>
               </div>
 
@@ -341,17 +387,62 @@ const CreateTPA: React.FC = () => {
               </Button>
             </CardFooter>
           </form>
+
+          {successMessage && (
+              <div className="m-4 mb-0">
+                <Alert className="bg-green-100 border-1 border-green-500 text-green-800 shadow-md">
+                  <CheckCircle className="h-5 w-5 text-green-800" />
+                  <div>
+                    <AlertDescription className="text-green-800 font-medium">{successMessage}</AlertDescription>
+                    <div className="mt-2 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsApiKeyDialogOpen(true)}
+                        className="border-green-500 text-green-700 hover:bg-green-50"
+                      >
+                        View API Key
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate('/tpas')}
+                        className="border-green-500 text-green-700 hover:bg-green-50"
+                      >
+                        Go to My Apps
+                      </Button>
+                    </div>
+                  </div>
+                </Alert>
+              </div>
+            )}
         </Card>
+
+
       </div>
 
       {/* API Key Dialog after successful creation */}
       {createdTPA && (
-        <ApiKeyDialog
-          tpa={createdTPA}
-          apiKey={apiKey}
-          open={isApiKeyDialogOpen}
-          onOpenChange={handleApiKeyDialogClose}
-        />
+        <>
+          <TpaSuccessDialog
+            tpa={createdTPA}
+            apiKey={apiKey}
+            open={isSuccessDialogOpen}
+            onOpenChange={handleSuccessDialogClose}
+            onViewApiKey={handleViewApiKey}
+          />
+
+          <ApiKeyDialog
+            tpa={createdTPA}
+            apiKey={apiKey}
+            open={isApiKeyDialogOpen}
+            onOpenChange={handleApiKeyDialogClose}
+            onKeyRegenerated={(newKey) => {
+              setApiKey(newKey);
+              console.log(`API key regenerated for ${createdTPA?.name}`);
+            }}
+          />
+        </>
       )}
     </DashboardLayout>
   );

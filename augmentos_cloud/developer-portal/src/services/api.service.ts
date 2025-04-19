@@ -82,7 +82,7 @@ const api = {
     },
     
     // Update developer profile
-    updateProfile: async (profileData: any): Promise<DeveloperUser> => {
+    updateProfile: async (profileData: unknown): Promise<DeveloperUser> => {
       const response = await axios.put("/api/dev/auth/profile", profileData);
       return response.data;
     },
@@ -106,7 +106,7 @@ const api = {
 
     // Create a new TPA
     // create: async (tpaData: Omit<TPA, "id">): Promise<{ tpa: TPAResponse; apiKey: string }> => {
-    create: async (tpaData: AppI): Promise<{ tpa: AppResponse; apiKey: string }> => {
+    create: async (tpaData: AppI): Promise<{ app: AppResponse; apiKey: string }> => {
       const response = await axios.post("/api/dev/apps/register", tpaData);
       return response.data;
     },

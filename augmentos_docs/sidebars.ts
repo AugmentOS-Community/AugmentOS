@@ -32,6 +32,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'events',
         'layouts',
+        'tools',
         {
           type: 'doc',
           id: 'tpa-lifecycle',
@@ -67,6 +68,7 @@ const sidebars: SidebarsConfig = {
             'reference/interfaces/layout-types',
             'reference/interfaces/webhook-types',
             'reference/interfaces/message-types',
+            'reference/interfaces/tool-types',
           ],
         },
         'reference/token-utils',

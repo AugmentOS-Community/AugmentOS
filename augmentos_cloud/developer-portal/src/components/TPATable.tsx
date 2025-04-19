@@ -6,16 +6,19 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Link } from "react-router-dom";
-import { Edit, Trash, Key, Share2, Plus, Upload, KeyRound } from "lucide-react";
+import { Edit, Trash, Share2, Plus, Upload, KeyRound } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { AppResponse } from '../services/api.service';
-import { toast } from 'sonner';
 
 // Import dialogs
 import ApiKeyDialog from "./dialogs/ApiKeyDialog";
 import SharingDialog from "./dialogs/SharingDialog";
 import DeleteDialog from "./dialogs/DeleteDialog";
 import PublishDialog from "./dialogs/PublishDialog";
-import api from '../services/api.service';
 
 interface TPATableProps {
   tpas: AppResponse[];
@@ -156,59 +159,102 @@ const TPATable: React.FC<TPATableProps> = ({
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/tpas/${tpa.packageName}/edit`)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate(`/tpas/${tpa.packageName}/edit`)}
+                                title="Edit App"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Edit App</p>
+                            </TooltipContent>
+                          </Tooltip>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              setSelectedTpa(tpa);
-                              setGeneratedApiKey('');
-                              setIsApiKeyDialogOpen(true);
-                            }}
-                          >
-                            <KeyRound className="h-4 w-4" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  // Reset generated API key state before opening dialog
+                                  setGeneratedApiKey('');
+                                  // Set selected TPA after resetting key state
+                                  setSelectedTpa(tpa);
+                                  // Then open the dialog
+                                  setIsApiKeyDialogOpen(true);
+                                }}
+                                title="Manage API Key"
+                              >
+                                <KeyRound className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Manage API Key</p>
+                            </TooltipContent>
+                          </Tooltip>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedTpa(tpa);
-                              setIsShareDialogOpen(true);
-                            }}
-                          >
-                            <Share2 className="h-4 w-4" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedTpa(tpa);
+                                  setIsShareDialogOpen(true);
+                                }}
+                                title="Share with Testers"
+                              >
+                                <Share2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Share with Testers</p>
+                            </TooltipContent>
+                          </Tooltip>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedTpa(tpa);
-                              setIsPublishDialogOpen(true);
-                            }}
-                          >
-                            <Upload className="h-4 w-4" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedTpa(tpa);
+                                  setIsPublishDialogOpen(true);
+                                }}
+                                title={tpa.appStoreStatus === 'REJECTED' ? 'Resubmit to App Store' : 'Publish to App Store'}
+                              >
+                                <Upload className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{tpa.appStoreStatus === 'REJECTED' ? 'Resubmit to App Store' : 'Publish to App Store'}</p>
+                            </TooltipContent>
+                          </Tooltip>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600"
-                            onClick={() => {
-                              setSelectedTpa(tpa);
-                              setIsDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600"
+                                onClick={() => {
+                                  setSelectedTpa(tpa);
+                                  setIsDeleteDialogOpen(true);
+                                }}
+                                title="Delete App"
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Delete App</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -247,6 +293,11 @@ const TPATable: React.FC<TPATableProps> = ({
             open={isApiKeyDialogOpen}
             onOpenChange={setIsApiKeyDialogOpen}
             apiKey={generatedApiKey}
+            onKeyRegenerated={(newKey) => {
+              // Update the API key in the parent component's state
+              setGeneratedApiKey(newKey);
+              console.log(`API key regenerated for ${selectedTpa?.name}`);
+            }}
           />
 
           <SharingDialog

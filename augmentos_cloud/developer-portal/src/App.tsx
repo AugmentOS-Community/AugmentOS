@@ -2,6 +2,10 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
+// Components
+import { Toaster } from './components/ui/sonner';
+import { TooltipProvider } from './components/ui/tooltip';
+
 // Pages
 import LandingPage from './pages/LandingPage';
 import DashboardHome from './pages/DashboardHome';
@@ -71,6 +75,8 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
 const App: React.FC = () => {
   return (
     <AuthProvider>
+      <Toaster />
+      <TooltipProvider>
       <BrowserRouter>
         <Routes>
           {/* Public Routes */}
@@ -120,6 +126,7 @@ const App: React.FC = () => {
           <Route path="*" element={<LandingPage />} />
         </Routes>
       </BrowserRouter>
+      </TooltipProvider>
     </AuthProvider>
   );
 };

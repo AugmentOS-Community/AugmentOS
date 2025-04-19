@@ -91,6 +91,17 @@ export interface AudioChunk extends BaseMessage {
   sampleRate?: number;  // Audio sample rate (e.g., 16000 Hz)
 }
 
+/**
+ * Tool call from cloud to TPA
+ * Represents a tool invocation with filled parameters
+ */
+export interface ToolCall {
+  toolId: string; // The ID of the tool that was called
+  toolParameters: Record<string, string | number | boolean>; // The parameters of the tool that was called
+  timestamp: Date; // Timestamp when the tool was called
+  userId: string; // ID of the user who triggered the tool call
+}
+
 //===========================================================
 // Stream data
 //===========================================================

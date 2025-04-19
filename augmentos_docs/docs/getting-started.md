@@ -224,6 +224,12 @@ ngrok http --url=<YOUR_NGROK_URL_HERE> 3000
 
 > **IMPORTANT:** After making changes to your app code or restarting your server, you must restart your app inside the AugmentOS phone app.
 
+## Part 4: Setting Up TPA AI Tools for Mira
+
+Mira, the AugmentOS AI assistant, can call functions in your TPA. This allows your application to extend Mira's capabilities with custom tools.
+
+For a comprehensive guide on TPA AI tools, see [AI Tools](/tools).
+
 ## What's Next?
 
 Congratulations! You've built your first AugmentOS app. To continue your journey:

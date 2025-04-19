@@ -16,6 +16,7 @@ import ApiKeyDialog from '../components/dialogs/ApiKeyDialog';
 import SharingDialog from '../components/dialogs/SharingDialog';
 import PublishDialog from '../components/dialogs/PublishDialog';
 import { TpaType } from '@augmentos/sdk';
+import { normalizeUrl } from '@/libs/utils';
 
 const EditTPA: React.FC = () => {
   const navigate = useNavigate();
@@ -110,14 +111,17 @@ const EditTPA: React.FC = () => {
     try {
       if (!packageName) throw new Error('Package name is missing');
       
-      // Update TPA via API
-      await api.apps.update(packageName, {
+      // Normalize URLs before submission
+      const normalizedData = {
         name: formData.name,
         description: formData.description,
-        publicUrl: formData.publicUrl,
+        publicUrl: normalizeUrl(formData.publicUrl),
         logoURL: formData.logoURL,
-        webviewURL: formData.webviewURL
-      });
+        webviewURL: formData.webviewURL ? normalizeUrl(formData.webviewURL) : undefined
+      };
+      
+      // Update TPA via API
+      await api.apps.update(packageName, normalizedData);
       
       // Show success message
       setIsSaved(true);
@@ -319,6 +323,7 @@ const EditTPA: React.FC = () => {
                   <p className="text-xs text-gray-500">
                     The base URL of your server where AugmentOS will communicate with your app.
                     We'll automatically append "/webhook" to handle events when your app is activated.
+                    Do not include a trailing slash - it will be automatically removed.
                   </p>
                 </div>
                 

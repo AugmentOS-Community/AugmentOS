@@ -165,8 +165,38 @@ const AppStore: React.FC = () => {
   };
 
   // Handle app uninstallation
-  // Note: We've removed uninstall functionality from the main app page
-  // This functionality should be available on the app details page instead
+  const handleUninstall = async (packageName: string) => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      setInstallingApp(packageName);
+
+      const success = await api.app.uninstallApp(packageName);
+
+      if (success) {
+        toast.success('App uninstalled successfully');
+
+        // Update the app in the list to show as uninstalled
+        setApps(prevApps =>
+          prevApps.map(app =>
+            app.packageName === packageName
+              ? { ...app, isInstalled: false, installedDate: undefined }
+              : app
+          )
+        );
+      } else {
+        toast.error('Failed to uninstall app');
+      }
+    } catch (err) {
+      console.error('Error uninstalling app:', err);
+      toast.error('Failed to uninstall app');
+    } finally {
+      setInstallingApp(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -236,9 +266,9 @@ const AppStore: React.FC = () => {
             {filteredApps.map(app => (
               <div
                 key={app.packageName}
-                className="bg-white rounded-lg border border-gray-200 overflow-hidden "
+                className="bg-white rounded-lg border border-gray-200 overflow-hidden h-full flex flex-col"
               >
-                <div className="p-4">
+                <div className="p-4 flex flex-col flex-1">
                   <div 
                     className="flex items-start cursor-pointer"
                     onClick={() => navigate(`/package/${app.packageName}`)}
@@ -260,17 +290,60 @@ const AppStore: React.FC = () => {
                     </div>
                   </div>
                   <p 
-                    className="mt-3 text-sm text-gray-600 line-clamp-3 cursor-pointer" 
+                    className="mt-3 text-sm text-gray-600 line-clamp-3 cursor-pointer flex-grow" 
                     onClick={() => navigate(`/package/${app.packageName}`)}
                   >
                     {app.description || 'No description available.'}
                   </p>
                   <div className="mt-4">
-                    {isAuthenticated && app.isInstalled ? (
-                      <div className="text-center text-sm text-gray-500 py-2">
-                        ✓ Installed
-                      </div>
-                    ) : null}
+                    {isAuthenticated ? (
+                      app.isInstalled ? (
+                        <Button
+                          onClick={() => handleUninstall(app.packageName)}
+                          variant="destructive"
+                          disabled={installingApp === app.packageName}
+                          className="w-full"
+                        >
+                          {installingApp === app.packageName ? (
+                            <>
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                              Uninstalling...
+                            </>
+                          ) : (
+                            <>
+                              <X className="h-4 w-4 mr-1" />
+                              Uninstall
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleInstall(app.packageName)}
+                          disabled={installingApp === app.packageName}
+                          className="w-full"
+                        >
+                          {installingApp === app.packageName ? (
+                            <>
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                              Installing...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4 mr-1" />
+                              Install
+                            </>
+                          )}
+                        </Button>
+                      )
+                    ) : (
+                      <Button
+                        onClick={() => navigate('/login')}
+                        className="w-full"
+                      >
+                        <Lock className="h-4 w-4 mr-1" />
+                        Sign in to install
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
