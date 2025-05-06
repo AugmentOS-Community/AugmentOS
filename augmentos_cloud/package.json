@@ -3,11 +3,14 @@
   "workspaces": [
     "packages/*"
   ],
-
   "scripts": {
     "build": "cd packages/sdk && bun run build && cd ../utils && bun run build && cd ../agents && bun run build && cd ../apps/dashboard-manager && bun run build",
     "setup-deps": "bun install --no-link",
-
+    
+    "local": "bun run local:stop && bun run local:rebuild && docker compose -f docker-compose.local.yml -p dev up",
+    "local:stop": "docker compose -f docker-compose.local.yml -p dev down --timeout 5 || docker kill $(docker ps -q)",
+    "local:rebuild": "docker compose -f docker-compose.local.yml -p dev up -d --build --remove-orphans",
+    
     "dev": "bun run dev:stop && bun run dev:rebuild && docker compose -f docker-compose.dev.yml -p dev up",
     "dev:core": "docker compose -f docker-compose.dev.yml -p dev up shared-packages cloud",
     "dev:detached": "docker compose -f docker-compose.dev.yml -p dev up -d",
@@ -15,21 +18,22 @@
     "dev:stop": "docker compose -f docker-compose.dev.yml -p dev down --timeout 5 || docker kill $(docker ps -q)",
     "dev:setup-network": "docker network create augmentos-network-dev",
     "dev:clean": "docker compose -f docker-compose.dev.yml -p dev down -v && docker system prune -f",
-
+    
     "ngrok:isaiah": "ngrok http --url=isaiah.augmentos.cloud 8002",
-
+    
     "prod": "docker compose -f docker-compose.yml -p prod up -d",
     "prod:stop": "docker compose -f docker-compose.yml -p prod down",
     "prod:deploy": "bun run prod:stop && bun run prod",
     "prod:setup-network": "docker network create augmentos-network",
     "prod:logs": "docker compose -f docker-compose.yml -p prod logs -f --tail=10",
-
-    "logs": "docker compose -f docker-compose.dev.yml -p dev logs -f --tail=0",
+    
+    "logs": "docker compose -f docker-compose.dev.yml -p dev logs -f --tail=50",
     "logs:prod": "docker compose -f docker-compose.yml -p prod logs -f --tail=10",
     "logs:cloud": "docker compose -f docker-compose.dev.yml -p dev logs -f cloud --tail=0",
-
     "test": "bun run packages/cloud/src/tests/run-tests.ts",
-    "test:display": "bun run packages/cloud/src/tests/display-manager.test.ts"
+    
+    "test:display": "bun run packages/cloud/src/tests/display-manager.test.ts",
+    "ngrok:israelov": "ngrok http --url=israelovpuddle.ngrok.app 8002"
   },
   "dependencies": {
     "@langchain/anthropic": "^0.3.13",
@@ -44,6 +48,9 @@
     "@types/bun": "^1.2.2",
     "assemblyai": "^4.9.0",
     "axios": "^1.8.1",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
     "langchain": "^0.3.18",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",

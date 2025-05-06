@@ -42,7 +42,9 @@ public class NotificationService extends NotificationListenerService {
             "com.sec.android.gallery3d",
             "com.augmentos.augmentos",
             "com.osp.app.signin",
-            "com.augmentos.augmentos_manager");
+            "com.augmentos.augmentos_manager",
+            "com.github.welldomax.tunnelshare"
+            );
 
     private final List<String> categoryBlacklist = Arrays.asList(
             Notification.CATEGORY_REMINDER,
@@ -82,8 +84,22 @@ public class NotificationService extends NotificationListenerService {
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         String packageName = sbn.getPackageName();
+        
+        // 🚨 Filter out blacklisted packages
+        if (packageBlacklist.contains(packageName)) {
+            Log.d(TAG, "Ignoring blacklisted package: " + packageName);
+            return;
+        }
+        
         Notification notification = sbn.getNotification();
         Bundle extras = notification.extras;
+        
+        // 🚨 Filter by notification category
+        String category = notification.category;
+        if (category != null && categoryBlacklist.contains(category)) {
+            Log.d(TAG, "Ignoring notification with category: " + category);
+            return;
+        }
 
         // 🚨 Log full notification for debugging
         Log.d(TAG, "---- New Notification Received ----");

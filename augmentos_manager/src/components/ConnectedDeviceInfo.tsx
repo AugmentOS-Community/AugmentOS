@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import coreCommunicator from '../bridge/CoreCommunicator';
 import { useStatus } from '../providers/AugmentOSStatusProvider';
 import { NavigationProps } from '../components/types';
@@ -9,6 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 import { getGlassesImage } from '../logic/getGlassesImage';
 import GlobalEventEmitter from '../logic/GlobalEventEmitter';
 import { getBatteryColor, getBatteryIcon } from '../logic/getBatteryIcon';
+import { WIFI_CONFIGURABLE_MODELS } from '../consts';
 
 
 interface ConnectedDeviceInfoProps {
@@ -168,11 +170,45 @@ const ConnectedDeviceInfo: React.FC<ConnectedDeviceInfoProps> = ({ isDarkTheme }
 
   return (
     <View style={[styles.deviceInfoContainer]}>
-      {microphoneActive && (
-        <View style={styles.microphoneContainer}>
-          <Icon name="microphone" size={20} color="#4CAF50" />
-        </View>
-      )}
+      {/* Status Indicators Row */}
+      <View style={styles.statusIndicatorsRow}>
+        {microphoneActive && (
+          <View style={styles.iconContainer}>
+            <Icon name="microphone" size={20} color="#4CAF50" />
+          </View>
+        )}
+        
+        {/* Centered flex space */}
+        <View style={{flex: 1}} />
+        
+        {/* WiFi Status Indicator */}
+        {status.glasses_info && status.glasses_info.glasses_use_wifi === true && (
+          <TouchableOpacity 
+            style={styles.wifiContainer}
+            onPress={() => {
+              if (status.glasses_info) {
+                navigation.navigate('GlassesWifiSetupScreen', {
+                  deviceModel: status.glasses_info.model_name || 'Glasses'
+                });
+              }
+            }}
+          >
+            {status.glasses_info.glasses_wifi_connected ? (
+              <>
+                {status.glasses_info.glasses_wifi_ssid && (
+                  <Text style={styles.wifiSsidText}>
+                    {status.glasses_info.glasses_wifi_ssid}
+                  </Text>
+                )}
+                <Icon name="wifi" size={20} color="#4CAF50" />
+              </>
+            ) : (
+              <MaterialIcon name="wifi-off" size={20} color="#E53935" />
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+      
       {status.core_info.puck_connected ? (
         <>
           {status.core_info.default_wearable ? (
@@ -459,11 +495,36 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontFamily: 'Montserrat-Regular',
   },
-  microphoneContainer: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    zIndex: 1,
+  statusIndicatorsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    height: 30,
+  },
+  iconContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wifiContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 18,
+  },
+  wifiSsidText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: 'bold',
+    marginRight: 5,
+    maxWidth: 120,
   },
 });
 

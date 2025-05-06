@@ -18,7 +18,7 @@ import coreCommunicator from '../bridge/CoreCommunicator';
 import { stopExternalService } from '../bridge/CoreServiceStarter';
 import { loadSetting, saveSetting } from '../logic/SettingsHelper.tsx';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SETTINGS_KEYS } from '../consts';
+import { SETTINGS_KEYS, WIFI_CONFIGURABLE_MODELS } from '../consts';
 import { supabase } from '../supabaseClient';
 import { requestFeaturePermissions, PermissionFeatures } from '../logic/PermissionsUtils';
 import showAlert from '../utils/AlertUtils';
@@ -393,6 +393,59 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                   isDarkTheme ? styles.lightSubtext : styles.darkSubtext,
                 ]}>
                 Adjust brightness, auto-brightness, and other display settings.
+              </Text>
+            </View>
+            <Icon
+              name="angle-right"
+              size={20}
+              color={
+                isDarkTheme ? styles.lightIcon.color : styles.darkIcon.color
+              }
+            />
+          </TouchableOpacity>
+
+          {/* Glasses Wifi Settings */}
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => {
+              // Check if connected glasses support WiFi
+              const supportsWifi = status.glasses_info && status.glasses_info.glasses_use_wifi === true;
+              
+              if (supportsWifi) {
+                navigation.navigate('GlassesWifiSetupScreen', {
+                  deviceModel: status.glasses_info?.model_name || 'Glasses'
+                });
+              } else {
+                showAlert(
+                  'Not Available',
+                  'WiFi configuration is only available for glasses that support WiFi connectivity.',
+                  [{ text: 'OK' }],
+                  {
+                    isDarkTheme,
+                    iconName: 'wifi',
+                    iconColor: '#2196F3'
+                  }
+                );
+              }
+            }}>
+            <View style={styles.settingTextContainer}>
+              <Text
+                style={[
+                  styles.label,
+                  isDarkTheme ? styles.lightText : styles.darkText,
+                  (!status.glasses_info || status.glasses_info.glasses_use_wifi !== true) && 
+                    styles.disabledItem,
+                ]}>
+                Glasses WiFi Settings
+              </Text>
+              <Text
+                style={[
+                  styles.value,
+                  isDarkTheme ? styles.lightSubtext : styles.darkSubtext,
+                  (!status.glasses_info || status.glasses_info.glasses_use_wifi !== true) && 
+                    styles.disabledItem,
+                ]}>
+                Configure WiFi settings for your smart glasses.
               </Text>
             </View>
             <Icon

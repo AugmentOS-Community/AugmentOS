@@ -10,6 +10,9 @@ interface Glasses {
   dashboard_height: number | null; // 0-8
   dashboard_distance: number | null; // ???
   dashboard_x_offset: number | null; // 0-1
+  glasses_use_wifi?: boolean; // Flag to indicate if glasses model supports WiFi
+  glasses_wifi_connected?: boolean;
+  glasses_wifi_ssid?: string;
 }
 
 interface WifiConnection {
@@ -109,6 +112,9 @@ export class AugmentOSParser {
       brightness: '87',
       auto_brightness: false,
       headUp_angle: 20,
+      glasses_use_wifi: false,
+      glasses_wifi_connected: false,
+      glasses_wifi_ssid: '',
     },
     wifi: { is_connected: true, ssid: 'TP-LINK69', signal_strength: 100 },
     gsm: { is_connected: false, carrier: '', signal_strength: 0 },
@@ -161,6 +167,9 @@ export class AugmentOSParser {
             dashboard_height: glassesInfo.dashboard_height,
             dashboard_distance: glassesInfo.dashboard_distance,
             dashboard_x_offset: glassesInfo.dashboard_x_offset,
+            glasses_use_wifi: glassesInfo.glasses_use_wifi || false,
+            glasses_wifi_connected: glassesInfo.glasses_wifi_connected || false,
+            glasses_wifi_ssid: glassesInfo.glasses_wifi_ssid || '',
           }
           : null,
         wifi: status.wifi ?? AugmentOSParser.defaultStatus.wifi,

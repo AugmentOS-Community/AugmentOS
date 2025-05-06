@@ -7,7 +7,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "rm -rf dist && bun x tsc -p tsconfig.json",
+    "build": "mkdir -p dist && bun x tsc -p tsconfig.json",
     "postbuild": "cp -r src/public dist/public",
     "start": "bun dist/index.js",
     "dev": "bun --watch src/index.ts",

@@ -85,10 +85,7 @@ export const MentraLivePairingGuide: React.FC<GlassesPairingGuideProps> = ({
         1. Make sure your Mentra Live is fully charged and turned on.
       </Text>
       <Text style={[styles.guideStep, { color: textColor }]}>
-        2. TBD
-      </Text>
-      <Text style={[styles.guideStep, { color: textColor }]}>
-        3. TBD
+        2. Make sure your Mentra Live is not already paired to a different device.
       </Text>
     </View>
   );

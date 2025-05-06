@@ -133,6 +133,13 @@ dependencies {
     //implementation "androidx.lifecycle:lifecycle-process:2.5.1" // Use the version appropriate for your project
 
     implementation project(':react-native-config')
+
+    implementation project(':react-native-fs')
+    
+    // Add react-native-video
+    implementation project(':react-native-video')
+    implementation project(':react-native-view-shot')
+    implementation project(':react-native-create-thumbnail')
 }
 
 // Include custom vector icons fonts from react-native-vector-icons

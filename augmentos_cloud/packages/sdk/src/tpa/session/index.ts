@@ -15,6 +15,7 @@ import {
   CloudToTpaMessage,
   TpaConnectionInit,
   TpaSubscriptionUpdate,
+  PhotoRequest,
   TpaToCloudMessageType,
   CloudToTpaMessageType,
 
@@ -33,6 +34,7 @@ import {
   isDataStream,
   isAppStopped,
   isSettingsUpdate,
+  isPhotoResponse,
 
   // Other types
   AppSettings,
@@ -119,6 +121,11 @@ export class TpaSession {
   private subscriptionSettingsHandler?: (settings: AppSettings) => ExtendedStreamType[];
   /** Settings that should trigger subscription updates when changed */
   private subscriptionUpdateTriggers: string[] = [];
+  /** Pending photo requests waiting for responses */
+  private pendingPhotoRequests = new Map<string, {
+    resolve: (url: string) => void,
+    reject: (reason: any) => void
+  }>();
 
   /** 🎮 Event management interface */
   public readonly events: EventManager;
@@ -531,6 +538,47 @@ export class TpaSession {
   }
 
   /**
+   * 📸 Request a photo from the connected glasses
+   * @param options - Optional configuration for the photo request
+   * @returns Promise that resolves with the URL to the captured photo
+   */
+  requestPhoto(options?: { saveToGallery?: boolean }): Promise<string> {
+    return new Promise((resolve, reject) => {
+      try {
+        // Generate unique request ID
+        const requestId = `photo_req_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        
+        // Store promise resolvers for when we get the response
+        this.pendingPhotoRequests.set(requestId, { resolve, reject });
+        
+        // Create photo request message
+        const message: PhotoRequest = {
+          type: TpaToCloudMessageType.PHOTO_REQUEST,
+          packageName: this.config.packageName,
+          sessionId: this.sessionId!,
+          timestamp: new Date(),
+          saveToGallery: options?.saveToGallery || false
+        };
+        
+        // Send request to cloud
+        this.send(message);
+        
+        // Set timeout to avoid hanging promises
+        const timeoutMs = 30000; // 30 seconds
+        this.resources.setTimeout(() => {
+          if (this.pendingPhotoRequests.has(requestId)) {
+            this.pendingPhotoRequests.get(requestId)!.reject(new Error('Photo request timed out'));
+            this.pendingPhotoRequests.delete(requestId);
+          }
+        }, timeoutMs);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        reject(new Error(`Failed to request photo: ${errorMessage}`));
+      }
+    });
+  }
+
+  /**
    * 🛠️ Get all current user settings
    * @returns A copy of the current settings array
    * @deprecated Use session.settings.getAll() instead
@@ -743,7 +791,8 @@ export class TpaSession {
             this.updateSubscriptionsFromSettings();
           }
         }
-        else if (isTpaConnectionError(message)) {
+        else if (isTpaConnectionError(message) || message.type === 'connection_error') {
+          // Handle both TPA-specific connection_error and standard connection_error
           const errorMessage = message.message || 'Unknown connection error';
           this.events.emit('error', new Error(errorMessage));
         }
@@ -777,6 +826,14 @@ export class TpaSession {
           if (messageStreamType && this.subscriptions.has(messageStreamType)) {
             const sanitizedData = this.sanitizeEventData(messageStreamType, message.data) as EventData<typeof messageStreamType>;
             this.events.emit(messageStreamType, sanitizedData);
+          }
+        }
+        else if (isPhotoResponse(message)) {
+          // Handle photo response by resolving the pending promise
+          if (this.pendingPhotoRequests.has(message.requestId)) {
+            const { resolve } = this.pendingPhotoRequests.get(message.requestId)!;
+            resolve(message.photoUrl);
+            this.pendingPhotoRequests.delete(message.requestId);
           }
         }
         else if (isSettingsUpdate(message)) {

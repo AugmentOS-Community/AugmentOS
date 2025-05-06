@@ -12,7 +12,8 @@
   "dependencies": {
     "@augmentos/sdk": "workspace:*",
     "@augmentos/utils": "workspace:*",
-    "@augmentos/agents": "workspace:*"
+    "@augmentos/agents": "workspace:*",
+    "express": "^4.18.2"
   },
 
   "devDependencies": {

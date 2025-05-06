@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, useNavigation, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusProvider } from './providers/AugmentOSStatusProvider';
 import { AppStatusProvider } from './providers/AppStatusProvider';
@@ -11,6 +11,8 @@ import RegisterScreen from './screens/RegisterScreen';
 import ProfileSettingsPage from './screens/ProfileSettingsPage';
 import GlassesMirror from './screens/GlassesMirror';
 import GlassesMirrorFullscreen from './screens/GlassesMirrorFullscreen';
+import GlassesRecordingsGallery from './screens/GlassesRecordingsGallery';
+import VideoPlayerScreen from './screens/VideoPlayerScreen';
 import NotificationListener from './components/NotificationListener';
 import AppStore from './screens/AppStore';
 import AppStoreNative from './screens/AppStoreNative';
@@ -47,6 +49,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import DeveloperSettingsScreen from './screens/DeveloperSettingsScreen.tsx';
 import DashboardSettingsScreen from './screens/DashboardSettingsScreen.tsx';
 import ScreenSettingsScreen from './screens/ScreenSettingsScreen.tsx';
+import GlassesWifiSetupScreen from './screens/GlassesWifiSetupScreen';
+import GlobalEventEmitter from './logic/GlobalEventEmitter';
 import NavigationBar from './components/NavigationBar';
 
 const linking = {
@@ -84,18 +88,46 @@ const App: React.FC = () => {
     console.log('Reset version check ignore flag on app start');
   }, []);
 
+  // Set up listener for WiFi credentials request
+  useEffect(() => {
+    const handleGlassesNeedWifiCredentials = (data: { deviceModel: string }) => {
+      console.log('Handling GLASSES_NEED_WIFI_CREDENTIALS event:', data);
+      
+      // Navigate to the WiFi setup screen if we have navigation available
+      if (navigationRef.current) {
+        // @ts-ignore - We know navigationRef.current has a navigate method
+        navigationRef.current.navigate('GlassesWifiSetupScreen', {
+          deviceModel: data.deviceModel
+        });
+      }
+    };
+
+    // Subscribe to the event
+    GlobalEventEmitter.addListener(
+      'GLASSES_NEED_WIFI_CREDENTIALS',
+      handleGlassesNeedWifiCredentials
+    );
+
+    // Clean up
+    return () => {
+      GlobalEventEmitter.removeListener(
+        'GLASSES_NEED_WIFI_CREDENTIALS',
+        handleGlassesNeedWifiCredentials
+      );
+    };
+  }, []);
+
   const toggleTheme = () => {
     setIsDarkTheme(prevTheme => !prevTheme);
   };
 
-  // Screens where the navbar should be hidden
-  const hideNavbarScreens = [
-    'Login', 
-    'SplashScreen', 
-    'VerifyEmailScreen', 
-    'VersionUpdateScreen',
-    'WelcomePage',
-    'ConnectingToPuck'
+  // Only show navbar on these top-level screens
+  const showNavbarScreens = [
+    'Home',
+    'GlassesMirror',
+    'AppStore',
+    'AppStoreWeb',
+    'SettingsPage'
   ];
 
   return (
@@ -336,7 +368,35 @@ const App: React.FC = () => {
                                         gestureEnabled: false,
                                       }}>
                                       {() => <GlassesMirrorFullscreen isDarkTheme={isDarkTheme} />}
-                                    </Stack.Screen>
+                                  </Stack.Screen>
+                      <Stack.Screen
+                        name="GlassesRecordingsGallery"
+                        options={{
+                          headerShown: true,
+                          title: 'Gallery',
+                          headerStyle: {
+                            backgroundColor: isDarkTheme ? '#121212' : '#f0f0f0',
+                          },
+                          headerTintColor: isDarkTheme ? '#ffffff' : '#000000',
+                          headerTitleStyle: {
+                            fontFamily: 'Montserrat-Bold',
+                            fontSize: 18,
+                          },
+                          headerShadowVisible: false,
+                          headerBackTitle: 'Back',
+                        }}>
+                        {() => <GlassesRecordingsGallery isDarkTheme={isDarkTheme} />}
+                      </Stack.Screen>
+                      <Stack.Screen
+                        name="VideoPlayerScreen"
+                        options={{
+                          headerShown: false,
+                          presentation: 'fullScreenModal',
+                          gestureEnabled: true,
+                          //animationEnabled: true,
+                        }}>
+                        {(props) => <VideoPlayerScreen {...props} isDarkTheme={isDarkTheme} />}
+                        </Stack.Screen>
                                     <Stack.Screen name="AppSettings"
                                       options={({ route }) => ({
                                         title: route.params?.appName,
@@ -391,6 +451,22 @@ const App: React.FC = () => {
                                       component={ErrorReportScreen}
                                       options={{ title: 'Report an Error' }}
                                     />
+                      <Stack.Screen
+                        name="GlassesWifiSetupScreen"
+                        options={{ 
+                          title: 'WiFi Setup',
+                          presentation: 'modal',
+                          gestureEnabled: false,
+                        }}
+                      >
+                        {props => (
+                          <GlassesWifiSetupScreen
+                            {...props}
+                            toggleTheme={toggleTheme}
+                            isDarkTheme={isDarkTheme}
+                          />
+                        )}
+                      </Stack.Screen>
                                     <Stack.Screen name="SelectGlassesModelScreen"
                                       options={{ title: 'Select Glasses' }}
                                     >
@@ -438,7 +514,7 @@ const App: React.FC = () => {
 
                                   </Stack.Navigator>
                                 </View>
-                                {!hideNavbarScreens.includes(currentRouteName) && (
+                                {showNavbarScreens.includes(currentRouteName) && (
                                   <View style={{
                                     marginTop: -30, // Adjusted to close gap
                                     backgroundColor: isDarkTheme ? '#000000' : '#F2F2F7', // Match navbar color

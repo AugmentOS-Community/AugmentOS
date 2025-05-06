@@ -220,6 +220,16 @@ export class CoreCommunicator extends EventEmitter {
         });
       } else if ('need_permissions' in data) {
         GlobalEventEmitter.emit('NEED_PERMISSIONS');
+      } else if ('need_wifi_credentials' in data) {
+        console.log('Received need_wifi_credentials event from Core');
+        GlobalEventEmitter.emit('GLASSES_NEED_WIFI_CREDENTIALS', { 
+          deviceModel: data.device_model 
+        });
+      } else if ('wifi_scan_results' in data) {
+        console.log('Received WiFi scan results from Core');
+        GlobalEventEmitter.emit('WIFI_SCAN_RESULTS', { 
+          networks: data.wifi_scan_results
+        });
       }
     } catch (e) {
       console.error('Error parsing data from Core:', e);
@@ -542,6 +552,22 @@ export class CoreCommunicator extends EventEmitter {
   async deleteAuthenticationSecretKey() {
     return await this.sendData({
       command: 'delete_auth_secret_key',
+    });
+  }
+  
+  async sendWifiCredentials(ssid: string, password: string) {
+    return await this.sendData({
+      command: 'send_wifi_credentials',
+      params: {
+        ssid,
+        password
+      },
+    });
+  }
+  
+  async requestWifiScan() {
+    return await this.sendData({
+      command: 'request_wifi_scan'
     });
   }
   

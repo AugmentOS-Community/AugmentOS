@@ -109,7 +109,9 @@ export {
 export {
   isConnectionAck,
   isDisplayEvent,
-  isAppStateChange
+  isAppStateChange,
+  isPhotoRequest,
+  isVideoStreamRequest
 } from './messages/cloud-to-glasses';
 
 export {
