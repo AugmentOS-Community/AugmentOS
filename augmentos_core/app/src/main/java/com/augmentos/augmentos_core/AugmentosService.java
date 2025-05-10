@@ -1267,6 +1267,16 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
                         break;
                 }
             }
+
+            @Override
+            public void onAppStarted(String packageName) {
+                AugmentosService.this.onAppStarted(packageName);
+            }
+
+            @Override
+            public void onAppStopped(String packageName) {
+                AugmentosService.this.onAppStopped(packageName);
+            }
         });
     }
 
@@ -1747,5 +1757,33 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
         super.onBind(intent);
         Log.d(TAG, "Something bound");
         return binder;
+    }
+
+    // Called when the backend notifies that an app has started
+    public void onAppStarted(String packageName) {
+        if (blePeripheral != null) {
+            try {
+                JSONObject msg = new JSONObject();
+                msg.put("type", "app_started");
+                msg.put("packageName", packageName);
+                blePeripheral.sendDataToAugmentOsManager(msg.toString());
+            } catch (JSONException e) {
+                // Optionally log or handle error
+            }
+        }
+    }
+
+    // Called when the backend notifies that an app has stopped
+    public void onAppStopped(String packageName) {
+        if (blePeripheral != null) {
+            try {
+                JSONObject msg = new JSONObject();
+                msg.put("type", "app_stopped");
+                msg.put("packageName", packageName);
+                blePeripheral.sendDataToAugmentOsManager(msg.toString());
+            } catch (JSONException e) {
+                // Optionally log or handle error
+            }
+        }
     }
 }

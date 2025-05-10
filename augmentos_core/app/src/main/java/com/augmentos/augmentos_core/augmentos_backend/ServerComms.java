@@ -627,6 +627,20 @@ public class ServerComms {
                 Log.d(TAG, "Server is requesting a reconnect.");
                 break;
 
+            case "app_started":
+                String startedPackage = msg.optString("packageName", "");
+                if (serverCommsCallback != null) {
+                    serverCommsCallback.onAppStarted(startedPackage);
+                }
+                break;
+
+            case "app_stopped":
+                String stoppedPackage = msg.optString("packageName", "");
+                if (serverCommsCallback != null) {
+                    serverCommsCallback.onAppStopped(stoppedPackage);
+                }
+                break;
+
             default:
                 Log.w(TAG, "Unknown message type: " + type + " / full: " + msg.toString());
                 break;

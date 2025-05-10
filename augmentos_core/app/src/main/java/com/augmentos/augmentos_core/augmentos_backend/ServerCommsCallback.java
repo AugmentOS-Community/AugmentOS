@@ -17,4 +17,8 @@ public interface ServerCommsCallback {
     void onRequestSingle(String dataType);
 
     void onMicrophoneStateChange(boolean isEnabled);
+
+    // New methods for explicit app started/stopped events
+    void onAppStarted(String packageName);
+    void onAppStopped(String packageName);
 }

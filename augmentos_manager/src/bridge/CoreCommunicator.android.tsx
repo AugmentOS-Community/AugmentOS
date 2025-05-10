@@ -251,6 +251,12 @@ export class CoreCommunicator extends EventEmitter {
         });
       } else if ('need_permissions' in data) {
         GlobalEventEmitter.emit('NEED_PERMISSIONS');
+      } else if (data.type === 'app_started' && data.packageName) {
+        console.log('APP_STARTED_EVENT', data.packageName);
+        GlobalEventEmitter.emit('APP_STARTED_EVENT', data.packageName);
+      } else if (data.type === 'app_stopped' && data.packageName) {
+        console.log('APP_STOPPED_EVENT', data.packageName);
+        GlobalEventEmitter.emit('APP_STOPPED_EVENT', data.packageName);
       }
     } catch (e) {
       console.error('Error parsing data from Core:', e);

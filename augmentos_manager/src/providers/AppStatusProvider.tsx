@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useCallback, use
 import BackendServerComms from '../backend_comms/BackendServerComms';
 import { useAuth } from '../AuthContext';
 import { useStatus } from './AugmentOSStatusProvider';
+import GlobalEventEmitter from '../logic/GlobalEventEmitter';
 
 // Define the AppInterface based on AppI from SDK
 export interface AppInterface {
@@ -184,6 +185,29 @@ export const AppStatusProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         refreshAppStatus();
     }, [user, status]);
+
+
+    // Listen for app started/stopped events from CoreCommunicator
+    useEffect(() => {
+        const onAppStarted = (packageName: string) => {
+            console.log('APP_STARTED_EVENT', packageName);
+            optimisticallyStartApp(packageName);
+        };
+        const onAppStopped = (packageName: string) => {
+            console.log('APP_STOPPED_EVENT', packageName);
+            optimisticallyStopApp(packageName);
+        };
+        // @ts-ignore
+        GlobalEventEmitter.on('APP_STARTED_EVENT', onAppStarted);
+        // @ts-ignore
+        GlobalEventEmitter.on('APP_STOPPED_EVENT', onAppStopped);
+        return () => {
+            // @ts-ignore
+            GlobalEventEmitter.off('APP_STARTED_EVENT', onAppStarted);
+            // @ts-ignore
+            GlobalEventEmitter.off('APP_STOPPED_EVENT', onAppStopped);
+        };
+    }, [optimisticallyStartApp, optimisticallyStopApp]);
 
     return (
         <AppStatusContext.Provider value={{

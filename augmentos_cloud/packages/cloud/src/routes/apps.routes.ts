@@ -185,6 +185,44 @@ async function dualModeAuthMiddleware(req: Request, res: Response, next: NextFun
   });
 }
 
+/**
+ * Middleware to allow authentication via either core token/session or apiKey+packageName+userId
+ */
+async function apiKeyOrSessionAuthMiddleware(req: Request, res: Response, next: NextFunction) {
+  // Accept apiKey/packageName/userId from query, body, or headers
+  const apiKey = req.query.apiKey as string || req.body.apiKey || req.headers['x-api-key'] as string;
+  const packageName = req.query.packageName as string || req.body.packageName || req.headers['x-package-name'] as string;
+  const userId = req.query.userId as string || req.body.userId || req.headers['x-user-id'] as string;
+  const allowedPackages = ['test.augmentos.mira', 'com.augmentos.mira'];
+
+  if (apiKey && packageName && userId && allowedPackages.includes(packageName)) {
+    // Validate API key
+    const valid = await appService.validateApiKey(packageName, apiKey, req.ip);
+    if (valid) {
+      const userSessions = sessionService.getSessionsForUser(userId);
+      if (userSessions && userSessions.length > 0) {
+        (req as any).userSession = userSessions[0];
+        (req as any).authMode = 'apiKey';
+        return next();
+      } else {
+        // Optionally: fallback to a minimal session, or return an error
+        return res.status(401).json({
+          success: false,
+          message: 'No active session found for user.'
+        });
+      }
+    } else {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid API key or package name.'
+      });
+    }
+  }
+
+  // Fallback to existing dualModeAuthMiddleware
+  return dualModeAuthMiddleware(req, res, next);
+}
+
 const router = express.Router();
 
 // Route Handlers
@@ -193,75 +231,42 @@ const router = express.Router();
  */
 async function getAllApps(req: Request, res: Response) {
   try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required. Please provide valid token or session ID.'
-      });
-    }
-
-    // Get the user ID from the token
-    const token = authHeader.substring(7);
-    const userId = await getUserIdFromToken(token);
-
+    const session = (req as any).userSession;
+    const userId = session?.userId;
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: 'Error fetching user ID from token'
+        message: 'User ID is required (via token or userId param)'
       });
     }
-
     const apps = await appService.getAllApps(userId);
-    // console.log("🔥🔥🔥: Apps:", apps);
-    // Get active sessions for the user to determine running apps
     const userSessions = sessionService.getSessionsForUser(userId);
-    
-    // Convert apps to plain objects before enhancing
     const plainApps = apps.map(app => {
-      // Check if this is a Mongoose document with toObject method
       return (app as unknown as MongooseDocument).toObject?.() || app;
     });
-    
-    // Enhance apps with running status
     const enhancedApps = plainApps.map(app => {
-      // Create a new plain object for the enhanced app
       const enhancedApp: EnhancedAppI = {
         ...app,
         is_running: false,
         is_foreground: false
       };
-      
-      // Check if this app is running in any user session
       if (userSessions && userSessions.length > 0) {
-        const isRunning = userSessions.some(session => 
+        const isRunning = userSessions.some(session =>
           session.activeAppSessions && session.activeAppSessions.includes(app.packageName)
         );
         enhancedApp.is_running = isRunning;
-        
-        // Check if it's a foreground app in any session
         if (isRunning) {
-          // Try a few different possible properties for foreground status
-          // Different components of the system might use different property names
           const isForeground = userSessions.some(session => {
-            // Check various possible properties for foreground app
             return (
-              // Most likely property name
-              (session as any).foregroundAppPackageName === app.packageName || 
-              // Fallback checks
+              (session as any).foregroundAppPackageName === app.packageName ||
               (session as any).foregroundApp === app.packageName
             );
           });
           enhancedApp.is_foreground = isForeground;
         }
       }
-      
       return enhancedApp;
     });
-
-    // console.log("🔥🔥🔥: Enhanced apps:");
-
     res.json({
       success: true,
       data: enhancedApps
@@ -380,25 +385,19 @@ async function getAppByPackage(req: Request, res: Response) {
  */
 async function startApp(req: Request, res: Response) {
   const { packageName } = req.params;
-  const session = (req as any).userSession; // Get session from middleware
-
+  const session = (req as any).userSession;
   try {
     await webSocketService.startAppSession(session, packageName);
     const appStateChange = await webSocketService.generateAppStateStatus(session);
-
-    // console.log("appStateChange: " + JSON.stringify(appStateChange));
-
     res.json({
       success: true,
-      data: { 
-        status: 'started', 
+      data: {
+        status: 'started',
         packageName,
-        appState: appStateChange 
+        appState: appStateChange
       }
     });
-
     if (session.websocket && session.websocket.readyState === 1) {
-      // console.log("🔥🔥🔥: Sending app state change to websocket:", appStateChange);
       session.websocket.send(JSON.stringify(appStateChange));
     }
   } catch (error) {
@@ -415,8 +414,7 @@ async function startApp(req: Request, res: Response) {
  */
 async function stopApp(req: Request, res: Response) {
   const { packageName } = req.params;
-  const session = (req as any).userSession; // Get session from middleware
-
+  const session = (req as any).userSession;
   try {
     const app = await appService.getApp(packageName);
     if (!app) {
@@ -425,23 +423,16 @@ async function stopApp(req: Request, res: Response) {
         message: 'App not found'
       });
     }
-
-     // Call WebSocket service to stop the app with all the proper cleanup
-     await webSocketService.stopAppSession(session, packageName);
-
-     // Generate app state change to return
-     const appStateChange = await webSocketService.generateAppStateStatus(session);
-
+    await webSocketService.stopAppSession(session, packageName);
+    const appStateChange = await webSocketService.generateAppStateStatus(session);
     res.json({
       success: true,
-      data: { 
-        status: 'stopped', 
+      data: {
+        status: 'stopped',
         packageName,
-        appState: appStateChange 
+        appState: appStateChange
       }
     });
-
-    // If the session has a websocket connection, also send the update there
     if (session.websocket && session.websocket.readyState === 1) {
       session.websocket.send(JSON.stringify(appStateChange));
     }
@@ -738,7 +729,7 @@ async function getAvailableApps (req: Request, res: Response) {
 };
 
 // Route Definitions
-router.get('/', getAllApps);
+router.get('/', apiKeyOrSessionAuthMiddleware, getAllApps);
 router.get('/public', getPublicApps);
 router.get('/search', searchApps);
 
@@ -761,7 +752,7 @@ router.get('/available', getAvailableApps);
 router.get('/:packageName', getAppByPackage);
 
 // Device-specific operations - require full sessions
-router.post('/:packageName/start', sessionAuthMiddleware, startApp);
-router.post('/:packageName/stop', sessionAuthMiddleware, stopApp);
+router.post('/:packageName/start', apiKeyOrSessionAuthMiddleware, startApp);
+router.post('/:packageName/stop', apiKeyOrSessionAuthMiddleware, stopApp);
 
 export default router;
