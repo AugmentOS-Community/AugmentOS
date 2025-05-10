@@ -20,7 +20,55 @@ async function runAllTests() {
   
   // Test suites to run
   const suites: Array<{ name: string, runner: () => Promise<any> }> = [
-    // Add test suites here
+    { 
+      name: 'Basic Features', 
+      runner: async () => {
+        const module = await import('../services/layout/tests/scenarios/basic-features.test');
+        await module.testBootQueueing();
+        await module.testPerAppThrottling();
+      }
+    },
+    { 
+      name: 'Boot Scenarios', 
+      runner: async () => {
+        const module = await import('../services/layout/tests/scenarios/boot-scenarios.test');
+        await module.testBootQueueAndProcess();
+        await module.testPreBootDisplayPreservation();
+        await module.testMultipleAppBoot();
+        await module.testAppStopDuringBoot();
+        await module.testNoDisplayRestoreForStoppedApps();
+      }
+    },
+    { 
+      name: 'Show Throttled After App Stop', 
+      runner: async () => {
+        const module = await import('../services/layout/tests/scenarios/show-throttled-after-app-stop.test');
+        await module.testShowThrottledAfterAppStop();
+        await module.testMultipleThrottledRequests();
+        await module.testStoppedAppThrottledRequests();
+      }
+    },
+    { 
+      name: 'Simple Test', 
+      runner: async () => {
+        const module = await import('../services/layout/tests/scenarios/simple-test');
+        await module.main();
+      }
+    },
+    { 
+      name: 'Stop App Display Bug Fix', 
+      runner: async () => {
+        const module = await import('../services/layout/tests/scenarios/stop-app-display-bug-fix.test');
+        await module.testNoDisplayRestoreForStoppedApps();
+      }
+    },
+    { 
+      name: 'Transient Display Boot Test', 
+      runner: async () => {
+        const module = await import('../services/layout/tests/scenarios/transient-display-boot-test');
+        await module.testTransientDisplayNotRestored();
+      }
+    }
   ];
   
   // Run each suite

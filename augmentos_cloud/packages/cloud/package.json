@@ -14,7 +14,7 @@
     "staging": "NODE_ENV=staging tsx watch src/index.ts",
     "deploy": "bun run build && bun run start",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
-    "test": "bun test",
+    "test": "bun run ./src/tests/run-tests.ts",
     "test:visual": "bun run ./src/services/layout/tests/run-visual-tests.ts",
     "test:display": "bun run ./src/services/layout/tests/run-visual-tests.ts",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org pierce-50 --project augmentos-cloud-dev ./dist && sentry-cli sourcemaps upload --org pierce-50 --project augmentos-cloud-dev ./dist",
