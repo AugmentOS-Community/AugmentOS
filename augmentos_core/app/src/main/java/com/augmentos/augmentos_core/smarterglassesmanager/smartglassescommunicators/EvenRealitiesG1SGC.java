@@ -208,8 +208,8 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         //goHomeHandler = new Handler();
         this.smartGlassesDevice = smartGlassesDevice;
         preferredG1DeviceId = getPreferredG1DeviceId(context);
-        brightnessValue = getSavedBrightnessValue(context);
-        shouldUseAutoBrightness = getSavedAutoBrightnessValue(context);
+        brightnessValue = 50;
+        shouldUseAutoBrightness = false;
         this.bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         this.shouldUseGlassesMic = SmartGlassesManager.getSensingEnabled(context) && !SmartGlassesManager.getForceCoreOnboardMic(context);
 
@@ -474,6 +474,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
 
                         // Handle MIC audio data
                         if (data.length > 0 && (data[0] & 0xFF) == 0xF1) {
+                            Log.d(TAG, "Lc3 Audio data received. Data: " + Arrays.toString(data) + ", from: " + deviceName);
                             int seq = data[1] & 0xFF; // Sequence number
                             // eg. LC3 to PCM
                             byte[] lc3 = Arrays.copyOfRange(data, 2, 202);
@@ -509,7 +510,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
                             audioProcessingCallback.onLC3AudioDataAvailable(lc3);
 
                         } else {
-//                                Log.d(TAG, "Lc3 Audio data received. Seq: " + seq + ", Data: " + Arrays.toString(lc3) + ", from: " + deviceName);
+                            Log.d(TAG, "Lc3 Audio data received. Seq: " + seq + ", Data: " + Arrays.toString(lc3) + ", from: " + deviceName);
                         }
                     }
                         //HEAD UP MOVEMENTS
@@ -831,13 +832,13 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         return prefs.getString(SAVED_G1_ID_KEY, null);
     }
 
-    public static int getSavedBrightnessValue(Context context){
-        return Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.SHARED_PREF_BRIGHTNESS), "50"));
-    }
+//    public static int getSavedBrightnessValue(Context context){
+//        return Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.SHARED_PREF_BRIGHTNESS), "50"));
+//    }
 
-    public static boolean getSavedAutoBrightnessValue(Context context){
-        return PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getResources().getString(R.string.SHARED_PREF_AUTO_BRIGHTNESS), false);
-    }
+//    public static boolean getSavedAutoBrightnessValue(Context context){
+//        return PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getResources().getString(R.string.SHARED_PREF_AUTO_BRIGHTNESS), false);
+//    }
 
     private void savePairedDeviceNames() {
         if (savedG1LeftName != null && savedG1RightName != null) {
@@ -2062,16 +2063,16 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         buffer.put((byte) validBrightness);       // Brightness level (0~63)
         buffer.put((byte) (autoLight ? 1 : 0)); // Auto light (0 = close, 1 = open)
 
-        sendDataSequentially(buffer.array(), false);
+        sendDataSequentially(buffer.array(), false, 100);
 
         Log.d(TAG, "Sent auto light brightness command => Brightness: " + brightness + ", Auto Light: " + (autoLight ? "Open" : "Close"));
 
         //send to AugmentOS core
-        if (autoLight) {
-            EventBus.getDefault().post(new BrightnessLevelEvent(autoLight));
-        } else {
-            EventBus.getDefault().post(new BrightnessLevelEvent(brightness));
-        }
+//        if (autoLight) {
+//            EventBus.getDefault().post(new BrightnessLevelEvent(autoLight));
+//        } else {
+//            EventBus.getDefault().post(new BrightnessLevelEvent(brightness));
+//        }
     }
 
     public void sendHeadUpAngleCommand(int headUpAngle) {
@@ -2088,7 +2089,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         buffer.put((byte) headUpAngle); // Angle value (0~60)
         buffer.put((byte) 0x01);        // Level (fixed at 0x01)
 
-        sendDataSequentially(buffer.array(), false);
+        sendDataSequentially(buffer.array(), false, 100);
 
         Log.d(TAG, "Sent headUp angle command => Angle: " + headUpAngle);
         EventBus.getDefault().post(new HeadUpAngleEvent(headUpAngle));
@@ -2096,11 +2097,13 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
 
     @Override
     public void updateGlassesBrightness(int brightness) {
+        Log.d(TAG, "Updating glasses brightness: " + brightness);
         sendBrightnessCommand(brightness, false);
     }
 
     @Override
     public void updateGlassesAutoBrightness(boolean autoBrightness) {
+        Log.d(TAG, "Updating glasses auto brightness: " + autoBrightness);
         sendBrightnessCommand(-1, autoBrightness);
     }
 

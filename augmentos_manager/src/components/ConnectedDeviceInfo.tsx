@@ -27,6 +27,8 @@ const ConnectedDeviceInfo: React.FC<ConnectedDeviceInfoProps> = ({ isDarkTheme }
   const [isConnectButtonDisabled, setConnectButtonDisabled] = useState(false);
   const [isDisconnectButtonDisabled, setDisconnectButtonDisabled] = useState(false);
 
+  console.log('222 status.glasses_info', status.glasses_info);
+
   useFocusEffect(
     React.useCallback(() => {
       // Reset animations to initial values

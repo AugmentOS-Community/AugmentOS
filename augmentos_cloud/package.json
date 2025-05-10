@@ -27,6 +27,7 @@
     "logs": "docker compose -f docker-compose.dev.yml -p dev logs -f --tail=0",
     "logs:prod": "docker compose -f docker-compose.yml -p prod logs -f --tail=10",
     "logs:cloud": "docker compose -f docker-compose.dev.yml -p dev logs -f cloud --tail=0",
+    "logs:service": "docker compose -f docker-compose.dev.yml -p dev logs -f",
 
     "test": "bun run packages/cloud/src/tests/run-tests.ts",
     "test:display": "bun run packages/cloud/src/tests/display-manager.test.ts"

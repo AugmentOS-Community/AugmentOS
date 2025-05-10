@@ -8,6 +8,7 @@ import { StreamType } from "./streams";
 export enum GlassesToCloudMessageType {
   // Control actions
   CONNECTION_INIT = 'connection_init',
+  REQUEST_SETTINGS = 'request_settings',
   // START_APP = 'start_app',
   // STOP_APP = 'stop_app',
 
@@ -37,7 +38,9 @@ export enum GlassesToCloudMessageType {
   VAD = StreamType.VAD,
   PHONE_NOTIFICATION = StreamType.PHONE_NOTIFICATION,
   NOTIFICATION_DISMISSED = StreamType.NOTIFICATION_DISMISSED,
-  CALENDAR_EVENT = StreamType.CALENDAR_EVENT
+  CALENDAR_EVENT = StreamType.CALENDAR_EVENT,
+  AUGMENTOS_SETTINGS_UPDATE_REQUEST = StreamType.AUGMENTOS_SETTINGS_UPDATE_REQUEST,
+  CORE_STATUS_UPDATE = StreamType.CORE_STATUS_UPDATE
 }
 
 /**
@@ -53,6 +56,7 @@ export enum CloudToGlassesMessageType {
   DISPLAY_EVENT = 'display_event',
   APP_STATE_CHANGE = 'app_state_change',
   MICROPHONE_STATE_CHANGE = 'microphone_state_change',
+  SETTINGS_UPDATE = 'settings_update',
   
   // Dashboard updates
   DASHBOARD_MODE_CHANGE = 'dashboard_mode_change',
@@ -124,7 +128,9 @@ export const EventTypes = [
   GlassesToCloudMessageType.VAD,
   GlassesToCloudMessageType.PHONE_NOTIFICATION,
   GlassesToCloudMessageType.NOTIFICATION_DISMISSED,
-  GlassesToCloudMessageType.CALENDAR_EVENT
+  GlassesToCloudMessageType.CALENDAR_EVENT,
+  GlassesToCloudMessageType.AUGMENTOS_SETTINGS_UPDATE_REQUEST,
+  GlassesToCloudMessageType.CORE_STATUS_UPDATE
 ] as const;
 
 /**
@@ -143,6 +149,7 @@ export const UpdateTypes = [
   CloudToGlassesMessageType.DISPLAY_EVENT,
   CloudToGlassesMessageType.APP_STATE_CHANGE,
   CloudToGlassesMessageType.MICROPHONE_STATE_CHANGE,
+  CloudToGlassesMessageType.SETTINGS_UPDATE,
   CloudToGlassesMessageType.DASHBOARD_MODE_CHANGE,
   CloudToGlassesMessageType.DASHBOARD_ALWAYS_ON_CHANGE
 ] as const;

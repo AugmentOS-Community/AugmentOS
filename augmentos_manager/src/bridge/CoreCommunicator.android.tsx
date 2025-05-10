@@ -472,7 +472,7 @@ export class CoreCommunicator extends EventEmitter {
   }
 
   async sendToggleAlwaysOnStatusBar(enabled: boolean) {
-    console.log('sendToggleAlwaysOnStatusBar');
+    console.log('111 sendToggleAlwaysOnStatusBar', enabled);
     return await this.sendData({
       command: 'enable_always_on_status_bar',
       params: {

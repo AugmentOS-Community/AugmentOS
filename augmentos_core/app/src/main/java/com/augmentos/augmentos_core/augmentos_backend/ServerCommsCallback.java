@@ -17,4 +17,5 @@ public interface ServerCommsCallback {
     void onRequestSingle(String dataType);
 
     void onMicrophoneStateChange(boolean isEnabled);
+    void onSettingsUpdate(JSONObject settings);
 }

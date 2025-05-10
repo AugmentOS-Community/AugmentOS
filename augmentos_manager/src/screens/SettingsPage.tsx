@@ -12,6 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Slider } from 'react-native-elements';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import axios from 'axios';
 
 import { useStatus } from '../providers/AugmentOSStatusProvider';
 import coreCommunicator from '../bridge/CoreCommunicator';
@@ -22,6 +23,8 @@ import { SETTINGS_KEYS } from '../consts';
 import { supabase } from '../supabaseClient';
 import { requestFeaturePermissions, PermissionFeatures } from '../logic/PermissionsUtils';
 import showAlert from '../utils/AlertUtils';
+
+const CLOUD_URL = process.env.CLOUD_HOST_NAME;
 
 interface SettingsPageProps {
   isDarkTheme: boolean;
@@ -47,7 +50,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 }) => {
   const { status } = useStatus();
 
-
   // -- Basic states from your original code --
   const [isDoNotDisturbEnabled, setDoNotDisturbEnabled] = useState(false);
   const [isSensingEnabled, setIsSensingEnabled] = useState(
@@ -68,30 +70,23 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   const toggleForceCoreOnboardMic = async () => {
-    // First request microphone permission if we're enabling the mic
-    if (!forceCoreOnboardMic) {
-      // We're about to enable the mic, so request permission
-      const hasMicPermission = await requestFeaturePermissions(PermissionFeatures.MICROPHONE);
-      if (!hasMicPermission) {
-        // Permission denied, don't toggle the setting
-        console.log('Microphone permission denied, cannot enable phone microphone');
-        showAlert(
-          'Microphone Permission Required',
-          'Microphone permission is required to use the phone microphone feature. Please grant microphone permission in settings.',
-          [{ text: 'OK' }],
-          {
-            isDarkTheme,
-            iconName: 'microphone',
-            iconColor: '#2196F3'
-          }
-        );
-        return;
-      }
-    }
-    // Continue with toggling the setting if permission granted or turning off
     const newVal = !forceCoreOnboardMic;
-    await coreCommunicator.sendToggleForceCoreOnboardMic(newVal);
-    setForceCoreOnboardMic(newVal);
+    try {
+      await coreCommunicator.sendToggleForceCoreOnboardMic(newVal);
+      setForceCoreOnboardMic(newVal);
+    } catch (error) {
+      console.log('Microphone permission denied, cannot enable phone microphone');
+      showAlert(
+        'Microphone Permission Required',
+        'Microphone permission is required to use the phone microphone feature. Please grant microphone permission in settings.',
+        [{ text: 'OK' }],
+        {
+          isDarkTheme,
+          iconName: 'microphone',
+          iconColor: '#2196F3'
+        }
+      );
+    }
   };
 
   const toggleAlwaysOnStatusBar = async () => {

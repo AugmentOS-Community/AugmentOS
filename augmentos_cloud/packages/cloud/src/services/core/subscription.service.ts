@@ -167,6 +167,9 @@ export class SubscriptionService {
    * are subscribed to "audio_chunk", "translation", and "transcription".
    */
   hasMediaSubscriptions(sessionId: string): boolean {
+    // console.log("🔥🔥🔥: hasMediaSubscriptions:", sessionId);
+    // console.log("🔥🔥🔥: this.subscriptions:", this.subscriptions.entries());
+
     for (const [key, subs] of this.subscriptions.entries()) {
       // Only consider subscriptions for the given user session.
       if (!key.startsWith(sessionId + ':')) continue;
