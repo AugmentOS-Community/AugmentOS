@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
+    "test:watch": "jest --watch",
     "build-android": "cd android && ./gradlew assembleDebug && adb install -r ./app/build/outputs/apk/debug/app-debug.apk",
     "build-android-release": "cd android && ./gradlew assembleRelease && adb install -r ./app/build/outputs/apk/release/app-release.apk",
     "deploy:ios": "cd ios && fastlane beta",
@@ -60,6 +61,8 @@
     "@react-native/eslint-config": "0.75.4",
     "@react-native/metro-config": "0.75.4",
     "@react-native/typescript-config": "0.75.4",
+    "@testing-library/react-native": "^13.2.0",
+    "@types/jest": "^29.5.14",
     "@types/react": "^18.2.6",
     "@types/react-native-permissions": "^1.1.1",
     "@types/react-native-vector-icons": "^6.4.18",
@@ -74,6 +77,7 @@
     "react-devtools-core": "^6.1.2",
     "react-native-dotenv": "^3.4.11",
     "react-test-renderer": "18.3.1",
+    "ts-node": "^10.9.2",
     "typescript": "5.0.4"
   },
   "engines": {

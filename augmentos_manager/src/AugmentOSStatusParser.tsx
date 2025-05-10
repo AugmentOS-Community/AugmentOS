@@ -24,6 +24,11 @@ interface GSMConnection {
   signal_strength: number; // 0-100
 }
 
+export interface AppInfo {
+  packageName: string;
+  icon?: string | null;
+}
+
 export interface CoreAuthInfo {
   core_token_owner: string;
   core_token_status: string;
@@ -109,6 +114,9 @@ export class AugmentOSParser {
       brightness: '87',
       auto_brightness: false,
       headUp_angle: 20,
+      dashboard_height: null,
+      dashboard_distance: null,
+      dashboard_x_offset: null,
     },
     wifi: { is_connected: true, ssid: 'TP-LINK69', signal_strength: 100 },
     gsm: { is_connected: false, carrier: '', signal_strength: 0 },

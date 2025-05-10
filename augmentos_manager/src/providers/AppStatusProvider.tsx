@@ -33,7 +33,7 @@ export interface AppInterface {
     is_foreground?: boolean;
 }
 
-interface AppStatusContextType {
+export interface AppStatusContextType {
     appStatus: AppInterface[];
     refreshAppStatus: () => Promise<void>;
     optimisticallyStartApp: (packageName: string) => void;
