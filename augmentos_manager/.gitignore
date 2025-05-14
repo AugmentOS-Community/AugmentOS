@@ -109,3 +109,6 @@ ios/.xcode.env.local
 *.pem
 *.key
 *.crt
+
+# testing
+/coverage
