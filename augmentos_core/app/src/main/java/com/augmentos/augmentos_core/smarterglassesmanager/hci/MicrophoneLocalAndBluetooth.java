@@ -87,7 +87,9 @@ public class MicrophoneLocalAndBluetooth {
                         startRecording();
                         break;
                     case AudioManager.SCO_AUDIO_STATE_CONNECTING:
-                        handleBluetoothStateChange(BluetoothState.UNAVAILABLE);
+                        // Don't treat CONNECTING as UNAVAILABLE - it's a normal transition state
+                        // Continue using normal mic mode while waiting for SCO to connect
+                        Log.d(TAG, "SCO connecting - continuing with current recording...");
                         break;
                     case AudioManager.SCO_AUDIO_STATE_DISCONNECTED:
                         handleBluetoothStateChange(BluetoothState.UNAVAILABLE);
@@ -152,19 +154,31 @@ public class MicrophoneLocalAndBluetooth {
     private Context mContext;
 
     private AudioChunkCallback mChunkCallback;
+    private PhoneMicrophoneManager phoneMicManager;
     private CountDownTimer mCountDown;
 
     public MicrophoneLocalAndBluetooth(Context context, boolean useBluetoothSco, AudioChunkCallback chunkCallback) {
-        this(context, chunkCallback);
+        this(context, useBluetoothSco, chunkCallback, null);
+    }
+
+    public MicrophoneLocalAndBluetooth(Context context, boolean useBluetoothSco, AudioChunkCallback chunkCallback, 
+                                      PhoneMicrophoneManager phoneMicManager) {
+        this(context, chunkCallback, phoneMicManager);
         useBluetoothMic(useBluetoothSco);
     }
 
     public MicrophoneLocalAndBluetooth(Context context, AudioChunkCallback chunkCallback) {
+        this(context, chunkCallback, null);
+    }
+
+    public MicrophoneLocalAndBluetooth(Context context, AudioChunkCallback chunkCallback, 
+                                     PhoneMicrophoneManager phoneMicManager) {
         bufferSize = Math.round(SAMPLING_RATE_IN_HZ * BUFFER_SIZE_SECONDS);
 
         mIsStarting = true;
 
         mContext = context;
+        this.phoneMicManager = phoneMicManager;
 
         audioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
 
@@ -299,7 +313,16 @@ public class MicrophoneLocalAndBluetooth {
                 stopRecording();
                 return;
             }
+            
+            // Register our AudioRecord with the PhoneMicrophoneManager for conflict detection
+            // Do this BEFORE starting recording so we can filter out events from our own app
+            if (phoneMicManager != null) {
+                int sessionId = recorder.getAudioSessionId();
+                Log.d(TAG, "Registering our AudioRecord with session ID: " + sessionId);
+                phoneMicManager.registerOurAudioRecord(recorder);
+            }
 
+            // Start recording AFTER registering the AudioRecord
             recorder.startRecording();
 
             recordingInProgress.set(true);
@@ -333,11 +356,23 @@ public class MicrophoneLocalAndBluetooth {
         }
 
         recordingInProgress.set(false);
+        
+        // Store the recorder reference temporarily to ensure we can unregister it
+        // even if an exception occurs during the stop process
+        AudioRecord tempRecorder = recorder;
 
         try {
+            // Unregister from PhoneMicrophoneManager BEFORE stopping to ensure
+            // we don't react to our own recorder's stop event
+            if (phoneMicManager != null && tempRecorder != null) {
+                int sessionId = tempRecorder.getAudioSessionId();
+                Log.d(TAG, "Unregistering our AudioRecord with session ID: " + sessionId);
+                phoneMicManager.unregisterOurAudioRecord(tempRecorder);
+            }
+            
             // Only call stop if the recorder is actually recording.
-            if (recorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
-                recorder.stop();
+            if (tempRecorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+                tempRecorder.stop();
             } else {
                 Log.d(TAG, "AudioRecord is not recording; skipping stop.");
             }
@@ -345,7 +380,9 @@ public class MicrophoneLocalAndBluetooth {
             Log.e(TAG, "Error stopping AudioRecord", e);
         } finally {
             try {
-                recorder.release();
+                if (tempRecorder != null) {
+                    tempRecorder.release();
+                }
             } catch (Exception e) {
                 Log.e(TAG, "Error releasing AudioRecord", e);
             }
