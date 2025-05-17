@@ -16,7 +16,6 @@ interface DebugSessionInfo {
   activeAppSessions: string[];
   installedApps: Array<{ packageName: string; name: string }>;
   loadingApps: Set<string>;
-  OSSettings: { brightness: number; volume: number };
   isTranscribing: boolean;
   transcript: {
     segments: TranscriptSegment[];
@@ -102,7 +101,6 @@ export class DebugService {
       activeAppSessions: Array.isArray(session.activeAppSessions) ? session.activeAppSessions : [],
       installedApps: Array.isArray(session.installedApps) ? session.installedApps : [],
       loadingApps: Array.from(session.loadingApps || []),
-      OSSettings: session.OSSettings || { brightness: 50, volume: 50 },
       isTranscribing: Boolean(session.isTranscribing),
       transcript: {
         segments: Array.isArray(session.transcript?.segments) ? session.transcript.segments : [],

@@ -74,6 +74,7 @@
     <string name="SHARED_PREF_AUTO_BRIGHTNESS">auto_brightness</string>
     <string name="PREFERRED_WEARABLE">preferred_wearable</string>
     <string name="FORCE_CORE_ONBOARD_MIC">force_core_onboard_mic</string>
+    <string name="PREFERRED_MIC">preferred_mic</string>
     <string name="SENSING_ENABLED">sensing_enabled</string>
     <string name="BYPASS_VAD_FOR_DEBUGGING">bypass_vad_for_debugging</string>
     <string name="BYPASS_AUDIO_ENCODING_FOR_DEBUGGING">bypass_audio_encoding_for_debugging</string>

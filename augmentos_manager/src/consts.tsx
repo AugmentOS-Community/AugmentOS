@@ -16,3 +16,6 @@ export const SETTINGS_KEYS = {
     VISITED_LIVECAPTIONS_SETTINGS: 'VISITED_LIVECAPTIONS_SETTINGS',
     CUSTOM_BACKEND_URL: 'CUSTOM_BACKEND_URL',
 };
+
+// Models that support WiFi configuration
+export const WIFI_CONFIGURABLE_MODELS = ['Mentra Live', 'Android Smart Glasses'];

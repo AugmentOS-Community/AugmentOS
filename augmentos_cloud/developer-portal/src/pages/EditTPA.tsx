@@ -10,13 +10,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeftIcon, CheckCircle2, AlertCircle, Loader2, KeyRound, Copy, RefreshCw, Share2, LinkIcon, Upload } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 import api from '@/services/api.service';
-import { TPA } from '@/types/tpa';
+import { TPA, Permission } from '@/types/tpa';
 import { toast } from 'sonner';
 import ApiKeyDialog from '../components/dialogs/ApiKeyDialog';
 import SharingDialog from '../components/dialogs/SharingDialog';
 import PublishDialog from '../components/dialogs/PublishDialog';
 import { TpaType } from '@augmentos/sdk';
 import { normalizeUrl } from '@/libs/utils';
+import PermissionsForm from '../components/forms/PermissionsForm';
 
 const EditTPA: React.FC = () => {
   const navigate = useNavigate();
@@ -35,7 +36,11 @@ const EditTPA: React.FC = () => {
     tpaType: 'standard' as TpaType, // Default value for TpaType with cast
     createdAt: new Date().toISOString(), // Default value for AppResponse compatibility
     updatedAt: new Date().toISOString(), // Default value for AppResponse compatibility
+    permissions: [], // Initialize permissions as empty array
   });
+  
+  // Permissions state
+  const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -50,15 +55,17 @@ const EditTPA: React.FC = () => {
   const [isLoadingShareLink, setIsLoadingShareLink] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   
-  // Fetch TPA data from API
+  // Fetch TPA data and permissions from API
   useEffect(() => {
-    const fetchTPA = async () => {
+    const fetchData = async () => {
       if (!packageName) return;
       
       try {
         setIsLoading(true);
+        setIsLoadingPermissions(true);
         setError(null);
         
+        // Fetch TPA data
         const tpaData = await api.apps.getByPackageName(packageName);
         
         // Convert API response to TPA type
@@ -81,6 +88,20 @@ const EditTPA: React.FC = () => {
         };
         
         setFormData(tpa);
+        
+        // Fetch permissions
+        try {
+          const permissionsData = await api.apps.permissions.get(packageName);
+          if (permissionsData.permissions) {
+            setFormData(prev => ({ ...prev, permissions: permissionsData.permissions }));
+          }
+        } catch (permError) {
+          console.error('Error fetching permissions:', permError);
+          // Don't fail the whole form load if permissions fail
+        } finally {
+          setIsLoadingPermissions(false);
+        }
+        
       } catch (err) {
         console.error('Error fetching TPA:', err);
         setError('Failed to load TPA data. Please try again.');
@@ -89,7 +110,7 @@ const EditTPA: React.FC = () => {
       }
     };
     
-    fetchTPA();
+    fetchData();
   }, [packageName]);
   
   // Handle form changes
@@ -124,6 +145,14 @@ const EditTPA: React.FC = () => {
     }
   };
   
+  // Handle permissions changes
+  const handlePermissionsChange = (permissions: Permission[]) => {
+    setFormData(prev => ({
+      ...prev,
+      permissions
+    }));
+  };
+  
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,6 +174,19 @@ const EditTPA: React.FC = () => {
       
       // Update TPA via API
       await api.apps.update(packageName, normalizedData);
+      
+      // Update permissions separately if they exist
+      if (formData.permissions && formData.permissions.length > 0) {
+        try {
+          await api.apps.permissions.update(packageName, formData.permissions);
+        } catch (permError) {
+          console.error('Error updating permissions:', permError);
+          toast.error('App updated but permissions failed to update');
+          setError('App updated but permissions failed to update. Please try again.');
+          setIsSaving(false);
+          return;
+        }
+      }
       
       // Show success message
       setIsSaved(true);
@@ -507,6 +549,15 @@ const EditTPA: React.FC = () => {
                       </Button>
                     </div>
                   )}
+                </div>
+                
+                {/* Permissions Section */}
+                <div className="mt-6">
+                  <h3 className="text-lg font-medium mb-4">Required Permissions</h3>
+                  <PermissionsForm 
+                    permissions={formData.permissions || []} 
+                    onChange={handlePermissionsChange} 
+                  />
                 </div>
               </CardContent>
               <CardFooter className="flex justify-between border-t p-6">

@@ -58,6 +58,7 @@
 		C5DC29092D765F5900B3F8D3 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DC29082D765F5900B3F8D3 /* Models.swift */; };
 		C5DC29832D77936900B3F8D3 /* CoreCommsService.m in Sources */ = {isa = PBXBuildFile; fileRef = C5DC29822D77936900B3F8D3 /* CoreCommsService.m */; };
 		C5DC29852D77938700B3F8D3 /* CoreCommsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DC29842D77938700B3F8D3 /* CoreCommsService.swift */; };
+		C5E8B1E72DD3C98200E3760B /* MediaManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E8B1E62DD3C98200E3760B /* MediaManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -156,6 +157,7 @@
 		C5DC29082D765F5900B3F8D3 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		C5DC29822D77936900B3F8D3 /* CoreCommsService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CoreCommsService.m; path = AugmentOS_Manager/CoreCommsService.m; sourceTree = "<group>"; };
 		C5DC29842D77938700B3F8D3 /* CoreCommsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreCommsService.swift; path = AugmentOS_Manager/CoreCommsService.swift; sourceTree = "<group>"; };
+		C5E8B1E62DD3C98200E3760B /* MediaManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaManager.swift; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		FE140319366160A1E25CF788 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = AugmentOS_Manager/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -405,6 +407,7 @@
 			isa = PBXGroup;
 			children = (
 				C520E1B32D874D7D009491C1 /* LocationManager.swift */,
+				C5E8B1E62DD3C98200E3760B /* MediaManager.swift */,
 				C520E1B12D852981009491C1 /* CalendarManager.swift */,
 				C56BE8C62D7D50E600407B70 /* MicrophoneManager.swift */,
 				C56BE8892D793E2E00407B70 /* G1Text.swift */,
@@ -681,6 +684,7 @@
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				C56BE87B2D79030800407B70 /* ServerComms.swift in Sources */,
 				C5DC28FB2D765C2500B3F8D3 /* ERG1Manager.swift in Sources */,
+				C5E8B1E72DD3C98200E3760B /* MediaManager.swift in Sources */,
 				C56BE8662D78E51100407B70 /* energy.c in Sources */,
 				C56BE8672D78E51100407B70 /* tables.c in Sources */,
 				C56BE8682D78E51100407B70 /* tns.c in Sources */,
@@ -791,7 +795,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 3HG9FZ7C8U;
+				DEVELOPMENT_TEAM = T5XXXL6N36;
 				ENABLE_BITCODE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -892,7 +896,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.augmentos.augmentostest;
+				PRODUCT_BUNDLE_IDENTIFIER = com.augmentos.augmentos;
 				PRODUCT_NAME = AugmentOS_Manager;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "BleManager/AugmentOS_Manager-Bridging-Header.h";
@@ -911,7 +915,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 3HG9FZ7C8U;
+				DEVELOPMENT_TEAM = T5XXXL6N36;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"${PODS_ROOT}/Headers/Public\"",
@@ -1011,7 +1015,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.augmentos.augmentostest;
+				PRODUCT_BUNDLE_IDENTIFIER = com.augmentos.augmentos;
 				PRODUCT_NAME = AugmentOS_Manager;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "BleManager/AugmentOS_Manager-Bridging-Header.h";

@@ -24,6 +24,7 @@ import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.Audio
 import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.EvenRealitiesG1;
 import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.InmoAirOne;
 import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.MentraMach1;
+import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.MentraLive;
 import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.SmartGlassesDevice;
 import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.SmartGlassesOperatingSystem;
 import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.TCLRayNeoXTwo;
@@ -373,6 +374,18 @@ public class SmartGlassesManager {
                 .putBoolean(context.getResources().getString(R.string.FORCE_CORE_ONBOARD_MIC), toForce)
                 .apply();
     }
+
+    public static String getPreferredMic(Context context) {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getString(context.getResources().getString(R.string.PREFERRED_MIC), "glasses");
+    }
+
+    public static void setPreferredMic(Context context, String mic) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putString(context.getResources().getString(R.string.PREFERRED_MIC), mic)
+                .apply();
+    }
     
     public static boolean getBypassVadForDebugging(Context context) {
         SharedPreferences sharedPreferences = context.getSharedPreferences("AugmentOSPrefs", Context.MODE_PRIVATE);
@@ -535,6 +548,19 @@ public class SmartGlassesManager {
         }
     }
 
+    public void requestWifiScan() {
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.requestWifiScan();
+        }
+    }
+
+    public void sendWifiCredentials(String ssid, String password) {
+        if (smartGlassesRepresentative != null && smartGlassesRepresentative.smartGlassesCommunicator != null) {
+            smartGlassesRepresentative.smartGlassesCommunicator.sendWifiCredentials(ssid, password);
+        }
+    }
+
+
     public void changeMicrophoneState(boolean isMicrophoneEnabled) {
         Log.d(TAG, "Want to changing microphone state to " + isMicrophoneEnabled);
         Log.d(TAG, "Force core onboard mic: " + getForceCoreOnboardMic(this.context));
@@ -610,6 +636,74 @@ public class SmartGlassesManager {
         sendHomeScreen();
     }
     
+    /**
+     * Sends a custom command to the connected smart glasses
+     * This is used for device-specific commands like WiFi configuration
+     * 
+     * @param commandJson The command in JSON string format
+     * @return boolean True if the command was sent, false otherwise
+     */
+    public boolean sendCustomCommand(String commandJson) {
+        if (smartGlassesRepresentative != null && 
+            smartGlassesRepresentative.smartGlassesCommunicator != null && 
+            smartGlassesRepresentative.getConnectionState() == SmartGlassesConnectionState.CONNECTED) {
+            
+            Log.d(TAG, "Sending custom command to glasses: " + commandJson);
+            
+            // Pass the command to the smart glasses communicator
+            // Each device-specific communicator will handle it appropriately
+            smartGlassesRepresentative.smartGlassesCommunicator.sendCustomCommand(commandJson);
+            return true;
+        } else {
+            Log.e(TAG, "Cannot send custom command - glasses not connected");
+            return false;
+        }
+    }
+    
+    /**
+     * Request a photo from the connected smart glasses
+     * 
+     * @param requestId The unique ID for this photo request
+     * @param appId The ID of the app requesting the photo
+     * @return true if request was sent, false if glasses not connected
+     */
+    public boolean requestPhoto(String requestId, String appId) {
+        if (smartGlassesRepresentative != null && 
+            smartGlassesRepresentative.smartGlassesCommunicator != null && 
+            smartGlassesRepresentative.getConnectionState() == SmartGlassesConnectionState.CONNECTED) {
+            
+            Log.d(TAG, "Requesting photo from glasses, requestId: " + requestId + ", appId: " + appId);
+            
+            // Pass the request to the smart glasses communicator
+            smartGlassesRepresentative.smartGlassesCommunicator.requestPhoto(requestId, appId);
+            return true;
+        } else {
+            Log.e(TAG, "Cannot request photo - glasses not connected");
+            return false;
+        }
+    }
+    
+    /**
+     * Request a video stream from the connected smart glasses
+     * 
+     * @return true if request was sent, false if glasses not connected
+     */
+    public boolean requestVideoStream() {
+        if (smartGlassesRepresentative != null && 
+            smartGlassesRepresentative.smartGlassesCommunicator != null && 
+            smartGlassesRepresentative.getConnectionState() == SmartGlassesConnectionState.CONNECTED) {
+            
+            Log.d(TAG, "Requesting video stream from glasses");
+            
+            // Pass the request to the smart glasses communicator
+            smartGlassesRepresentative.smartGlassesCommunicator.requestVideoStream();
+            return true;
+        } else {
+            Log.e(TAG, "Cannot request video stream - glasses not connected");
+            return false;
+        }
+    }
+    
     @Subscribe
     public void handleNewAsrLanguagesEvent(NewAsrLanguagesEvent event) {
         Log.d(TAG, "NewAsrLanguages: " + event.languages.toString());
@@ -621,6 +715,7 @@ public class SmartGlassesManager {
                 Arrays.asList(
                         new VuzixUltralite(),
                         new MentraMach1(),
+                        new MentraLive(),
                         new EvenRealitiesG1(),
                         new VuzixShield(),
                         new InmoAirOne(),

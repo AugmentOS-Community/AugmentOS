@@ -31,3 +31,7 @@ echo "🚀 Reopening Xcode workspace..."
 open ios/AugmentOS_Manager.xcworkspace
 
 echo "✅ All done. Clean rebuild ready."
+<<<<<<< HEAD
+
+=======
+>>>>>>> origin/dev

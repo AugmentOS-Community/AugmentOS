@@ -57,7 +57,9 @@ export {
   ConnectionInit,
   DashboardState,
   OpenDashboard,
-  GlassesToCloudMessage
+  GlassesToCloudMessage,
+  PhotoResponse,
+  VideoStreamResponse,
 } from './messages/glasses-to-cloud';
 
 // From messages/cloud-to-glasses.ts
@@ -112,7 +114,9 @@ export {
 export {
   isConnectionAck,
   isDisplayEvent,
-  isAppStateChange
+  isAppStateChange,
+  isPhotoRequest,
+  isVideoStreamRequest
 } from './messages/cloud-to-glasses';
 
 export {

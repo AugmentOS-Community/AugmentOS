@@ -7,13 +7,15 @@
  * to maintain core functionality regardless of database state.
  */
 
-import { AppI, StopWebhookRequest, TpaType, WebhookResponse, AppState, SessionWebhookRequest, ToolCall } from '@augmentos/sdk';
+import { AppI, StopWebhookRequest, TpaType, WebhookResponse, AppState, SessionWebhookRequest, ToolCall, PermissionType } from '@augmentos/sdk';
 import axios, { AxiosError } from 'axios';
 import { systemApps } from './system-apps';
 import App from '../../models/app.model';
 import { ToolSchema, ToolParameterSchema } from '@augmentos/sdk';
 import { User } from '../../models/user.model';
 import crypto from 'crypto';
+import { logger as rootLogger } from '../logging/pino-logger';
+const logger = rootLogger.child({ service: 'app.service' });
 
 const AUGMENTOS_AUTH_JWT_SECRET = process.env.AUGMENTOS_AUTH_JWT_SECRET;
 const APPSTORE_ENABLED = true;
@@ -54,6 +56,12 @@ export const SYSTEM_APPS: AppI[] = [
     description: "The time, The news, The weather, The notifications, The everything. 😎🌍🚀",
     publicUrl: `http://${systemApps.dashboard.host}`,
     logoURL: `https://cloud.augmentos.org/${systemApps.dashboard.packageName}.png`,
+    permissions: [
+      {
+        type: PermissionType.ALL,
+        description: "The dashboard app needs access to everything to provide a seamless experience."
+      }
+    ],
   },
 ];
 
@@ -130,10 +138,12 @@ export class AppService {
     if (APPSTORE_ENABLED) {
       if (!app) {
         // Check if the app is in the app store
-        console.log('Checking app store for app:', packageName);
+        logger.debug('Checking app store for app:', packageName);
+        
+        // Use lean() to get a plain JavaScript object instead of a Mongoose document
         app = await App.findOne({
           packageName: packageName
-        }) as AppI;
+        }).lean() as AppI;
       }
     }
 
@@ -143,7 +153,7 @@ export class AppService {
   async findFromAppStore(packageName: string): Promise<AppI | undefined> {
     const app = await App.findOne({
       packageName: packageName
-    }) as AppI;
+    }).lean() as AppI;
     return app;
   }
 
@@ -169,10 +179,13 @@ export class AppService {
       } catch (error: unknown) {
         if (attempt === maxRetries - 1) {
           if (axios.isAxiosError(error)) {
-            console.error(`Webhook failed: ${error}`);
-            console.error(`URL: ${url}`);
-            console.error(`Response: ${error.response?.data}`);
-            console.error(`Status: ${error.response?.status}`);
+            logger.error(`triggerWebhook failed`, {
+              url,
+              attempt,
+              status: error.response?.status,
+              data: error.response?.data,
+              message: error.message
+            });
           }
           throw new Error(`Webhook failed after ${maxRetries} attempts: ${(error as AxiosError).message || 'Unknown error'}`);
         }
@@ -222,7 +235,7 @@ export class AppService {
   async validateApiKey(packageName: string, apiKey: string, clientIp?: string): Promise<boolean> {
     const app = await this.getApp(packageName);
     if (!app) {
-      console.warn(`App ${packageName} not found`);
+      logger.warn(`App ${packageName} not found`);
       return false;
     }
 
@@ -248,11 +261,11 @@ export class AppService {
         ipv4 === '127.0.0.1' ||
         ipv4 === 'localhost';
 
-      console.log(`System app ${packageName} connection IP check: ${clientIp} (IPv4: ${ipv4}), isInternal: ${isInternalIp}`);
+      logger.debug(`System app ${packageName} connection IP check: ${clientIp} (IPv4: ${ipv4}), isInternal: ${isInternalIp}`);
 
       if (isInternalIp) {
         // Reject connection if not from internal network
-        console.warn(`System app ${packageName} connection is an internal IP: ${clientIp} (IPv4: ${ipv4}) - allowing access`);
+        logger.warn(`System app ${packageName} connection is an internal IP: ${clientIp} (IPv4: ${ipv4}) - allowing access`);
         return true;
       }
     }
@@ -262,7 +275,7 @@ export class AppService {
     const appDoc = await App.findOne({ packageName });
 
     if (!appDoc) {
-      console.warn(`App ${packageName} not found in database`);
+      logger.warn(`App ${packageName} not found in database`);
       return false;
     }
 
@@ -270,14 +283,14 @@ export class AppService {
     // If the app is a system app, we don't need to validate the API key
 
     if (!appDoc?.hashedApiKey) {
-      console.warn(`App ${packageName} does not have a hashed API key`);
+      logger.warn(`App ${packageName} does not have a hashed API key`);
       return false;
     }
 
     // Hash the provided API key and compare with stored hash
     const hashedKey = this.hashApiKey(apiKey);
 
-    console.log(`Validating API key for ${packageName}: ${hashedKey} === ${appDoc.hashedApiKey}`);
+    logger.debug(`Validating API key for ${packageName}: ${hashedKey} === ${appDoc.hashedApiKey}`);
     // Compare the hashed API key with the stored hashed API key
 
     return hashedKey === appDoc.hashedApiKey;
@@ -302,7 +315,7 @@ export class AppService {
    * @returns Validated and sanitized tools array or throws error if invalid
    */
   private validateToolDefinitions(tools: any[]): ToolSchema[] {
-    console.log('Validating tool definitions:', tools);
+    logger.debug('Validating tool definitions:', tools);
     if (!Array.isArray(tools)) {
       throw new Error('Tools must be an array');
     }
@@ -596,6 +609,7 @@ export class AppService {
       query.developerId = developerId;
     }
 
+    // Use lean() to get a plain JavaScript object instead of a Mongoose document
     return App.findOne(query).lean();
   }
 
@@ -605,7 +619,7 @@ export class AppService {
    */
   // export async function getPublicApps(developerEmail?: string): Promise<AppI[]> {
   async getPublicApps(): Promise<AppI[]> {
-    // console.log('Getting public apps - developerEmail', developerEmail);
+    // logger.debug('Getting public apps - developerEmail', developerEmail);
     // if (developerEmail) {
     //   const developer
     //     = await User.findOne({ email: developerEmail }).lean();
@@ -642,7 +656,7 @@ export class AppService {
     // Look up the TPA by packageName
     const app = await this.getApp(packageName);
 
-    console.log('🔨 Triggering tool webhook for:', packageName);
+    logger.debug('🔨 Triggering tool webhook for:', packageName);
     
     if (!app) {
       throw new Error(`App ${packageName} not found`);
@@ -669,8 +683,8 @@ export class AppService {
     const maxRetries = 2;
     const baseDelay = 1000; // 1 second
 
-    console.log('🔨 Sending tool webhook to:', webhookUrl);
-    console.log('🔨 Payload:', payload);
+    logger.debug('🔨 Sending tool webhook to:', webhookUrl);
+    logger.debug('🔨 Payload:', payload);
     
     // Attempt to send the webhook with retries
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -693,10 +707,15 @@ export class AppService {
         if (attempt === maxRetries - 1) {
           if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError;
-            console.error(`Tool webhook failed for ${packageName}: ${axiosError.message}`);
-            console.error(`URL: ${webhookUrl}`);
-            console.error(`Response: ${axiosError.response?.data}`);
-            console.error(`Status: ${axiosError.response?.status}`);
+            logger.error(`Tool webhook failed for ${packageName}: ${axiosError.message}`,
+              {
+                packageName,
+                webhookUrl,
+                attempt,
+                status: axiosError.response?.status,
+                data: axiosError.response?.data
+              }
+            );
             
             // Return a standardized error response
             return {
@@ -754,7 +773,7 @@ export class AppService {
       throw new Error(`App ${packageName} does not have a public URL`);
     }
 
-    console.log('Getting TPA tools for:', packageName);
+    logger.debug('Getting TPA tools for:', packageName);
     
     try {
       // Fetch the tpa_config.json from the app's publicUrl
@@ -765,7 +784,7 @@ export class AppService {
       const config = response.data;
       if (config && Array.isArray(config.tools)) {
         // Validate the tools before returning them
-        console.log(`Found ${config.tools.length} tools in ${packageName}, validating...`);
+        logger.debug(`Found ${config.tools.length} tools in ${packageName}, validating...`);
         return this.validateToolDefinitions(config.tools);
       }
       
@@ -775,12 +794,9 @@ export class AppService {
       // Check if error is a 404 (file not found) and silently ignore
       if (axios.isAxiosError(error) && error.response?.status === 404) {
         // Config file doesn't exist, silently return empty array
-        console.log(`No tpa_config.json found for app ${packageName} (404)`);
+        logger.debug(`No tpa_config.json found for app ${packageName} (404)`);
         return [];
       }
-      
-      // Log other errors but still return empty array
-      //console.error(`Failed to fetch tpa_config.json for app ${packageName}:`, error);
       return [];
     }
   }
@@ -789,6 +805,6 @@ export class AppService {
 
 // Create singleton instance
 export const appService = new AppService();
-console.log('✅ App Service');
+logger.info('✅ App Service initialized');
 
 export default appService;

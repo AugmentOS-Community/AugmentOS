@@ -9,7 +9,6 @@ interface DebugSessionInfo {
   activeAppSessions: string[];
   installedApps: Array<{ packageName: string; name: string }>;
   loadingApps: Set<string>;
-  OSSettings: { brightness: number; volume: number };
   isTranscribing: boolean;
   transcript: {
     segments: Array<{
@@ -102,7 +101,6 @@ const mockSessions: DebugSessionInfo[] = [
       { packageName: 'tpa-2', name: 'TPA 2' }
     ],
     loadingApps: new Set(['tpa-3']),
-    OSSettings: { brightness: 80, volume: 50 },
     isTranscribing: true,
     transcript: {
       segments: [
@@ -200,7 +198,6 @@ const mockSessions: DebugSessionInfo[] = [
       { packageName: 'tpa-1', name: 'TPA 1' }
     ],
     loadingApps: new Set(),
-    OSSettings: { brightness: 70, volume: 40 },
     isTranscribing: false,
     transcript: {
       segments: [],

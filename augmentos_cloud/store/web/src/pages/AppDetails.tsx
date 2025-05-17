@@ -7,6 +7,7 @@ import { AppI } from '../types';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import Header from '../components/Header';
+import AppPermissions from '../components/AppPermissions';
 
 const AppDetails: React.FC = () => {
   const { packageName } = useParams<{ packageName: string }>();
@@ -276,9 +277,10 @@ const AppDetails: React.FC = () => {
 
             {/* App details sections */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Left side: description */}
+              {/* Left side: description and permissions */}
               <div className="md:col-span-2">
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {/* About section */}
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
                   <div className="p-6">
                     <h2 className="text-xl font-semibold mb-4">About this app</h2>
                     <p className="text-gray-700 whitespace-pre-line">
@@ -286,6 +288,17 @@ const AppDetails: React.FC = () => {
                     </p>
                   </div>
                 </div>
+                
+                {/* Permissions section - moved here from the right column */}
+                {(app.permissions && app.permissions.length > 0)  && (
+                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="p-6">
+                      <h2 className="text-xl font-semibold mb-4">Required Permissions</h2>
+                      <AppPermissions permissions={app.permissions} />
+                    </div>
+                  </div>
+                )}
+
               </div>
 
               {/* Right side: additional details */}

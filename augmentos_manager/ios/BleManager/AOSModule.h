@@ -36,9 +36,6 @@
 
 - (void)getBatteryStatus:(RCTPromiseResolveBlock)resolve :(RCTPromiseRejectBlock)reject;
 
-// Calendar sync method
-- (void)syncCalendarEvents:(RCTPromiseResolveBlock)resolve :(RCTPromiseRejectBlock)reject;
-
 // Add support for events
 - (NSArray<NSString *> *)supportedEvents;
 

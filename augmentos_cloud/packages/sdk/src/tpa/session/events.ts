@@ -24,7 +24,8 @@ import {
   // Language stream helpers
   createTranscriptionStream,
   isValidLanguageCode,
-  createTranslationStream
+  createTranslationStream,
+  CustomMessage
 } from '../../types';
 import { DashboardMode } from '../../types/dashboard';
 
@@ -45,6 +46,7 @@ interface SystemEvents {
   'settings_update': AppSettings;
   'dashboard_mode_change': { mode: DashboardMode | 'none' };
   'dashboard_always_on_change': { enabled: boolean };
+  'custom_message': CustomMessage;
 }
 
 /** 📡 All possible event types */
@@ -388,5 +390,22 @@ export class EventManager {
         }
       }
     }
+  }
+
+  /**
+   * 📨 Listen for custom messages with a specific action
+   * @param action - The action identifier to filter by
+   * @param handler - Function to handle the message
+   * @returns Cleanup function to remove the handler
+   */
+  onCustomMessage(action: string, handler: (payload: any) => void): () => void {
+    const messageHandler = (message: CustomMessage) => {
+      if (message.action === action) {
+        handler(message.payload);
+      }
+    };
+    
+    this.emitter.on('custom_message', messageHandler);
+    return () => this.emitter.off('custom_message', messageHandler);
   }
 }

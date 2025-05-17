@@ -39,6 +39,7 @@ class ServerComms {
   private var reconnectionAttempts: Int = 0
   public let calendarManager = CalendarManager()
   public let locationManager = LocationManager()
+  public let mediaManager = MediaManager()
   
   static func getInstance() -> ServerComms {
     if instance == nil {
@@ -288,6 +289,24 @@ class ServerComms {
       print("Cannot send location update: No location data available")
     }
   }
+  
+  public func sendGlassesConnectionState(modelName: String, status: String) {
+    do {
+      let event: [String: Any] = [
+        "type": "glasses_connection_state",
+        "modelName": modelName,
+        "status": status,
+        "timestamp": Int(Date().timeIntervalSince1970 * 1000)
+      ]
+      let jsonData = try JSONSerialization.data(withJSONObject: event)
+      if let jsonString = String(data: jsonData, encoding: .utf8) {
+        wsManager.sendText(jsonString)
+      }
+    } catch {
+      print("ServerComms: Error building location_update JSON: \(error)")
+    }
+  }
+
   
   func updateAsrConfig(languages: [[String: Any]]) {
     guard wsManager.isConnected() else {

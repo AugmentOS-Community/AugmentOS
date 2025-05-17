@@ -25,6 +25,10 @@ import com.lugg.RNCConfig.RNCConfigPackage
 import org.reactnative.camera.RNCameraPackage
 import com.augmentos.augmentos_manager.logcapture.LogcatCapturePackage
 import com.reactnativecommunity.webview.RNCWebViewPackage
+import com.rnfs.RNFSPackage
+import com.brentvatne.react.ReactVideoPackage
+import fr.greweb.reactnativeviewshot.RNViewShotPackage
+import com.reactlibrary.createthumbnail.CreateThumbnailPackage
 
 // import com.augmentos.augmentos_manager.NotificationServicePackage
 
@@ -60,6 +64,11 @@ class MainApplication : Application(), ReactApplication {
                 RNCameraPackage(),
                 LogcatCapturePackage(),
                 RNCWebViewPackage(),
+                RNFSPackage(),
+                ReactVideoPackage(),
+                FileProviderPackage(),
+                RNViewShotPackage(),
+                CreateThumbnailPackage(),
             )
         }
 

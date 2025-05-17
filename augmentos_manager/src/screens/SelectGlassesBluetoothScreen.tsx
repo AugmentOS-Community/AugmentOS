@@ -186,6 +186,9 @@ const SelectGlassesBluetoothScreen: React.FC<SelectGlassesBluetoothScreenProps> 
       );
       return; // Stop the connection process
     }
+
+    // update the preferredmic to be the phone mic:
+    coreCommunicator.sendSetPreferredMic("phone");
     
     // All permissions granted, proceed with connecting to the wearable
     setTimeout(() => {

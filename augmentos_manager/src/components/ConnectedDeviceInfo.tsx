@@ -1,7 +1,8 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import coreCommunicator from '../bridge/CoreCommunicator';
 import { useStatus } from '../providers/AugmentOSStatusProvider';
 import { NavigationProps } from '../components/types';
@@ -9,6 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 import { getGlassesImage } from '../logic/getGlassesImage';
 import GlobalEventEmitter from '../logic/GlobalEventEmitter';
 import { getBatteryColor, getBatteryIcon } from '../logic/getBatteryIcon';
+import { WIFI_CONFIGURABLE_MODELS } from '../consts';
 
 
 interface ConnectedDeviceInfoProps {
@@ -96,11 +98,11 @@ const ConnectedDeviceInfo: React.FC<ConnectedDeviceInfoProps> = ({ isDarkTheme }
     if (!requirementsCheck.isReady) {
       // Show alert about missing requirements
       console.log('Requirements not met, showing banner with message:', requirementsCheck.message);
-      GlobalEventEmitter.emit('SHOW_BANNER', { 
-        message: requirementsCheck.message || 'Cannot connect to glasses - check Bluetooth and Location settings', 
-        type: 'error' 
+      GlobalEventEmitter.emit('SHOW_BANNER', {
+        message: requirementsCheck.message || 'Cannot connect to glasses - check Bluetooth and Location settings',
+        type: 'error'
       });
-      
+
       return;
     }
 
@@ -116,9 +118,9 @@ const ConnectedDeviceInfo: React.FC<ConnectedDeviceInfoProps> = ({ isDarkTheme }
     } catch (error) {
       console.error('connect to glasses error:', error);
       setConnectButtonDisabled(false);
-      GlobalEventEmitter.emit('SHOW_BANNER', { 
-        message: 'Failed to connect to glasses', 
-        type: 'error' 
+      GlobalEventEmitter.emit('SHOW_BANNER', {
+        message: 'Failed to connect to glasses',
+        type: 'error'
       });
     }
   };
@@ -136,7 +138,7 @@ const ConnectedDeviceInfo: React.FC<ConnectedDeviceInfoProps> = ({ isDarkTheme }
 
   // New handler: if already connecting, pressing the button calls disconnect.
   const handleConnectOrDisconnect = async () => {
-    if (isConnectButtonDisabled || status.glasses_info?.is_searching) {
+    if (isConnectButtonDisabled || status.core_info.is_searching) {
       await sendDisconnectWearable();
     } else {
       await connectGlasses();
@@ -160,19 +162,53 @@ const ConnectedDeviceInfo: React.FC<ConnectedDeviceInfoProps> = ({ isDarkTheme }
 
   // Determine the button style for connecting glasses
   const getConnectButtonStyle = () => {
-      return status.glasses_info?.is_searching ?
-        styles.connectingButton :
-          isConnectButtonDisabled ? styles.disabledButton :
-                                    styles.connectButton;
+    return status.core_info.is_searching ?
+      styles.connectingButton :
+      isConnectButtonDisabled ? styles.disabledButton :
+        styles.connectButton;
   };
 
   return (
     <View style={[styles.deviceInfoContainer]}>
-      {microphoneActive && (
-        <View style={styles.microphoneContainer}>
-          <Icon name="microphone" size={20} color="#4CAF50" />
+      {/* Status Indicators Row - Only render if indicators present */}
+      {(microphoneActive || (status.glasses_info && status.glasses_info.glasses_use_wifi === true)) && (
+        <View style={styles.statusIndicatorsRow}>
+          {microphoneActive && (
+            <Icon name="microphone" size={20} color="#4CAF50" />
+          )}
+
+          {/* Centered flex space */}
+          <View style={{ flex: 1 }} />
+
+          {/* WiFi Status Indicator */}
+          {status.glasses_info && status.glasses_info.glasses_use_wifi === true && (
+            <TouchableOpacity
+              style={styles.wifiContainer}
+              onPress={() => {
+                if (status.glasses_info) {
+                  navigation.navigate('GlassesWifiSetupScreen', {
+                    deviceModel: status.glasses_info.model_name || 'Glasses'
+                  });
+                }
+              }}
+            >
+              {status.glasses_info.glasses_wifi_connected ? (
+                <>
+                  {status.glasses_info.glasses_wifi_ssid && (
+                    <Text style={styles.wifiSsidText}>
+                      {status.glasses_info.glasses_wifi_ssid}
+                    </Text>
+                  )}
+                  <Icon name="wifi" size={20} color="#4CAF50" />
+                </>
+              ) : (
+                <MaterialIcon name="wifi-off" size={20} color="#E53935" />
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       )}
+
       {status.core_info.puck_connected ? (
         <>
           {status.core_info.default_wearable ? (
@@ -196,9 +232,9 @@ const ConnectedDeviceInfo: React.FC<ConnectedDeviceInfoProps> = ({ isDarkTheme }
                         <>
                           <Text style={[styles.statusLabel, { color: themeStyles.statusLabelColor }]}>Battery</Text>
                           <View style={styles.batteryContainer}>
-                          {status.glasses_info?.battery_life >= 0 &&
-                            <Icon name={batteryIcon} size={16} color={batteryColor} style={styles.batteryIcon} />
-                          }
+                            {status.glasses_info?.battery_life >= 0 &&
+                              <Icon name={batteryIcon} size={16} color={batteryColor} style={styles.batteryIcon} />
+                            }
                             <Text style={[styles.batteryValue, { color: batteryColor }]}>
                               {status.glasses_info.battery_life == -1
                                 ? "-"
@@ -210,13 +246,11 @@ const ConnectedDeviceInfo: React.FC<ConnectedDeviceInfoProps> = ({ isDarkTheme }
                     </View>
 
                     <View style={styles.statusInfo}>
-                      {status.glasses_info?.brightness != null &&
+                      {status.glasses_settings?.brightness != null &&
                         <>
                           <Text style={[styles.statusLabel, { color: themeStyles.statusLabelColor }]}>Brightness</Text>
                           <Text style={[styles.statusValue, { color: themeStyles.statusValueColor }]}>
-                            {status.glasses_info
-                              ? `${status.glasses_info.brightness}`
-                              : "-"}
+                            {status.glasses_settings.brightness}
                           </Text>
                         </>
                       }
@@ -239,12 +273,12 @@ const ConnectedDeviceInfo: React.FC<ConnectedDeviceInfoProps> = ({ isDarkTheme }
                   <TouchableOpacity
                     style={getConnectButtonStyle()}
                     onPress={handleConnectOrDisconnect}
-                    disabled={isConnectButtonDisabled && !status.glasses_info?.is_searching}
+                    disabled={isConnectButtonDisabled && !status.core_info.is_searching}
                   >
                     <Text style={styles.buttonText}>
-                      {isConnectButtonDisabled || status.glasses_info?.is_searching ? 'Connecting Glasses...' : 'Connect Glasses'}
+                      {isConnectButtonDisabled || status.core_info.is_searching ? 'Connecting Glasses...' : 'Connect Glasses'}
                     </Text>
-                    {status.glasses_info?.is_searching && (
+                    {status.core_info.is_searching && (
                       <ActivityIndicator size="small" color="#fff" style={{ marginLeft: 5 }} />
                     )}
                   </TouchableOpacity>
@@ -253,7 +287,7 @@ const ConnectedDeviceInfo: React.FC<ConnectedDeviceInfoProps> = ({ isDarkTheme }
             </View>
           ) : (
             <>
-              {status.glasses_info?.is_searching ? (
+              {status.core_info.is_searching ? (
                 <View style={styles.disconnectedContent}>
                   <Text style={[styles.connectText, { color: themeStyles.textColor }]}>
                     Searching for glasses
@@ -291,7 +325,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     width: '100%',
-    minHeight: 230,
+    minHeight: 240,
     justifyContent: 'center',
     marginTop: 16, // Increased space above component
     backgroundColor: '#E5E5EA',
@@ -459,11 +493,35 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontFamily: 'Montserrat-Regular',
   },
-  microphoneContainer: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    zIndex: 1,
+  statusIndicatorsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    //height: 30,
+  },
+  iconContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wifiContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 18,
+  },
+  wifiSsidText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: 'bold',
+    marginRight: 5,
+    maxWidth: 120,
   },
 });
 

@@ -2,6 +2,9 @@ import express from 'express';
 import sessionService, { IS_LC3 } from '../services/core/session.service';
 import { Request, Response, NextFunction } from 'express';
 import appService from '../services/core/app.service';
+import { logger as rootLogger } from '../services/logging/pino-logger';
+const logger = rootLogger.child({ service: 'audio.routes' });
+
 const router = express.Router();
 
 // Only allow com.augmentos.shazam
@@ -62,7 +65,7 @@ router.get('/api/audio/:userId', shazamAuthMiddleware, async (req, res) => {
             buffers.push(Buffer.from(decoded));
           }
         } catch (err) {
-          console.error('Error decoding LC3 chunk:', err);
+          logger.error('Error decoding LC3 chunk:', err);
         }
       }
     } else {
@@ -76,7 +79,7 @@ router.get('/api/audio/:userId', shazamAuthMiddleware, async (req, res) => {
     res.set('Content-Type', 'application/octet-stream');
     res.send(audioBuffer);
   } catch (error) {
-    console.error('Error fetching audio:', error);
+    logger.error('Error fetching audio:', error);
     res.status(500).json({ error: 'Error fetching audio' });
   }
 });

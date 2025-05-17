@@ -41,24 +41,16 @@ interface PrivacySettingsScreenProps {
   navigation: any;
 }
 
-const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
-  isDarkTheme,
-  toggleTheme,
-  navigation,
-}) => {
+const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({isDarkTheme, toggleTheme, navigation}) => {
   const {status} = useStatus();
-  const [isSensingEnabled, setIsSensingEnabled] = React.useState(
-    status.core_info.sensing_enabled,
+  const [isSensingEnabled, setIsSensingEnabled] = React.useState(status.core_info.sensing_enabled);
+  const [forceCoreOnboardMic, setForceCoreOnboardMic] = React.useState(status.core_info.force_core_onboard_mic);
+  const [isContextualDashboardEnabled, setIsContextualDashboardEnabled] = React.useState(
+    status.core_info.contextual_dashboard_enabled,
   );
-  const [forceCoreOnboardMic, setForceCoreOnboardMic] = React.useState(
-    status.core_info.force_core_onboard_mic,
-  );
-  const [isContextualDashboardEnabled, setIsContextualDashboardEnabled] =
-    React.useState(status.core_info.contextual_dashboard_enabled);
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
   const [calendarEnabled, setCalendarEnabled] = React.useState(true);
-  const [calendarPermissionPending, setCalendarPermissionPending] =
-    React.useState(false);
+  const [calendarPermissionPending, setCalendarPermissionPending] = React.useState(false);
   const [appState, setAppState] = React.useState(AppState.currentState);
 
   // Check permissions when screen loads
@@ -67,20 +59,15 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
       console.log('Checking permissions in PrivacySettingsScreen');
       // Check notification permissions
       if (Platform.OS === 'android') {
-        const hasNotificationAccess =
-          await checkNotificationAccessSpecialPermission();
+        const hasNotificationAccess = await checkNotificationAccessSpecialPermission();
         setNotificationsEnabled(hasNotificationAccess);
       } else {
-        const hasNotifications = await checkFeaturePermissions(
-          PermissionFeatures.NOTIFICATIONS,
-        );
+        const hasNotifications = await checkFeaturePermissions(PermissionFeatures.NOTIFICATIONS);
         setNotificationsEnabled(hasNotifications);
       }
 
       // Check calendar permissions
-      const hasCalendar = await checkFeaturePermissions(
-        PermissionFeatures.CALENDAR,
-      );
+      const hasCalendar = await checkFeaturePermissions(PermissionFeatures.CALENDAR);
       setCalendarEnabled(hasCalendar);
     };
 
@@ -96,19 +83,14 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (appState.match(/inactive|background/) && nextAppState === 'active') {
         // App has come to the foreground - recheck permissions
-        console.log(
-          'App returned to foreground, rechecking notification permissions',
-        );
+        console.log('App returned to foreground, rechecking notification permissions');
         (async () => {
           if (Platform.OS === 'android') {
-            const hasNotificationAccess =
-              await checkNotificationAccessSpecialPermission();
+            const hasNotificationAccess = await checkNotificationAccessSpecialPermission();
 
             // If permission was granted while away, enable notifications and start service
             if (hasNotificationAccess && !notificationsEnabled) {
-              console.log(
-                'Notification permission was granted while away, enabling notifications',
-              );
+              console.log('Notification permission was granted while away, enabling notifications');
               setNotificationsEnabled(true);
 
               // Start notification listener service
@@ -119,25 +101,19 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
               }
             }
           } else {
-            const hasNotifications = await checkFeaturePermissions(
-              PermissionFeatures.NOTIFICATIONS,
-            );
+            const hasNotifications = await checkFeaturePermissions(PermissionFeatures.NOTIFICATIONS);
             if (hasNotifications && !notificationsEnabled) {
               setNotificationsEnabled(true);
             }
           }
 
           if (Platform.OS === 'ios') {
-            console.log(
-              'Adding delay before checking iOS calendar permissions',
-            );
+            console.log('Adding delay before checking iOS calendar permissions');
             await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 second delay
           }
 
           // Also recheck calendar permissions
-          const hasCalendar = await checkFeaturePermissions(
-            PermissionFeatures.CALENDAR,
-          );
+          const hasCalendar = await checkFeaturePermissions(PermissionFeatures.CALENDAR);
           if (Platform.OS === 'ios' && calendarPermissionPending) {
             // If we're in the middle of requesting permissions, don't flip back to false
             if (hasCalendar) {
@@ -170,9 +146,7 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
     // First request microphone permission if we're enabling the mic
     if (!forceCoreOnboardMic) {
       // We're about to enable the mic, so request permission
-      const hasMicPermission = await requestFeaturePermissions(
-        PermissionFeatures.MICROPHONE,
-      );
+      const hasMicPermission = await requestFeaturePermissions(PermissionFeatures.MICROPHONE);
       if (!hasMicPermission) {
         // Permission denied, don't toggle the setting
         console.log('Microphone permission denied, cannot enable onboard mic');
@@ -187,9 +161,7 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
 
     // Continue with toggling the setting if permission granted or turning off
     let newForceCoreOnboardMic = !forceCoreOnboardMic;
-    await coreCommunicator.sendToggleForceCoreOnboardMic(
-      newForceCoreOnboardMic,
-    );
+    await coreCommunicator.sendToggleForceCoreOnboardMic(newForceCoreOnboardMic);
     setForceCoreOnboardMic(newForceCoreOnboardMic);
   };
 
@@ -208,9 +180,7 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
         }
       } else {
         // iOS notification permissions
-        const granted = await requestFeaturePermissions(
-          PermissionFeatures.NOTIFICATIONS,
-        );
+        const granted = await requestFeaturePermissions(PermissionFeatures.NOTIFICATIONS);
         if (granted) {
           setNotificationsEnabled(true);
         }
@@ -222,7 +192,7 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
           'Revoke Notification Access',
           'To revoke notification access, please go to your device settings and disable notification access for AugmentOS Manager.',
           [
-            { text: 'Cancel', style: 'cancel' },
+            {text: 'Cancel', style: 'cancel'},
             {
               text: 'Go to Settings',
               onPress: () => {
@@ -231,7 +201,7 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
                 }
               },
             },
-          ]
+          ],
         );
       } else {
         // iOS: open app settings
@@ -239,14 +209,14 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
           'Revoke Notification Access',
           'To revoke notification access, please go to your device settings and disable notifications for AugmentOS Manager.',
           [
-            { text: 'Cancel', style: 'cancel' },
+            {text: 'Cancel', style: 'cancel'},
             {
               text: 'Go to Settings',
               onPress: () => {
                 Linking.openSettings();
               },
             },
-          ]
+          ],
         );
       }
       // Do not immediately setNotificationsEnabled(false) or stop the service
@@ -271,14 +241,12 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
       );
       return;
     }
-    
+
     if (!calendarEnabled) {
       // Immediately set pending state to prevent toggle flicker
       setCalendarPermissionPending(true);
       try {
-        const granted = await requestFeaturePermissions(
-          PermissionFeatures.CALENDAR,
-        );
+        const granted = await requestFeaturePermissions(PermissionFeatures.CALENDAR);
         console.log(`Calendar permission request result:`, granted);
         if (granted) {
           setCalendarEnabled(true);
@@ -306,8 +274,7 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
       false: isDarkTheme ? '#666666' : '#D1D1D6',
       true: '#2196F3',
     },
-    thumbColor:
-      Platform.OS === 'ios' ? undefined : isDarkTheme ? '#FFFFFF' : '#FFFFFF',
+    thumbColor: Platform.OS === 'ios' ? undefined : isDarkTheme ? '#FFFFFF' : '#FFFFFF',
     ios_backgroundColor: isDarkTheme ? '#666666' : '#D1D1D6',
   };
 
@@ -327,18 +294,10 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        isDarkTheme ? styles.darkBackground : styles.lightBackground,
-      ]}>
+    <View style={[styles.container, isDarkTheme ? styles.darkBackground : styles.lightBackground]}>
       <ScrollView style={styles.scrollViewContainer}>
         {/* ADDITIONAL PERMISSIONS SECTION */}
-        <Text
-          style={[
-            styles.sectionHeader,
-            isDarkTheme ? styles.lightText : styles.darkText,
-          ]}>
+        <Text style={[styles.sectionHeader, isDarkTheme ? styles.lightText : styles.darkText]}>
           Additional Permissions
         </Text>
 
@@ -352,20 +311,9 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
               {borderBottomColor: isDarkTheme ? '#444444' : '#e0e0e0'},
             ]}>
             <View style={styles.settingTextContainer}>
-              <Text
-                style={[
-                  styles.label,
-                  isDarkTheme ? styles.lightText : styles.darkText,
-                ]}>
-                Notification Access
-              </Text>
-              <Text
-                style={[
-                  styles.value,
-                  isDarkTheme ? styles.lightSubtext : styles.darkSubtext,
-                ]}>
-                Allow AugmentOS to forward your phone notifications to your
-                smart glasses.
+              <Text style={[styles.label, isDarkTheme ? styles.lightText : styles.darkText]}>Notification Access</Text>
+              <Text style={[styles.value, isDarkTheme ? styles.lightSubtext : styles.darkSubtext]}>
+                Allow AugmentOS to forward your phone notifications to your smart glasses.
               </Text>
             </View>
             <Switch
@@ -381,20 +329,9 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
         {/* Calendar Permission - last item in this section so no border */}
         <View style={[styles.settingItem, styles.lastItemInSection]}>
           <View style={styles.settingTextContainer}>
-            <Text
-              style={[
-                styles.label,
-                isDarkTheme ? styles.lightText : styles.darkText,
-              ]}>
-              Calendar Access
-            </Text>
-            <Text
-              style={[
-                styles.value,
-                isDarkTheme ? styles.lightSubtext : styles.darkSubtext,
-              ]}>
-              Allow AugmentOS to display your calendar events on your smart
-              glasses.
+            <Text style={[styles.label, isDarkTheme ? styles.lightText : styles.darkText]}>Calendar Access</Text>
+            <Text style={[styles.value, isDarkTheme ? styles.lightSubtext : styles.darkSubtext]}>
+              Allow AugmentOS to display your calendar events on your smart glasses.
             </Text>
           </View>
           <Switch
@@ -419,18 +356,8 @@ const PrivacySettingsScreen: React.FC<PrivacySettingsScreenProps> = ({
 
         <View style={[styles.settingItem, styles.lastItemInSection]}>
           <View style={styles.settingTextContainer}>
-            <Text
-              style={[
-                styles.label,
-                isDarkTheme ? styles.lightText : styles.darkText,
-              ]}>
-              Sensing
-            </Text>
-            <Text
-              style={[
-                styles.value,
-                isDarkTheme ? styles.lightSubtext : styles.darkSubtext,
-              ]}>
+            <Text style={[styles.label, isDarkTheme ? styles.lightText : styles.darkText]}>Sensing</Text>
+            <Text style={[styles.value, isDarkTheme ? styles.lightSubtext : styles.darkSubtext]}>
               Enable microphones & cameras.
             </Text>
           </View>

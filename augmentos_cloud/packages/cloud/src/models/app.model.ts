@@ -4,7 +4,20 @@ import { AppI as _AppI, TpaType, ToolSchema, ToolParameterSchema } from '@augmen
 
 export type AppStoreStatus = 'DEVELOPMENT' | 'SUBMITTED' | 'REJECTED' | 'PUBLISHED';
 
+// Define PermissionType enum until it's added to the SDK
+export enum PermissionType {
+  MICROPHONE = 'MICROPHONE',
+  LOCATION = 'LOCATION',
+  CALENDAR = 'CALENDAR',
+  NOTIFICATIONS = 'NOTIFICATIONS',
+  ALL = 'ALL'
+}
 
+// Permission interface
+export interface Permission {
+  type: PermissionType;
+  description?: string;
+}
 
 // Extend the AppI interface for our MongoDB document
 export interface AppI extends _AppI, Document {
@@ -18,7 +31,9 @@ export interface AppI extends _AppI, Document {
   reviewedBy?: string;
   reviewedAt?: Date;
   tools?: ToolSchema[];
+  permissions?: Permission[];
 }
+
 
 // Using existing schema with flexible access
 const AppSchema = new Schema({
@@ -82,6 +97,19 @@ const AppSchema = new Schema({
           default: false
         }
       }),
+      required: false
+    }
+  }],
+
+  // Add permissions array to schema
+  permissions: [{
+    type: {
+      type: String,
+      enum: Object.values(PermissionType),
+      required: true
+    },
+    description: {
+      type: String,
       required: false
     }
   }]

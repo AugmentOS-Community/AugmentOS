@@ -17,6 +17,8 @@ import api, { AppResponse } from '@/services/api.service';
 import { AppI } from '@augmentos/sdk';
 import { normalizeUrl } from '@/libs/utils';
 import { toast } from 'sonner';
+import PermissionsForm from '../components/forms/PermissionsForm';
+import { Permission } from '@/types/tpa';
 // import { TPA } from '@/types/tpa';
 
 const CreateTPA: React.FC = () => {
@@ -30,6 +32,7 @@ const CreateTPA: React.FC = () => {
     publicUrl: '',
     logoURL: '',
     webviewURL: '',
+    permissions: [], // Initialize permissions as empty array
     // isPublic: false,
     // tpaType: TpaType.STANDARD
   });
@@ -92,6 +95,14 @@ const CreateTPA: React.FC = () => {
         }
       }
     }
+  };
+  
+  // Handle permissions changes
+  const handlePermissionsChange = (permissions: Permission[]) => {
+    setFormData(prev => ({
+      ...prev,
+      permissions
+    }));
   };
 
   // Validate form
@@ -201,6 +212,16 @@ const CreateTPA: React.FC = () => {
 
       // Call API to create TPA
       const result = await api.apps.create(normalizedFormData as AppI);
+      
+      // If we have permissions, update them
+      if (formData.permissions && formData.permissions.length > 0) {
+        try {
+          await api.apps.permissions.update(result.app.packageName, formData.permissions);
+        } catch (permError) {
+          console.error('Error setting permissions:', permError);
+          // Don't fail the whole creation process if permissions update fails
+        }
+      }
 
       console.log('TPA created:', result);
 
@@ -435,6 +456,15 @@ const CreateTPA: React.FC = () => {
                   If your app has a companion mobile interface, provide the URL here.
                   HTTPS is required and will be added automatically if not specified.
                 </p>
+              </div>
+              
+              {/* Permissions Section */}
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Required Permissions</h3>
+                <PermissionsForm 
+                  permissions={formData.permissions || []} 
+                  onChange={handlePermissionsChange} 
+                />
               </div>
 
             </CardContent>

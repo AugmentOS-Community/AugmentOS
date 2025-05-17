@@ -13,19 +13,37 @@ import {
 import appService from './app.service';
 import transcriptionService, { ASRStreamInstance } from '../processing/transcription.service';
 import DisplayManager from '../layout/DisplayManager6.1';
-import { createLC3Service, LC3Service, createLoggerForUserSession, logger } from '@augmentos/utils';
+import { createLC3Service, LC3Service, createLoggerForUserSession } from '@augmentos/utils';
 import { AudioWriter } from "../debug/audio-writer";
 import { systemApps } from './system-apps';
 import { SubscriptionManager } from './subscription.manager'; // Import the new manager
-import { Logger } from 'winston';
+// import { Logger } from 'winston';
 import { DebugService } from '../debug/debug-service';
+import { User } from '../../models/user.model';
+import { HeartbeatManager } from './HeartbeatManager';
+import { logger as rootLogger } from '../logging/pino-logger';
+import { Logger } from 'pino';
 
 const RECONNECT_GRACE_PERIOD_MS = 1000 * 30; // 30 seconds
 const LOG_AUDIO = false;
 const DEBUG_AUDIO = false;
 export const IS_LC3 = false;
+const logger = rootLogger.child({ module: 'session.service' });
 
-console.log("🔈🔈🔈🔈🔈🔈🔈🔈 IS_LC3", IS_LC3);
+logger.info("🔈🔈🔈🔈🔈🔈🔈🔈 IS_LC3", IS_LC3);
+
+const DEFAULT_AUGMENTOS_SETTINGS = {
+  useOnboardMic: false,
+  contextualDashboard: true,
+  headUpAngle: 20,
+  brightness: 50,
+  autoBrightness: false,
+  sensingEnabled: true,
+  alwaysOnStatusBar: false,
+  bypassVad: false,
+  bypassAudioEncoding: false,
+  metricSystemEnabled: false
+};
 
 // --- Interfaces ---
 export interface SequencedAudioChunk {
@@ -67,13 +85,19 @@ export interface ExtendedUserSession extends UserSession {
   transcriptionStreams: Map<string, ASRStreamInstance>;
   isTranscribing: boolean;
   loadingApps: Set<string>;
-  OSSettings: { brightness: number, volume: number };
   appConnections: Map<string, WebSocket | any>; // Consider stricter type if possible
   installedApps: AppI[]; // Add type from SDK
 
   // Add the subscription manager instance
   subscriptionManager: SubscriptionManager;
+  // Add the heartbeat manager instance
+  heartbeatManager: HeartbeatManager;
+  // Map to track reconnection timers
+  _reconnectionTimers?: Map<string, NodeJS.Timeout>;
   recentAudioBuffer: { data: ArrayBufferLike; timestamp: number }[]; // Buffer for last 10 seconds of audio
+
+  // Custom user data
+  userDatetime?: string;
 }
 
 export class SessionService {
@@ -116,7 +140,6 @@ export class SessionService {
         activeAppSessions: existingSession.activeAppSessions,
         installedApps: existingSession.installedApps,
         loadingApps: existingSession.loadingApps,
-        OSSettings: existingSession.OSSettings,
         isTranscribing: existingSession.isTranscribing,
         transcript: existingSession.transcript,
         subscriptionManager: {
@@ -140,7 +163,8 @@ export class SessionService {
 
     // Create new session
     const sessionId = userId;
-    const sessionLogger = createLoggerForUserSession(sessionId);
+    // const sessionLogger = createLoggerForUserSession(sessionId);
+    const sessionLogger = rootLogger.child({ userId });
     const installedApps = await appService.getAllApps(userId); // Fetch apps first
     sessionLogger.info(`Fetched installed apps for user ${userId}:`, installedApps);
 
@@ -155,8 +179,7 @@ export class SessionService {
       transcriptionStreams: new Map<string, ASRStreamInstance>(),
       loadingApps: new Set<string>(),
       appConnections: new Map<string, WebSocket | any>(),
-      OSSettings: { brightness: 50, volume: 50 },
-      displayManager: new DisplayManager(),
+      displayManager: {} as any, // Will set after full session init
       // Will add dashboardManager after the session is fully constructed
       transcript: { 
         segments: [],
@@ -183,6 +206,10 @@ export class SessionService {
     // Cast to ExtendedUserSession here is safe as we're building it
     partialSession.subscriptionManager = new SubscriptionManager(partialSession as ExtendedUserSession);
     sessionLogger.info(`[session.service] SubscriptionManager created for session ${sessionId}`);
+    
+    // Instantiate the Heartbeat Manager for this session
+    partialSession.heartbeatManager = new HeartbeatManager(partialSession as ExtendedUserSession);
+    sessionLogger.info(`[session.service] HeartbeatManager created for session ${sessionId}`);
 
     // Initialize LC3 and Audio Buffer
     const lc3ServiceInstance = createLC3Service(sessionId);
@@ -196,6 +223,10 @@ export class SessionService {
 
     // Finalize the user session
     const userSession = partialSession as ExtendedUserSession;
+
+    // Now set up the DisplayManager
+    const DisplayManager = require('../layout/DisplayManager6.1').default;
+    userSession.displayManager = new DisplayManager(userSession);
 
     // Now create the DashboardManager for this session
     // We need to dynamically import to avoid circular dependency issues
@@ -220,7 +251,6 @@ export class SessionService {
       activeAppSessions: userSession.activeAppSessions,
       installedApps: userSession.installedApps,
       loadingApps: userSession.loadingApps,
-      OSSettings: userSession.OSSettings,
       isTranscribing: userSession.isTranscribing,
       transcript: userSession.transcript,
       subscriptionManager: {
@@ -539,6 +569,21 @@ export class SessionService {
     }
 
     // SubscriptionManager is part of userSession, no specific cleanup needed here
+
+    // Clean up heartbeat manager
+    if (userSession.heartbeatManager) {
+      userSession.logger.info(`🧹 Cleaning up heartbeat manager for session ${userSession.sessionId}`);
+      userSession.heartbeatManager.dispose();
+    }
+    
+    // Clean up any reconnection timers
+    if (userSession._reconnectionTimers) {
+      userSession.logger.info(`🧹 Cleaning up reconnection timers for session ${userSession.sessionId}`);
+      for (const [packageName, timerId] of userSession._reconnectionTimers.entries()) {
+        clearTimeout(timerId);
+      }
+      userSession._reconnectionTimers.clear();
+    }
 
     // Clean up dashboard manager if it exists
     if (userSession.dashboardManager && typeof userSession.dashboardManager.dispose === 'function') {

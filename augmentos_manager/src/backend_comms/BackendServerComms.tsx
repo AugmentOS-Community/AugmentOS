@@ -34,6 +34,77 @@ export default class BackendServerComms {
     );
     return defaultServerUrl;
   }
+  
+  /**
+   * Fetch gallery photos from the server
+   * @returns Promise that resolves to gallery photos
+   */
+  public async getGalleryPhotos(): Promise<any> {
+    if (!this.coreToken) {
+      throw new Error('No core token available for authentication');
+    }
+
+    const url = `${this.serverUrl}/api/gallery`;
+    console.log('Fetching gallery photos from:', url);
+
+    const config: AxiosRequestConfig = {
+      method: 'GET',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.coreToken}`,
+      },
+    };
+
+    try {
+      const response = await axios(config);
+      if (response.status === 200 && response.data) {
+        console.log('Received gallery photos:', response.data);
+        return response.data;
+      } else {
+        throw new Error(`Bad response: ${response.statusText}`);
+      }
+    } catch (error: any) {
+      console.error('Error fetching gallery photos:', error.message || error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Delete a photo from the gallery
+   * @param photoId ID of the photo to delete
+   * @returns Promise that resolves to success status
+   */
+  public async deleteGalleryPhoto(photoId: string): Promise<any> {
+    if (!this.coreToken) {
+      throw new Error('No core token available for authentication');
+    }
+
+    const url = `${this.serverUrl}/api/gallery/${photoId}`;
+    console.log('Deleting gallery photo:', photoId);
+
+    const config: AxiosRequestConfig = {
+      method: 'DELETE',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.coreToken}`,
+      },
+    };
+
+    try {
+      const response = await axios(config);
+      if (response.status === 200 && response.data) {
+        console.log('Photo deleted successfully:', photoId);
+        return response.data;
+      } else {
+        throw new Error(`Bad response: ${response.statusText}`);
+      }
+    } catch (error: any) {
+      console.error('Error deleting photo:', error.message || error);
+      throw error;
+    }
+  }
 
   private constructor() {
     // No need to set serverUrl here anymore
