@@ -4,7 +4,20 @@ import { AppI as _AppI, TpaType, ToolSchema, ToolParameterSchema } from '@augmen
 
 export type AppStoreStatus = 'DEVELOPMENT' | 'SUBMITTED' | 'REJECTED' | 'PUBLISHED';
 
+// Define PermissionType enum until it's added to the SDK
+export enum PermissionType {
+  MICROPHONE = 'MICROPHONE',
+  LOCATION = 'LOCATION',
+  CALENDAR = 'CALENDAR',
+  NOTIFICATIONS = 'NOTIFICATIONS',
+  ALL = 'ALL'
+}
 
+// Permission interface
+export interface Permission {
+  type: PermissionType;
+  description?: string;
+}
 
 // Extend the AppI interface for our MongoDB document
 export interface AppI extends _AppI, Document {
@@ -18,7 +31,45 @@ export interface AppI extends _AppI, Document {
   reviewedBy?: string;
   reviewedAt?: Date;
   tools?: ToolSchema[];
+  permissions?: Permission[];
+
+  /**
+   * Reference to the organization that owns this app
+   * @since 2.0.0
+   */
+  organizationId?: Types.ObjectId;
+
+  /**
+   * ID of the developer who created the app
+   * @deprecated Use organizationId instead. Will be removed after migration.
+   */
+  developerId?: string;
+
+  /**
+   * Domain of the organization for app sharing
+   * @deprecated Use organizationId instead. Will be removed after migration.
+   */
+  organizationDomain?: string | null;
+
+  /**
+   * Whether app is shared with the organization
+   * @deprecated Use organizationId instead. Will be removed after migration.
+   */
+  sharedWithOrganization?: boolean;
+
+  /**
+   * App visibility setting
+   * @deprecated Use organizationId instead. Will be removed after migration.
+   */
+  visibility?: 'private' | 'organization';
+
+  /**
+   * Specific emails the app is shared with
+   * @deprecated Use organizationId with member management instead. Will be removed after migration.
+   */
+  sharedWithEmails?: string[];
 }
+
 
 // Using existing schema with flexible access
 const AppSchema = new Schema({
@@ -46,7 +97,7 @@ const AppSchema = new Schema({
   reviewedAt: {
     type: Date
   },
-  
+
   // TPA AI Tools
   tools: [{
     id: {
@@ -84,10 +135,62 @@ const AppSchema = new Schema({
       }),
       required: false
     }
-  }]
-}, { 
+  }],
+
+  // Add permissions array to schema
+  permissions: [{
+    type: {
+      type: String,
+      enum: Object.values(PermissionType),
+      required: true
+    },
+    description: {
+      type: String,
+      required: false
+    }
+  }],
+
+  /**
+   * Reference to the organization that owns this app
+   */
+  organizationId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Organization',
+    index: true,
+    // not marking as required yet for backward compatibility during migration
+  },
+
+  // Deprecated fields - will be removed after migration
+  developerId: {
+    type: String,
+    required: true // keeping as required for backward compatibility
+  },
+  organizationDomain: {
+    type: String,
+    required: false,
+    default: null
+  },
+  sharedWithOrganization: {
+    type: Boolean,
+    required: false,
+    default: false
+  },
+  visibility: {
+    type: String,
+    enum: ['private', 'organization'],
+    default: 'private'
+  },
+  sharedWithEmails: {
+    type: [String],
+    required: false,
+    default: []
+  }
+}, {
   strict: false,
-  timestamps: true 
+  timestamps: true
 });
+
+// Add index for organizationId
+AppSchema.index({ organizationId: 1 });
 
 export default mongoose.model<AppI>('App', AppSchema, 'apps');

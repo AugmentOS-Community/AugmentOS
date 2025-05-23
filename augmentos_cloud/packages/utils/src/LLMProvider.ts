@@ -29,7 +29,7 @@ export const LLM_MODEL = process.env.LLM_MODEL || LLMModel.GPT4;
 export const LLM_PROVIDER = process.env.LLM_PROVIDER || LLMService.AZURE;
 
 export class LLMProvider {
-  static getLLM(options?: { temperature?: number; maxTokens?: number }) {
+  static getLLM(options?: { temperature?: number; maxTokens?: number; [key: string]: any }) {
     const supportedAzureModels = [
       LLMModel.GPT4,
     ]
@@ -50,6 +50,7 @@ export class LLMProvider {
       maxTokens: 300,
     };
 
+    // Merge all options, including any extra keys (like responseFormat)
     const finalOptions = { ...defaultOptions, ...(options || {}) };
 
     if (provider === LLMService.AZURE) {
@@ -58,12 +59,11 @@ export class LLMProvider {
       }
       return new AzureChatOpenAI({
         modelName: model,
-        temperature: finalOptions.temperature,
-        maxTokens: finalOptions.maxTokens,
         azureOpenAIApiKey: AZURE_OPENAI_API_KEY,
         azureOpenAIApiVersion: AZURE_OPENAI_API_VERSION,
         azureOpenAIApiInstanceName: AZURE_OPENAI_API_INSTANCE_NAME,
         azureOpenAIApiDeploymentName: AZURE_OPENAI_API_DEPLOYMENT_NAME,
+        ...finalOptions,
       });
     } else if (provider === LLMService.OPENAI) {
       if (!supportedOpenAIModels.includes(model as LLMModel)) {
@@ -71,9 +71,8 @@ export class LLMProvider {
       }
       return new ChatOpenAI({
         modelName: model,
-        temperature: finalOptions.temperature,
-        maxTokens: finalOptions.maxTokens,
         openAIApiKey: OPENAI_API_KEY,
+        ...finalOptions,
       });
     } else if (provider === LLMService.ANTHROPIC) {
       if (!supportedAnthropicModels.includes(model as LLMModel)) {
@@ -81,9 +80,8 @@ export class LLMProvider {
       }
       return new ChatAnthropic({
         modelName: model,
-        temperature: finalOptions.temperature,
-        maxTokens: finalOptions.maxTokens,
         anthropicApiKey: ANTHROPIC_API_KEY,
+        ...finalOptions,
       });
     } else {
       throw new Error(`Unsupported LLM provider: ${provider}`);

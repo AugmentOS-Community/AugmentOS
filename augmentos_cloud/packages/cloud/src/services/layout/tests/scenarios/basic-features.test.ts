@@ -115,6 +115,9 @@ export async function testPerAppThrottling() {
     'No messages should be sent initially'
   );
   
+  // Important: Add App1 to active apps before sending display requests
+  userSession.addActiveApp(APP1);
+  
   console.log('1. Send first display request (should show immediately)');
   // Send first display request
   const displayRequest1: DisplayRequest = {

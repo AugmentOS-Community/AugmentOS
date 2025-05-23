@@ -76,7 +76,7 @@ const PairingDeviceInfo: React.FC<PairingDeviceInfoProps> = ({ isDarkTheme, glas
         <Text style={[styles.connectText, { color: themeStyles.textColor }]}>
           {`Searching for ${glassesModelName}`}
         </Text>
-        {status.glasses_info?.is_searching && (
+        {status.core_info.is_searching && (
           <ActivityIndicator size="small" color="#2196F3" />
         )}
       </View>

@@ -15,6 +15,7 @@ import {
   CloudToTpaMessage,
   TpaConnectionInit,
   TpaSubscriptionUpdate,
+  PhotoRequest,
   TpaToCloudMessageType,
   CloudToTpaMessageType,
 
@@ -33,6 +34,7 @@ import {
   isDataStream,
   isAppStopped,
   isSettingsUpdate,
+  isPhotoResponse,
   isDashboardModeChanged,
   isDashboardAlwaysOnChanged,
 
@@ -47,6 +49,9 @@ import {
   createTranslationStream
 } from '../../types';
 import { DashboardAPI } from '../../types/dashboard';
+import { AugmentosSettingsUpdate } from '../../types/messages/cloud-to-tpa';
+import { Logger } from 'pino';
+import { TpaServer } from '../server';
 
 /**
  * ⚙️ Configuration options for TPA Session
@@ -74,6 +79,9 @@ export interface TpaSessionConfig {
   maxReconnectAttempts?: number;
   /** ⏱️ Base delay between reconnection attempts in ms (default: 1000) */
   reconnectDelay?: number;
+
+  userId: string; // user ID for tracking sessions (email of the user).
+  tpaServer: TpaServer; // Optional TPA server instance for advanced features
 }
 
 /**
@@ -123,6 +131,11 @@ export class TpaSession {
   private subscriptionSettingsHandler?: (settings: AppSettings) => ExtendedStreamType[];
   /** Settings that should trigger subscription updates when changed */
   private subscriptionUpdateTriggers: string[] = [];
+  /** Pending photo requests waiting for responses */
+  private pendingPhotoRequests = new Map<string, {
+    resolve: (url: string) => void,
+    reject: (reason: any) => void
+  }>();
 
   /** 🎮 Event management interface */
   public readonly events: EventManager;
@@ -133,6 +146,10 @@ export class TpaSession {
   /** 📊 Dashboard management interface */
   public readonly dashboard: DashboardAPI;
 
+  public readonly tpaServer: TpaServer;
+  public readonly logger: Logger;
+  public readonly userId: string;
+
   constructor(private config: TpaSessionConfig) {
     // Set defaults and merge with provided config
     this.config = {
@@ -142,7 +159,11 @@ export class TpaSession {
       reconnectDelay: 1000,  // Start with 1 second delay (uses exponential backoff)
       ...config
     };
-    
+
+    this.tpaServer = this.config.tpaServer;
+    this.logger = this.tpaServer.logger.child({ userId: this.config.userId, service: 'tpa-session' });
+    this.userId = this.config.userId;
+
     // Make sure the URL is correctly formatted to prevent double protocol issues
     if (this.config.augmentOSWebsocketUrl) {
       try {
@@ -151,27 +172,27 @@ export class TpaSession {
           // Fix URLs with incorrect protocol (e.g., 'ws://http://host')
           const fixedUrl = this.config.augmentOSWebsocketUrl.replace(/^ws:\/\/http:\/\//, 'ws://');
           this.config.augmentOSWebsocketUrl = fixedUrl;
-          console.warn(`⚠️ [${this.config.packageName}] Fixed malformed WebSocket URL: ${fixedUrl}`);
+          this.logger.warn(`⚠️ [${this.config.packageName}] Fixed malformed WebSocket URL: ${fixedUrl}`);
         }
       } catch (error) {
-        console.error(`⚠️ [${this.config.packageName}] Invalid WebSocket URL format: ${this.config.augmentOSWebsocketUrl}`);
+        this.logger.error({ error, config: this.config }, `⚠️ [${this.config.packageName}] Invalid WebSocket URL format: ${this.config.augmentOSWebsocketUrl}`);
       }
     }
-    
+
     // Log initialization
-    console.log(`🚀 [${this.config.packageName}] TPA Session initialized`);
-    console.log(`🚀 [${this.config.packageName}] WebSocket URL: ${this.config.augmentOSWebsocketUrl}`);
-    
+    this.logger.debug(`🚀 [${this.config.packageName}] TPA Session initialized`);
+    this.logger.debug(`🚀 [${this.config.packageName}] WebSocket URL: ${this.config.augmentOSWebsocketUrl}`);
+
     // Validate URL format - give early warning for obvious issues
     // Check URL format but handle undefined case
     if (this.config.augmentOSWebsocketUrl) {
       try {
         const url = new URL(this.config.augmentOSWebsocketUrl);
         if (!['ws:', 'wss:'].includes(url.protocol)) {
-          console.error(`⚠️ [${this.config.packageName}] Invalid WebSocket URL protocol: ${url.protocol}. Should be ws: or wss:`);
+          this.logger.error({ config: this.config }, `⚠️ [${this.config.packageName}] Invalid WebSocket URL protocol: ${url.protocol}. Should be ws: or wss:`);
         }
       } catch (error) {
-        console.error(`⚠️ [${this.config.packageName}] Invalid WebSocket URL format: ${this.config.augmentOSWebsocketUrl}`);
+        this.logger.error({ error, config: this.config }, `⚠️ [${this.config.packageName}] Invalid WebSocket URL format: ${this.config.augmentOSWebsocketUrl}`);
       }
     }
 
@@ -180,17 +201,39 @@ export class TpaSession {
       config.packageName,
       this.send.bind(this)
     );
-    
-    // Initialize settings manager without API client configuration
-    // We'll configure it once we have the session ID and server URL
-    this.settings = new SettingsManager();
-    
+
+    // Initialize settings manager with all necessary parameters, including subscribeFn for AugmentOS settings
+    this.settings = new SettingsManager(
+      this.settingsData,
+      this.config.packageName,
+      this.config.augmentOSWebsocketUrl,
+      this.sessionId ?? undefined,
+      async (streams: string[]) => {
+        this.logger.debug(`[TpaSession] subscribeFn called for streams:`, streams);
+        streams.forEach((stream) => {
+          if (!this.subscriptions.has(stream as ExtendedStreamType)) {
+            this.subscriptions.add(stream as ExtendedStreamType);
+            this.logger.debug(`[TpaSession] Auto-subscribed to stream '${stream}' for AugmentOS setting.`);
+          } else {
+            this.logger.debug(`[TpaSession] Already subscribed to stream '${stream}'.`);
+          }
+        });
+        this.logger.debug(`[TpaSession] Current subscriptions after subscribeFn:`, Array.from(this.subscriptions));
+        if (this.ws?.readyState === 1) {
+          this.updateSubscriptions();
+          this.logger.debug(`[TpaSession] Sent updated subscriptions to cloud after auto-subscribing to AugmentOS setting.`);
+        } else {
+          this.logger.debug(`[TpaSession] WebSocket not open, will send subscriptions when connected.`);
+        }
+      }
+    );
+
     // Initialize dashboard API with this session instance
     // Import DashboardManager dynamically to avoid circular dependency
     const { DashboardManager } = require('./dashboard');
     this.dashboard = new DashboardManager(this, this.send.bind(this));
   }
-  
+
   /**
    * Get the current session ID
    * @returns The current session ID or 'unknown-session-id' if not connected
@@ -198,7 +241,7 @@ export class TpaSession {
   getSessionId(): string {
     return this.sessionId || 'unknown-session-id';
   }
-  
+
   /**
    * Get the package name for this TPA
    * @returns The package name
@@ -281,7 +324,6 @@ export class TpaSession {
   subscribe(type: ExtendedStreamType): void {
     this.subscriptions.add(type);
     if (this.ws?.readyState === 1) {
-      // console.log(`1111  Subscribing to ${type}`);
       this.updateSubscriptions();
     }
   }
@@ -317,7 +359,7 @@ export class TpaSession {
    */
   async connect(sessionId: string): Promise<void> {
     this.sessionId = sessionId;
-    
+
     // Configure settings API client with the WebSocket URL and session ID
     // This allows settings to be fetched from the correct server
     this.settings.configureApiClient(
@@ -339,18 +381,17 @@ export class TpaSession {
 
         // Validate WebSocket URL before attempting connection
         if (!this.config.augmentOSWebsocketUrl) {
-          console.error('WebSocket URL is missing or undefined');
+          this.logger.error('WebSocket URL is missing or undefined');
           reject(new Error('WebSocket URL is required'));
           return;
         }
 
         // Add debug logging for connection attempts
-        console.log(`🔌🔌🔌 [${this.config.packageName}] Attempting to connect to: ${this.config.augmentOSWebsocketUrl}`);
-        console.log(`🔌🔌🔌 [${this.config.packageName}] Session ID: ${sessionId}`);
-        
+        this.logger.info(`🔌🔌🔌 [${this.config.packageName}] Attempting to connect to: ${this.config.augmentOSWebsocketUrl} for session ${this.sessionId}`);
+
         // Create connection with error handling
         this.ws = new WebSocket(this.config.augmentOSWebsocketUrl);
-        
+
         // Track WebSocket for automatic cleanup
         this.resources.track(() => {
           if (this.ws && this.ws.readyState !== 3) { // 3 = CLOSED
@@ -362,7 +403,7 @@ export class TpaSession {
           try {
             this.sendConnectionInit();
           } catch (error: unknown) {
-            console.error('Error during connection initialization:', error);
+            this.logger.error({ error }, 'Error during connection initialization');
             const errorMessage = error instanceof Error ? error.message : String(error);
             this.events.emit('error', new Error(`Connection initialization failed: ${errorMessage}`));
             reject(error);
@@ -372,7 +413,6 @@ export class TpaSession {
         // Message handler with comprehensive error recovery
         const messageHandler = async (data: Buffer | string, isBinary: boolean) => {
           try {
-            // console.log(`🔌🔌🔌 [${this.config.packageName}] Message received: ${data}`);
             // Handle binary messages (typically audio data)
             if (isBinary && Buffer.isBuffer(data)) {
               try {
@@ -381,13 +421,13 @@ export class TpaSession {
                   this.events.emit('error', new Error('Received empty binary data'));
                   return;
                 }
-                
+
                 // Convert Node.js Buffer to ArrayBuffer safely
                 const arrayBuf: ArrayBufferLike = data.buffer.slice(
                   data.byteOffset,
                   data.byteOffset + data.byteLength
                 );
-                
+
                 // Create AUDIO_CHUNK event message with validation
                 const audioChunk: AudioChunk = {
                   type: StreamType.AUDIO_CHUNK,
@@ -397,9 +437,9 @@ export class TpaSession {
 
                 this.handleMessage(audioChunk);
                 return;
-              } catch (binaryError: unknown) {
-                console.error('Error processing binary message:', binaryError);
-                const errorMessage = binaryError instanceof Error ? binaryError.message : String(binaryError);
+              } catch (error: unknown) {
+                this.logger.error({ error }, 'Error processing binary message:');
+                const errorMessage = error instanceof Error ? error.message : String(error);
                 this.events.emit('error', new Error(`Failed to process binary message: ${errorMessage}`));
                 return;
               }
@@ -421,39 +461,39 @@ export class TpaSession {
               } else {
                 throw new Error('Unknown message format');
               }
-              
+
               // Validate JSON before parsing
               if (!jsonData || jsonData.trim() === '') {
                 this.events.emit('error', new Error('Received empty JSON message'));
                 return;
               }
-              
+
               // Parse JSON with error handling
               const message = JSON.parse(jsonData) as CloudToTpaMessage;
-              
+
               // Basic schema validation
               if (!message || typeof message !== 'object' || !('type' in message)) {
                 this.events.emit('error', new Error('Malformed message: missing type property'));
                 return;
               }
-              
+
               // Process the validated message
               this.handleMessage(message);
-            } catch (jsonError: unknown) {
-              console.error('JSON parsing error:', jsonError);
-              const errorMessage = jsonError instanceof Error ? jsonError.message : String(jsonError);
+            } catch (error: unknown) {
+              this.logger.error({ error }, 'JSON parsing error');
+              const errorMessage = error instanceof Error ? error.message : String(error);
               this.events.emit('error', new Error(`Failed to parse JSON message: ${errorMessage}`));
             }
-          } catch (messageError: unknown) {
+          } catch (error: unknown) {
             // Final catch - should never reach here if individual handlers work correctly
-            console.error('Unhandled message processing error:', messageError);
-            const errorMessage = messageError instanceof Error ? messageError.message : String(messageError);
+            this.logger.error({ error }, 'Unhandled message processing error');
+            const errorMessage = error instanceof Error ? error.message : String(error);
             this.events.emit('error', new Error(`Unhandled message error: ${errorMessage}`));
           }
         };
-        
+
         this.ws.on('message', messageHandler);
-        
+
         // Track event handler removal for automatic cleanup
         this.resources.track(() => {
           if (this.ws) {
@@ -465,7 +505,7 @@ export class TpaSession {
         const closeHandler = (code: number, reason: string) => {
           const reasonStr = reason ? `: ${reason}` : '';
           const closeInfo = `Connection closed (code: ${code})${reasonStr}`;
-          
+
           // Emit the disconnected event with structured data for better handling
           this.events.emit('disconnected', {
             message: closeInfo,
@@ -473,28 +513,29 @@ export class TpaSession {
             reason: reason || '',
             wasClean: code === 1000 || code === 1001,
           });
-          
+
           // Only attempt reconnection for abnormal closures
           // https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code
           // 1000 (Normal Closure) and 1001 (Going Away) are normal
           // 1002-1015 are abnormal, and reason "App stopped" means intentional closure
-          const isNormalClosure = (code === 1000 || code === 1001);
+          // 1008 usually when the userSession no longer exists on server. i.e user disconnected from cloud.
+          const isNormalClosure = (code === 1000 || code === 1001 || code === 1008);
           const isManualStop = reason && reason.includes('App stopped');
-          
+
           // Log closure details for diagnostics
-          console.log(`🔌 [${this.config.packageName}] WebSocket closed with code ${code}${reasonStr}`);
-          console.log(`🔌 [${this.config.packageName}] isNormalClosure: ${isNormalClosure}, isManualStop: ${isManualStop}`);
-          
+          this.logger.debug(`🔌 [${this.config.packageName}] WebSocket closed with code ${code}${reasonStr}`);
+          this.logger.debug(`🔌 [${this.config.packageName}] isNormalClosure: ${isNormalClosure}, isManualStop: ${isManualStop}`);
+
           if (!isNormalClosure && !isManualStop) {
-            console.log(`🔌 [${this.config.packageName}] Abnormal closure detected, attempting reconnection`);
+            this.logger.warn(`🔌 [${this.config.packageName}] Abnormal closure detected, attempting reconnection`);
             this.handleReconnection();
           } else {
-            console.log(`🔌 [${this.config.packageName}] Normal closure detected, not attempting reconnection`);
+            this.logger.debug(`🔌 [${this.config.packageName}] Normal closure detected, not attempting reconnection`);
           }
         };
-        
+
         this.ws.on('close', closeHandler);
-        
+
         // Track event handler removal
         this.resources.track(() => {
           if (this.ws) {
@@ -504,27 +545,25 @@ export class TpaSession {
 
         // Connection error handler
         const errorHandler = (error: Error) => {
-          console.error('WebSocket error:', error);
+          this.logger.error({ error }, 'WebSocket error');
           this.events.emit('error', error);
         };
-        
+
         // Enhanced error handler with detailed logging
         this.ws.on('error', (error: Error) => {
-          console.error(`⛔️⛔️⛔️ [${this.config.packageName}] WebSocket connection error:`, error);
-          console.error(`⛔️⛔️⛔️ [${this.config.packageName}] Attempted URL: ${this.config.augmentOSWebsocketUrl}`);
-          console.error(`⛔️⛔️⛔️ [${this.config.packageName}] Session ID: ${sessionId}`);
-          
+          this.logger.error({ error, config: this.config }, `⛔️⛔️⛔️ [${this.config.packageName}] WebSocket connection error: ${error.message}`);
+
           // Try to provide more context
           const errMsg = error.message || '';
           if (errMsg.includes('ECONNREFUSED')) {
-            console.error(`⛔️⛔️⛔️ [${this.config.packageName}] Connection refused - Check if the server is running at the specified URL`);
+            this.logger.error(`⛔️⛔️⛔️ [${this.config.packageName}] Connection refused - Check if the server is running at the specified URL`);
           } else if (errMsg.includes('ETIMEDOUT')) {
-            console.error(`⛔️⛔️⛔️ [${this.config.packageName}] Connection timed out - Check network connectivity and firewall rules`);
+            this.logger.error(`⛔️⛔️⛔️ [${this.config.packageName}] Connection timed out - Check network connectivity and firewall rules`);
           }
-          
+
           errorHandler(error);
         });
-        
+
         // Track event handler removal
         this.resources.track(() => {
           if (this.ws) {
@@ -534,7 +573,7 @@ export class TpaSession {
 
         // Set up connection success handler
         const connectedCleanup = this.events.onConnected(() => resolve());
-        
+
         // Track event handler removal
         this.resources.track(connectedCleanup);
 
@@ -542,11 +581,12 @@ export class TpaSession {
         const timeoutMs = 5000; // 5 seconds default
         const connectionTimeout = this.resources.setTimeout(() => {
           // Use tracked timeout that will be auto-cleared
-          console.error(`⏱️⏱️⏱️ [${this.config.packageName}] Connection timed out after ${timeoutMs}ms`);
-          console.error(`⏱️⏱️⏱️ [${this.config.packageName}] Attempted URL: ${this.config.augmentOSWebsocketUrl}`);
-          console.error(`⏱️⏱️⏱️ [${this.config.packageName}] Session ID: ${sessionId}`);
-          console.error(`⏱️⏱️⏱️ [${this.config.packageName}] Check cloud service is running and TPA server is registered`);
-          
+          this.logger.error({
+            config: this.config,
+            sessionId: this.sessionId,
+            timeoutMs
+          }, `⏱️⏱️⏱️ [${this.config.packageName}] Connection timeout after ${timeoutMs}ms`);
+
           this.events.emit('error', new Error(`Connection timeout after ${timeoutMs}ms`));
           reject(new Error('Connection timeout'));
         }, timeoutMs);
@@ -556,13 +596,13 @@ export class TpaSession {
           clearTimeout(connectionTimeout);
           resolve();
         });
-        
+
         // Track event handler removal
         this.resources.track(timeoutCleanup);
 
-      } catch (connectionError: unknown) {
-        console.error('Connection setup error:', connectionError);
-        const errorMessage = connectionError instanceof Error ? connectionError.message : String(connectionError);
+      } catch (error: unknown) {
+        this.logger.error({ error }, 'Connection setup error');
+        const errorMessage = error instanceof Error ? error.message : String(error);
         reject(new Error(`Failed to setup connection: ${errorMessage}`));
       }
     });
@@ -574,12 +614,53 @@ export class TpaSession {
   disconnect(): void {
     // Use the resource tracker to clean up everything
     this.resources.dispose();
-    
+
     // Clean up additional resources not handled by the tracker
     this.ws = null;
     this.sessionId = null;
     this.subscriptions.clear();
     this.reconnectAttempts = 0;
+  }
+
+  /**
+   * 📸 Request a photo from the connected glasses
+   * @param options - Optional configuration for the photo request
+   * @returns Promise that resolves with the URL to the captured photo
+   */
+  requestPhoto(options?: { saveToGallery?: boolean }): Promise<string> {
+    return new Promise((resolve, reject) => {
+      try {
+        // Generate unique request ID
+        const requestId = `photo_req_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+        // Store promise resolvers for when we get the response
+        this.pendingPhotoRequests.set(requestId, { resolve, reject });
+
+        // Create photo request message
+        const message: PhotoRequest = {
+          type: TpaToCloudMessageType.PHOTO_REQUEST,
+          packageName: this.config.packageName,
+          sessionId: this.sessionId!,
+          timestamp: new Date(),
+          saveToGallery: options?.saveToGallery || false
+        };
+
+        // Send request to cloud
+        this.send(message);
+
+        // Set timeout to avoid hanging promises
+        const timeoutMs = 30000; // 30 seconds
+        this.resources.setTimeout(() => {
+          if (this.pendingPhotoRequests.has(requestId)) {
+            this.pendingPhotoRequests.get(requestId)!.reject(new Error('Photo request timed out'));
+            this.pendingPhotoRequests.delete(requestId);
+          }
+        }, timeoutMs);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        reject(new Error(`Failed to request photo: ${errorMessage}`));
+      }
+    });
   }
 
   /**
@@ -613,7 +694,7 @@ export class TpaSession {
     this.shouldUpdateSubscriptionsOnSettingsChange = true;
     this.subscriptionUpdateTriggers = options.updateOnChange;
     this.subscriptionSettingsHandler = options.handler;
-    
+
     // If we already have settings, update subscriptions immediately
     if (this.settingsData.length > 0) {
       this.updateSubscriptionsFromSettings();
@@ -626,23 +707,23 @@ export class TpaSession {
    */
   private updateSubscriptionsFromSettings(): void {
     if (!this.subscriptionSettingsHandler) return;
-    
+
     try {
       // Get new subscriptions from handler
       const newSubscriptions = this.subscriptionSettingsHandler(this.settingsData);
-      
+
       // Update all subscriptions at once
       this.subscriptions.clear();
       newSubscriptions.forEach(subscription => {
         this.subscriptions.add(subscription);
       });
-      
+
       // Send subscription update to cloud if connected
       if (this.ws && this.ws.readyState === 1) {
         this.updateSubscriptions();
       }
     } catch (error: unknown) {
-      console.error('Error updating subscriptions from settings:', error);
+      this.logger.error({ error }, 'Error updating subscriptions from settings');
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.events.emit('error', new Error(`Failed to update subscriptions: ${errorMessage}`));
     }
@@ -655,19 +736,19 @@ export class TpaSession {
    */
   updateSettingsForTesting(newSettings: AppSettings): void {
     this.settingsData = newSettings;
-    
+
     // Update the settings manager with the new settings
     this.settings.updateSettings(newSettings);
-    
+
     // Emit update event for backwards compatibility
     this.events.emit('settings_update', this.settingsData);
-    
+
     // Check if we should update subscriptions
     if (this.shouldUpdateSubscriptionsOnSettingsChange) {
       this.updateSubscriptionsFromSettings();
     }
   }
-  
+
   /**
    * 📝 Load configuration from a JSON file
    * @param jsonData JSON string containing TPA configuration
@@ -677,7 +758,7 @@ export class TpaSession {
   loadConfigFromJson(jsonData: string): TpaConfig {
     try {
       const parsedConfig = JSON.parse(jsonData);
-      
+
       if (validateTpaConfig(parsedConfig)) {
         this.tpaConfig = parsedConfig;
         return parsedConfig;
@@ -689,7 +770,7 @@ export class TpaSession {
       throw new Error(`Failed to load TPA configuration: ${errorMessage}`);
     }
   }
-  
+
   /**
    * 📋 Get the loaded TPA configuration
    * @returns The current TPA configuration or null if not loaded
@@ -697,7 +778,7 @@ export class TpaSession {
   getConfig(): TpaConfig | null {
     return this.tpaConfig;
   }
-  
+
   /**
    * 🔌 Get the WebSocket server URL for this session
    * @returns The WebSocket server URL used by this session
@@ -705,7 +786,7 @@ export class TpaSession {
   getServerUrl(): string | undefined {
     return this.config.augmentOSWebsocketUrl;
   }
-  
+
   /**
    * 🔍 Get default settings from the TPA configuration
    * @returns Array of settings with default values
@@ -715,7 +796,7 @@ export class TpaSession {
     if (!this.tpaConfig) {
       throw new Error('TPA configuration not loaded. Call loadConfigFromJson first.');
     }
-    
+
     return this.tpaConfig.settings
       .filter((s: AppSetting | { type: 'group'; title: string }): s is AppSetting => s.type !== 'group')
       .map((s: AppSetting) => ({
@@ -723,7 +804,7 @@ export class TpaSession {
         value: s.defaultValue  // Set value to defaultValue
       }));
   }
-  
+
   /**
    * 🔍 Get setting schema from configuration
    * @param key Setting key to look up
@@ -731,11 +812,11 @@ export class TpaSession {
    */
   getSettingSchema(key: string): AppSetting | undefined {
     if (!this.tpaConfig) return undefined;
-    
-    const setting = this.tpaConfig.settings.find((s: AppSetting | { type: 'group'; title: string }) => 
+
+    const setting = this.tpaConfig.settings.find((s: AppSetting | { type: 'group'; title: string }) =>
       s.type !== 'group' && 'key' in s && s.key === key
     );
-    
+
     return setting as AppSetting | undefined;
   }
 
@@ -766,36 +847,37 @@ export class TpaSession {
           // Get settings from connection acknowledgment
           const receivedSettings = message.settings || [];
           this.settingsData = receivedSettings;
-          
+
           // Store config if provided
           if (message.config && validateTpaConfig(message.config)) {
             this.tpaConfig = message.config;
           }
-          
+
           // Use default settings from config if no settings were provided
           if (receivedSettings.length === 0 && this.tpaConfig) {
             try {
               this.settingsData = this.getDefaultSettings();
             } catch (error) {
-              console.warn('Failed to load default settings from config:', error);
+              this.logger.warn('Failed to load default settings from config:', error);
             }
           }
-          
+
           // Update the settings manager with the new settings
           this.settings.updateSettings(this.settingsData);
-          
+
           // Emit connected event with settings
           this.events.emit('connected', this.settingsData);
-          
+
           // Update subscriptions (normal flow)
           this.updateSubscriptions();
-          
+
           // If settings-based subscriptions are enabled, update those too
           if (this.shouldUpdateSubscriptionsOnSettingsChange && this.settingsData.length > 0) {
             this.updateSubscriptionsFromSettings();
           }
         }
-        else if (isTpaConnectionError(message)) {
+        else if (isTpaConnectionError(message) || message.type === 'connection_error') {
+          // Handle both TPA-specific connection_error and standard connection_error
           const errorMessage = message.message || 'Unknown connection error';
           this.events.emit('error', new Error(errorMessage));
         }
@@ -807,20 +889,14 @@ export class TpaSession {
         }
         else if (isDataStream(message)) {
           // Ensure streamType exists before emitting the event
-          // console.log(`((())) message.streamType: ${message.streamType}`);
-          // console.log(`((())) message.data: ${JSON.stringify(message.data)}`);
-
           let messageStreamType = message.streamType as ExtendedStreamType;
           if (message.streamType === StreamType.TRANSCRIPTION) {
             const transcriptionData = message.data as TranscriptionData;
-            // console.log(`((())) transcriptionData.transcribe_language: ${transcriptionData.transcribeLanguage}`);
             if (transcriptionData.transcribeLanguage) {
               messageStreamType = createTranscriptionStream(transcriptionData.transcribeLanguage) as ExtendedStreamType;
             }
           } else if (message.streamType === StreamType.TRANSLATION) {
             const translationData = message.data as TranslationData;
-            // console.log(`((())) translationData.sourceLanguage: ${translationData.sourceLanguage}`);
-            // console.log(`((())) translationData.targetLanguage: ${translationData.targetLanguage}`);
             if (translationData.transcribeLanguage && translationData.translateLanguage) {
               messageStreamType = createTranslationStream(translationData.transcribeLanguage, translationData.translateLanguage) as ExtendedStreamType;
             }
@@ -831,26 +907,40 @@ export class TpaSession {
             this.events.emit(messageStreamType, sanitizedData);
           }
         }
+        else if (isPhotoResponse(message)) {
+          // Handle photo response by resolving the pending promise
+          if (this.pendingPhotoRequests.has(message.requestId)) {
+            const { resolve } = this.pendingPhotoRequests.get(message.requestId)!;
+            resolve(message.photoUrl);
+            this.pendingPhotoRequests.delete(message.requestId);
+          }
+        }
         else if (isSettingsUpdate(message)) {
           // Store previous settings to check for changes
           const prevSettings = [...this.settingsData];
-          
+
           // Update internal settings storage
           this.settingsData = message.settings || [];
-          
+
           // Update the settings manager with the new settings
           const changes = this.settings.updateSettings(this.settingsData);
-          
+
           // Emit settings update event (for backwards compatibility)
           this.events.emit('settings_update', this.settingsData);
-          
+
+          // --- AugmentOS settings update logic ---
+          // If the message.settings looks like AugmentOS settings (object with known keys), update augmentosSettings
+          if (message.settings && typeof message.settings === 'object') {
+            this.settings.updateAugmentosSettings(message.settings);
+          }
+
           // Check if we should update subscriptions
           if (this.shouldUpdateSubscriptionsOnSettingsChange) {
             // Check if any subscription trigger settings changed
             const shouldUpdateSubs = this.subscriptionUpdateTriggers.some(key => {
               return key in changes;
             });
-            
+
             if (shouldUpdateSubs) {
               this.updateSubscriptionsFromSettings();
             }
@@ -859,7 +949,7 @@ export class TpaSession {
         else if (isAppStopped(message)) {
           const reason = message.reason || 'unknown';
           const displayReason = `App stopped: ${reason}`;
-          
+
           // Emit disconnected event with clean closure info to prevent reconnection attempts
           this.events.emit('disconnected', {
             message: displayReason,
@@ -867,7 +957,7 @@ export class TpaSession {
             reason: displayReason,
             wasClean: true,
           });
-          
+
           // Clear reconnection state
           this.reconnectAttempts = 0;
         }
@@ -876,13 +966,13 @@ export class TpaSession {
           try {
             // Use proper type
             const mode = message.mode || 'none';
-            
+
             // Update dashboard state in the API
             if (this.dashboard && 'content' in this.dashboard) {
               (this.dashboard.content as any).setCurrentMode(mode);
             }
           } catch (error) {
-            console.error('Error handling dashboard mode change:', error);
+            this.logger.error({ error }, 'Error handling dashboard mode change');
           }
         }
         // Handle always-on dashboard state changes
@@ -890,33 +980,63 @@ export class TpaSession {
           try {
             // Use proper type
             const enabled = !!message.enabled;
-            
+
             // Update dashboard state in the API
             if (this.dashboard && 'content' in this.dashboard) {
               (this.dashboard.content as any).setAlwaysOnEnabled(enabled);
             }
           } catch (error) {
-            console.error('Error handling dashboard always-on change:', error);
+            this.logger.error({ error }, 'Error handling dashboard always-on change');
           }
+        }
+        // Handle custom messages
+        else if (message.type === CloudToTpaMessageType.CUSTOM_MESSAGE) {
+          this.events.emit('custom_message', message);
+          return;
+        }
+        // Handle 'connection_error' as a specific case if cloud sends this string literal
+        else if ((message as any).type === 'connection_error') {
+          // Treat 'connection_error' (string literal) like TpaConnectionError
+          // This handles cases where the cloud might send the type as a direct string
+          // instead of the enum's 'tpa_connection_error' value.
+          const errorMessage = (message as any).message || 'Unknown connection error (type: connection_error)';
+          this.logger.warn(`Received 'connection_error' type directly. Consider aligning cloud to send 'tpa_connection_error'. Message: ${errorMessage}`);
+          this.events.emit('error', new Error(errorMessage));
+        }
+        else if (message.type === 'augmentos_settings_update') {
+          const augmentosMsg = message as AugmentosSettingsUpdate;
+          if (augmentosMsg.settings && typeof augmentosMsg.settings === 'object') {
+            this.settings.updateAugmentosSettings(augmentosMsg.settings);
+          }
+        }
+        // Handle 'connection_error' as a specific case if cloud sends this string literal
+        else if ((message as any).type === 'connection_error') {
+          // Treat 'connection_error' (string literal) like TpaConnectionError
+          // This handles cases where the cloud might send the type as a direct string
+          // instead of the enum's 'tpa_connection_error' value.
+          const errorMessage = (message as any).message || 'Unknown connection error (type: connection_error)';
+          this.logger.warn(`Received 'connection_error' type directly. Consider aligning cloud to send 'tpa_connection_error'. Message: ${errorMessage}`);
+          this.events.emit('error', new Error(errorMessage));
         }
         // Handle unrecognized message types gracefully
         else {
+          this.logger.warn(`((())) Unrecognized message type: ${(message as any).type}`);
           this.events.emit('error', new Error(`Unrecognized message type: ${(message as any).type}`));
         }
       } catch (processingError: unknown) {
         // Catch any errors during message processing to prevent TPA crashes
-        console.error('Error processing message:', processingError);
+        this.logger.error('Error processing message:', processingError);
         const errorMessage = processingError instanceof Error ? processingError.message : String(processingError);
         this.events.emit('error', new Error(`Error processing message: ${errorMessage}`));
       }
     } catch (error: unknown) {
       // Final safety net to ensure the TPA doesn't crash on any unexpected errors
-      console.error('Unexpected error in message handler:', error);
+      this.logger.error({ error, message }, 'Unexpected error in message handler');
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.events.emit('error', new Error(`Unexpected error in message handler: ${errorMessage}`));
     }
   }
-  
+
   /**
    * 🧪 Validate incoming message structure
    * @param message - Message to validate
@@ -927,21 +1047,21 @@ export class TpaSession {
     if (message instanceof ArrayBuffer) {
       return true; // ArrayBuffers are always considered valid at this level
     }
-    
+
     // Check if message is null or undefined
     if (!message) {
       return false;
     }
-    
+
     // Check if message has a type property
     if (!('type' in message)) {
       return false;
     }
-    
+
     // All other message types should be objects with a type property
     return true;
   }
-  
+
   /**
    * 📦 Handle binary message data (audio or video)
    * @param buffer - Binary data as ArrayBuffer
@@ -952,7 +1072,7 @@ export class TpaSession {
       if (!this.subscriptions.has(StreamType.AUDIO_CHUNK)) {
         return;
       }
-      
+
       // Validate buffer has content before processing
       if (!buffer || buffer.byteLength === 0) {
         this.events.emit('error', new Error('Received empty binary message'));
@@ -970,12 +1090,12 @@ export class TpaSession {
       // Emit to subscribers
       this.events.emit(StreamType.AUDIO_CHUNK, audioChunk);
     } catch (error: unknown) {
-      console.error('Error processing binary message:', error);
+      this.logger.error({ error }, 'Error processing binary message');
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.events.emit('error', new Error(`Error processing binary message: ${errorMessage}`));
     }
   }
-  
+
   /**
    * 🧹 Sanitize event data to prevent crashes from malformed data
    * @param streamType - The type of stream data
@@ -988,21 +1108,21 @@ export class TpaSession {
       if (data === null || data === undefined) {
         return {};
       }
-      
+
       // For specific stream types, perform targeted sanitization
       switch (streamType) {
         case StreamType.TRANSCRIPTION:
           // Ensure text field exists and is a string
           if (typeof (data as TranscriptionData).text !== 'string') {
-            return { 
-              text: '', 
-              isFinal: true, 
-              startTime: Date.now(), 
-              endTime: Date.now() 
+            return {
+              text: '',
+              isFinal: true,
+              startTime: Date.now(),
+              endTime: Date.now()
             };
           }
           break;
-          
+
         case StreamType.HEAD_POSITION:
           // Ensure position data has required numeric fields
           // Handle HeadPosition - Note the property position instead of x,y,z
@@ -1011,7 +1131,7 @@ export class TpaSession {
             return { position: 'up', timestamp: new Date() };
           }
           break;
-          
+
         case StreamType.BUTTON_PRESS:
           // Ensure button type is valid
           const btn = data as any;
@@ -1020,10 +1140,10 @@ export class TpaSession {
           }
           break;
       }
-      
+
       return data;
     } catch (error: unknown) {
-      console.error(`Error sanitizing ${streamType} data:`, error);
+      this.logger.error({ error }, `Error sanitizing ${streamType} data`);
       // Return a safe empty object if something goes wrong
       return {};
     }
@@ -1047,8 +1167,7 @@ export class TpaSession {
    * 📝 Update subscription list with cloud
    */
   private updateSubscriptions(): void {
-    // console.log(`2222  Subscribing to ${Array.from(this.subscriptions)}`);
-    // console.log(`3333  Subscribing to ${this.config.packageName}`);
+    this.logger.info(`[TpaSession] updateSubscriptions: sending subscriptions to cloud:`, Array.from(this.subscriptions));
     const message: TpaSubscriptionUpdate = {
       type: TpaToCloudMessageType.SUBSCRIPTION_UPDATE,
       packageName: this.config.packageName,
@@ -1065,15 +1184,15 @@ export class TpaSession {
   private async handleReconnection(): Promise<void> {
     // Check if reconnection is allowed
     if (!this.config.autoReconnect || !this.sessionId) {
-      console.log(`🔄 Reconnection skipped: autoReconnect=${this.config.autoReconnect}, sessionId=${this.sessionId ? 'valid' : 'invalid'}`);
+      this.logger.debug(`🔄 Reconnection skipped: autoReconnect=${this.config.autoReconnect}, sessionId=${this.sessionId ? 'valid' : 'invalid'}`);
       return;
     }
 
     // Check if we've exceeded the maximum attempts
     const maxAttempts = this.config.maxReconnectAttempts || 3;
     if (this.reconnectAttempts >= maxAttempts) {
-      console.log(`🔄 Maximum reconnection attempts (${maxAttempts}) reached, giving up`);
-      
+      this.logger.info(`🔄 Maximum reconnection attempts (${maxAttempts}) reached, giving up`);
+
       // Emit a permanent disconnection event to trigger onStop in the TPA server
       this.events.emit('disconnected', {
         message: `Connection permanently lost after ${maxAttempts} failed reconnection attempts`,
@@ -1082,7 +1201,7 @@ export class TpaSession {
         wasClean: false,
         permanent: true // Flag this as a permanent disconnection
       });
-      
+
       return;
     }
 
@@ -1091,7 +1210,7 @@ export class TpaSession {
     const delay = baseDelay * Math.pow(2, this.reconnectAttempts);
     this.reconnectAttempts++;
 
-    console.log(`🔄 [${this.config.packageName}] Reconnection attempt ${this.reconnectAttempts}/${maxAttempts} in ${delay}ms`);
+    this.logger.debug(`🔄 [${this.config.packageName}] Reconnection attempt ${this.reconnectAttempts}/${maxAttempts} in ${delay}ms`);
 
     // Use the resource tracker for the timeout
     await new Promise<void>(resolve => {
@@ -1099,19 +1218,19 @@ export class TpaSession {
     });
 
     try {
-      console.log(`🔄 [${this.config.packageName}] Attempting to reconnect...`);
+      this.logger.debug(`🔄 [${this.config.packageName}] Attempting to reconnect...`);
       await this.connect(this.sessionId);
-      console.log(`✅ [${this.config.packageName}] Reconnection successful!`);
+      this.logger.debug(`✅ [${this.config.packageName}] Reconnection successful!`);
       this.reconnectAttempts = 0;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ [${this.config.packageName}] Reconnection failed: ${errorMessage}`);
+      this.logger.error({ error }, `❌ [${this.config.packageName}] Reconnection failed for user ${this.userId}`);
       this.events.emit('error', new Error(`Reconnection failed: ${errorMessage}`));
-      
+
       // Check if this was the last attempt
       if (this.reconnectAttempts >= maxAttempts) {
-        console.log(`🔄 [${this.config.packageName}] Final reconnection attempt failed, emitting permanent disconnection`);
-        
+        this.logger.debug(`🔄 [${this.config.packageName}] Final reconnection attempt failed, emitting permanent disconnection`);
+
         // Emit permanent disconnection event after the last failed attempt
         this.events.emit('disconnected', {
           message: `Connection permanently lost after ${maxAttempts} failed reconnection attempts`,
@@ -1134,7 +1253,7 @@ export class TpaSession {
       if (!this.ws) {
         throw new Error('WebSocket connection not established');
       }
-      
+
       if (this.ws.readyState !== 1) {
         const stateMap: Record<number, string> = {
           0: 'CONNECTING',
@@ -1145,21 +1264,21 @@ export class TpaSession {
         const stateName = stateMap[this.ws.readyState] || 'UNKNOWN';
         throw new Error(`WebSocket not connected (current state: ${stateName})`);
       }
-      
+
       // Validate message before sending
       if (!message || typeof message !== 'object') {
         throw new Error('Invalid message: must be an object');
       }
-      
+
       if (!('type' in message)) {
         throw new Error('Invalid message: missing "type" property');
       }
-      
+
       // Ensure message format is consistent
       if (!('timestamp' in message) || !(message.timestamp instanceof Date)) {
         message.timestamp = new Date();
       }
-      
+
       // Try to send with error handling
       try {
         const serializedMessage = JSON.stringify(message);
@@ -1170,15 +1289,15 @@ export class TpaSession {
       }
     } catch (error: unknown) {
       // Log the error and emit an event so TPA developers are aware
-      console.error('Message send error:', error);
-      
+      this.logger.error({ error }, 'Message send error');
+
       // Ensure we always emit an Error object
       if (error instanceof Error) {
         this.events.emit('error', error);
       } else {
         this.events.emit('error', new Error(String(error)));
       }
-      
+
       // Re-throw to maintain the original function behavior
       throw error;
     }

@@ -1,128 +1,144 @@
 // src/pages/AuthPage.tsx
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import EmailAuthModal from '../components/EmailAuthModal';
+import api from '../services/api.service';
+import { toast } from 'sonner';
 
+declare const window: Window & typeof globalThis;
+
+/**
+ * Authentication page component
+ * Handles user authentication and organization invitation acceptance
+ */
 const AuthPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, refreshUser, tokenReady } = useAuth();
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  
+  const [searchParams] = useSearchParams();
+  const [inviteHandled, setInviteHandled] = useState(false);
+  const inviteToken = searchParams.get('token');
+
+  /**
+   * Handle organization invitation acceptance
+   * @param token - The invitation token from URL
+   */
+  const handleInvite = async (token: string) => {
+    try {
+
+      // Accept the invitation using the orgs.acceptInvite method
+      const orgResponse = await api.orgs.acceptInvite(token);
+
+      // Show success message with the organization name
+      toast.success(`You have been added to ${orgResponse.name}!`);
+      setInviteHandled(true);
+
+      // Refresh user data to update organization membership
+      await refreshUser();
+
+      // Force a page reload to ensure all context data is refreshed
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1500);
+    } catch (error: any) {
+      console.error('Error accepting invite:', error);
+
+      // Handle specific error cases
+      if (error.response?.status === 400 &&
+          error.response?.data?.message?.includes('already a member')) {
+        // If user is already a member, show a friendly message instead of an error
+        toast.info('You are already a member of this organization');
+        setInviteHandled(true);
+
+        // Still reload to take them to dashboard
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 1500);
+        return;
+      }
+
+      // Provide more specific error messages based on the error
+      if (error.response?.data?.message) {
+        toast.error(`Invitation error: ${error.response.data.message}`);
+      } else {
+        toast.error('Failed to accept the invitation. It may be invalid or expired.');
+      }
+    }
+  };
+
+  // Check for invite token and process it when authenticated
+  useEffect(() => {
+    if (isAuthenticated && tokenReady && inviteToken && !inviteHandled) {
+      handleInvite(inviteToken);
+    }
+  }, [isAuthenticated, tokenReady, inviteToken, inviteHandled]);
+
   // Redirect to dashboard if already authenticated
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      console.log('User already authenticated, redirecting to dashboard');
+    if (isAuthenticated && !inviteToken) {
       navigate('/dashboard');
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, navigate, inviteToken]);
+
+  // Show email authentication modal
+  const showEmailAuth = () => {
+    setIsEmailModalOpen(true);
+  };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Header */}
-      <header>
-        <div className="mx-auto px-5 py-4 flex items-center justify-between bg-gray-100">
-          <div className='select-none' onClick={() => navigate('/')}>
-            <div className="flex items-end gap-0 cursor-pointer">
-              <h1 className="font-cuprum font-bold text-5xl">.\</h1>
-              <h1 className="font-light text-2xl pb-0.5 pl-1">ugment</h1>
-              <h1 className="font-medium text-2xl pb-0.5">OS</h1>
-            </div>
-            <h2 className="text-sm text-gray-600 pb-1 ">Developer Portal</h2>
+    <div className="container mx-auto max-w-md py-12">
+      <div className="text-center mb-8">
+        <h1 className="text-2xl font-bold mb-2">Welcome to AugmentOS Developer Portal</h1>
+        <p className="text-gray-600">Sign in or create an account to continue</p>
+        {inviteToken && !inviteHandled && (
+          <div className="mt-4 p-3 bg-blue-50 rounded-md text-blue-700">
+            You have been invited to join an organization.
+            {isAuthenticated ? 'Processing invitation...' : 'Please sign in or create an account to accept the invitation.'}
           </div>
-        </div>
-      </header>
+        )}
+      </div>
 
-      {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center bg-gray-100 px-4 py-12">
-        <div className="w-full max-w-md p-8 justify-center items-center flex flex-col bg-white rounded-lg shadow-md">
-          <div className='select-none flex flex-col items-center'>
-            <div className="flex items-end gap-0 cursor-pointer">
-              <h1 className="font-cuprum font-bold text-5xl">.\</h1>
-              <h1 className="font-light text-2xl pb-0.5 pl-1">ugment</h1>
-              <h1 className="font-medium text-2xl pb-0.5">OS</h1>
+      <div className="bg-white p-8 rounded-lg shadow-md">
+        <div className="flex flex-col gap-4">
+          <Button variant="outline" onClick={showEmailAuth}>
+            Continue with Email
+          </Button>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
             </div>
-            <h2 className="text-sm text-gray-600 pb-1 ">Developer Portal</h2>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue with</span>
+            </div>
           </div>
 
-          <div className="w-full space-y-4">
-            <div className="text-center mb-2">
-              <h2 className="text-xl font-semibold">Sign in to continue</h2>
-              <p className="text-sm text-gray-500 mt-1">Choose your preferred sign in method</p>
-            </div>
-            
-            {/* Google Sign In Button */}
-            <Auth
-              supabaseClient={supabase}
-              appearance={{ 
-                theme: ThemeSupa,
-                style: {
-                  button: {
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                  },
-                  anchor: {
-                    display: 'none'
-                  },
-                  container: {
-                    width: '100%'
-                  }
-                },
-                // Hide everything except the google button
-                className: {
-                  message: 'hidden',
-                  divider: 'hidden',
-                  label: 'hidden',
-                  input: 'hidden',
-                  button: 'hidden',
-                }
-              }}
-              providers={['google']}
-              view="sign_in"
-              redirectTo={`${window.location.origin}/dashboard`}
-              showLinks={false}
-              onlyThirdPartyProviders={true}
-            />
-            
-            {/* Email Sign In Button */}
-            <div className="w-full flex flex-col items-center space-y-4 mt-4">
-              <div className="flex items-center w-full">
-                <div className="flex-grow h-px bg-gray-300"></div>
-                <div className="px-4 text-sm text-gray-500">or</div>
-                <div className="flex-grow h-px bg-gray-300"></div>
-              </div>
-              
-              <Button 
-                className="w-full py-2" 
-                onClick={() => setIsEmailModalOpen(true)}
-                variant="outline"
-              >
-                Sign in with Email
-              </Button>
-            </div>
-          </div>
-          
-          {/* Email Auth Modal */}
-          <EmailAuthModal 
-            open={isEmailModalOpen} 
-            onOpenChange={setIsEmailModalOpen} 
+          <Auth
+            supabaseClient={supabase}
+            appearance={{ theme: ThemeSupa }}
+            providers={['github', 'google']}
+            redirectTo={
+              inviteToken
+                ? `${window.location.origin}/signin?token=${inviteToken}`
+                : `${window.location.origin}/dashboard`
+            }
           />
         </div>
-      </main>
+      </div>
 
-      {/* Footer */}
-      <footer className="bg-gray-100 py-6">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-gray-600">
-            &copy; {new Date().getFullYear()} AugmentOS. All rights reserved.
-          </p>
-        </div>
-      </footer>
+      <EmailAuthModal
+        open={isEmailModalOpen}
+        onOpenChange={setIsEmailModalOpen}
+      />
     </div>
   );
 };

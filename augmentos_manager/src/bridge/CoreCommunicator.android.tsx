@@ -251,6 +251,22 @@ export class CoreCommunicator extends EventEmitter {
         });
       } else if ('need_permissions' in data) {
         GlobalEventEmitter.emit('NEED_PERMISSIONS');
+      } else if ('need_wifi_credentials' in data) {
+        console.log('Received need_wifi_credentials event from Core');
+        GlobalEventEmitter.emit('GLASSES_NEED_WIFI_CREDENTIALS', { 
+          deviceModel: data.device_model 
+        });
+      } else if ('wifi_scan_results' in data) {
+        console.log('Received WiFi scan results from Core');
+        GlobalEventEmitter.emit('WIFI_SCAN_RESULTS', { 
+          networks: data.wifi_scan_results
+        });
+      } else if (data.type === 'app_started' && data.packageName) {
+        console.log('APP_STARTED_EVENT', data.packageName);
+        GlobalEventEmitter.emit('APP_STARTED_EVENT', data.packageName);
+      } else if (data.type === 'app_stopped' && data.packageName) {
+        console.log('APP_STOPPED_EVENT', data.packageName);
+        GlobalEventEmitter.emit('APP_STOPPED_EVENT', data.packageName);
       }
     } catch (e) {
       console.error('Error parsing data from Core:', e);
@@ -481,7 +497,6 @@ export class CoreCommunicator extends EventEmitter {
   }
 
   async sendToggleAlwaysOnStatusBar(enabled: boolean) {
-    console.log('sendToggleAlwaysOnStatusBar');
     return await this.sendData({
       command: 'enable_always_on_status_bar',
       params: {
@@ -502,7 +517,7 @@ export class CoreCommunicator extends EventEmitter {
 
   async setGlassesHeadUpAngle(headUpAngle: number) {
     return await this.sendData({
-      command: 'update_glasses_headUp_angle',
+      command: 'update_glasses_head_up_angle',
       params: {
         headUpAngle: headUpAngle,
       },
@@ -598,6 +613,24 @@ export class CoreCommunicator extends EventEmitter {
       command: 'delete_auth_secret_key',
     });
   }
+  
+  async sendWifiCredentials(ssid: string, password: string) {
+    return await this.sendData({
+      command: 'send_wifi_credentials',
+      params: {
+        ssid,
+        password
+      },
+    });
+  }
+  
+  async requestWifiScan() {
+    return await this.sendData({
+      command: 'request_wifi_scan'
+    });
+  }
+
+  
 
   async stopService() {
     // Clean up any active listeners
@@ -611,9 +644,37 @@ export class CoreCommunicator extends EventEmitter {
       CoreCommsService.stopService();
     }
   }
+
+  async setGlassesDashboardHeight(dashboardHeight: number) {
+    return await this.sendData({
+      command: 'update_glasses_dashboard_height',
+      params: {height: dashboardHeight},
+    });
+  }
+
+  async setGlassesDepth(depth: number) {
+    return await this.sendData({
+      command: 'update_glasses_depth',
+      params: {depth: depth},
+    });
+  }
+
+  async showDashboard() {
+    return await this.sendData({
+      command: 'show_dashboard',
+    });
+  }
+
+  async sendSetMetricSystemEnabled(metricSystemEnabled: boolean) {
+    return await this.sendData({
+      command: 'set_metric_system_enabled',
+      params: {
+        enabled: metricSystemEnabled,
+      },
+    });
+  }
 }
 
 // Create and export the singleton instance
 const coreCommunicator = CoreCommunicator.getInstance();
-export default coreCommunicator;
 export default coreCommunicator;

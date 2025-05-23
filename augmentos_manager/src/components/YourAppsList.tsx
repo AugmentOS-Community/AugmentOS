@@ -1,14 +1,6 @@
 // YourAppsList.tsx
-import React, {useEffect, useRef, useState} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Animated,
-  Platform,
-} from 'react-native';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Platform} from 'react-native';
 import showAlert from '../utils/AlertUtils';
 import MessageModal from './MessageModal';
 import {useStatus} from '../providers/AugmentOSStatusProvider';
@@ -19,7 +11,10 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import AppIcon from './AppIcon';
 import {NavigationProps} from './types';
-import {useAppStatus} from '../providers/AppStatusProvider';
+import {AppInterface, TPAPermission, useAppStatus} from '../providers/AppStatusProvider';
+import {requestFeaturePermissions} from '../logic/PermissionsUtils';
+import {checkFeaturePermissions} from '../logic/PermissionsUtils';
+import {PermissionFeatures} from '../logic/PermissionsUtils';
 
 interface YourAppsListProps {
   isDarkTheme: boolean;
@@ -41,6 +36,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
   const [inLiveCaptionsPhase, setInLiveCaptionsPhase] = useState(false);
   const [showSettingsHint, setShowSettingsHint] = useState(false);
   const [showOnboardingTip, setShowOnboardingTip] = useState(false);
+  // Static values instead of animations
   const bounceAnim = React.useRef(new Animated.Value(0)).current;
   const pulseAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -63,10 +59,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
   const numColumns = 4; // Desired number of columns
 
   // Calculate the item width based on container width and margins
-  const itemWidth =
-    containerWidth > 0
-      ? (containerWidth - GRID_MARGIN * numColumns) / numColumns
-      : 0;
+  const itemWidth = containerWidth > 0 ? (containerWidth - GRID_MARGIN * numColumns) / numColumns : 0;
 
   const textColor = isDarkTheme ? '#FFFFFF' : '#000000';
 
@@ -78,10 +71,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
   useFocusEffect(
     React.useCallback(() => {
       const checkOnboardingStatus = async () => {
-        const completed = await loadSetting(
-          SETTINGS_KEYS.ONBOARDING_COMPLETED,
-          true,
-        );
+        const completed = await loadSetting(SETTINGS_KEYS.ONBOARDING_COMPLETED, true);
         setOnboardingCompleted(completed);
 
         if (!completed) {
@@ -92,10 +82,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
           setShowOnboardingTip(false);
 
           // If onboarding is completed, check how many times settings have been accessed
-          const settingsAccessCount = await loadSetting(
-            SETTINGS_KEYS.SETTINGS_ACCESS_COUNT,
-            0,
-          );
+          const settingsAccessCount = await loadSetting(SETTINGS_KEYS.SETTINGS_ACCESS_COUNT, 0);
           // Only show hint if they've accessed settings less than 1 times
           setShowSettingsHint(settingsAccessCount < 1);
         }
@@ -105,23 +92,16 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
     }, []),
   );
 
-  // Set arrow to static position (no animation)
+  // Just set arrow to static position
   useEffect(() => {
-    // Just set to a fixed value instead of animating
-    if (showOnboardingTip) {
-      arrowAnimation.setValue(0.5); // Middle value for static appearance
-    } else {
-      arrowAnimation.setValue(0);
-    }
+    // Set static value
+    arrowAnimation.setValue(0);
   }, [showOnboardingTip]);
 
   // Check if onboarding is completed on initial load
   useEffect(() => {
     const checkOnboardingStatus = async () => {
-      const completed = await loadSetting(
-        SETTINGS_KEYS.ONBOARDING_COMPLETED,
-        true,
-      );
+      const completed = await loadSetting(SETTINGS_KEYS.ONBOARDING_COMPLETED, true);
       setOnboardingCompleted(completed);
       setShowOnboardingTip(!completed);
     };
@@ -129,72 +109,58 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
     checkOnboardingStatus();
   }, []);
 
-  // Add animation effect when onboarding tip is shown
+  // Set static values instead of animations
   useEffect(() => {
     if (showOnboardingTip) {
-      // Bounce animation with reduced movement
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(bounceAnim, {
-            toValue: 1,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(bounceAnim, {
-            toValue: 0,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-        ]),
-      ).start();
-
-      // Pulse animation
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 0,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-        ]),
-      ).start();
+      // Set static values instead of animating
+      bounceAnim.setValue(0);
+      pulseAnim.setValue(0.5);
     } else {
       bounceAnim.setValue(0);
       pulseAnim.setValue(0);
     }
   }, [showOnboardingTip]);
 
-  // Measure Live Captions position when onboarding tip should be shown
+  // Safely measure Live Captions position when onboarding tip should be shown
   useEffect(() => {
-    if (showOnboardingTip && liveCaptionsRef.current) {
-      // Allow layout to complete, then measure
-      setTimeout(() => {
-        liveCaptionsRef?.current?.measure(
-          (
-            x: number,
-            y: number,
-            width: number,
-            height: number,
-            pageX: number,
-            pageY: number,
-          ) => {
-            setLiveCaptionsPosition({
-              x: pageX,
-              y: pageY,
-              width,
-              height,
-              index: liveCaptionsPosition.index,
-            });
-          },
-        );
-      }, 100);
-    }
-  }, [showOnboardingTip, liveCaptionsRef.current, appStatus]);
+    // Only try to measure if the tip should be shown
+    if (!showOnboardingTip) return;
+
+    // Track if component is mounted for safety
+    let isMounted = true;
+    
+    // Use timeout to ensure we measure after layout
+    const timeoutId = setTimeout(() => {
+      // Safety check that the component is still mounted and ref is valid
+      if (isMounted && liveCaptionsRef.current) {
+        try {
+          liveCaptionsRef.current.measure(
+            (x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
+              // Another safety check before state update
+              if (isMounted) {
+                setLiveCaptionsPosition(prev => ({
+                  ...prev, // Keep existing index if we have it
+                  x: pageX,
+                  y: pageY,
+                  width: width || prev.width,  // Keep previous values if new ones are invalid
+                  height: height || prev.height,
+                }));
+              }
+            },
+          );
+        } catch (e) {
+          // Silently handle measurement errors
+          console.log('Could not measure Live Captions position');
+        }
+      }
+    }, 500); // Give more time for layout to settle
+    
+    // Cleanup timeout on unmount and mark as unmounted
+    return () => {
+      clearTimeout(timeoutId);
+      isMounted = false;
+    };
+  }, [showOnboardingTip]);
 
   const completeOnboarding = () => {
     saveSetting(SETTINGS_KEYS.ONBOARDING_COMPLETED, true);
@@ -211,12 +177,69 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
     }, 100);
   };
 
+  const checkPermissions = async (app: AppInterface) => {
+    let permissions = app.permissions || [];
+    let neededPermissions: string[] = [];
+
+    if (permissions.length == 1 && permissions[0].type == 'ALL') {
+      permissions = [
+        {type: 'MICROPHONE', required: true},
+        {type: 'CALENDAR', required: true},
+        {type: 'NOTIFICATIONS', required: true},
+        {type: 'LOCATION', required: true},
+      ] as TPAPermission[];
+    }
+
+    for (const permission of permissions) {
+      if (!(permission['required'] ?? true)) {
+        continue;
+      }
+      switch (permission.type) {
+        case 'MICROPHONE':
+          const hasMicrophone = await checkFeaturePermissions(PermissionFeatures.MICROPHONE);
+          if (!hasMicrophone) {
+            neededPermissions.push(PermissionFeatures.MICROPHONE);
+          }
+          break;
+        case 'CAMERA':
+          const hasCamera = await checkFeaturePermissions(PermissionFeatures.CAMERA);
+          if (!hasCamera) {
+            neededPermissions.push(PermissionFeatures.CAMERA);
+          }
+          break;
+        case 'CALENDAR':
+          const hasCalendar = await checkFeaturePermissions(PermissionFeatures.CALENDAR);
+          if (!hasCalendar) {
+            neededPermissions.push(PermissionFeatures.CALENDAR);
+          }
+          break;
+        case 'NOTIFICATIONS':
+          const hasNotifications = await checkFeaturePermissions(PermissionFeatures.NOTIFICATIONS);
+          if (!hasNotifications && Platform.OS !== 'ios') {
+            neededPermissions.push(PermissionFeatures.NOTIFICATIONS);
+          }
+          break;
+        case 'LOCATION':
+          const hasLocation = await checkFeaturePermissions(PermissionFeatures.LOCATION);
+          if (!hasLocation) {
+            neededPermissions.push(PermissionFeatures.LOCATION);
+          }
+          break;
+      }
+    }
+
+    return neededPermissions;
+  };
+
+  const requestPermissions = async (permissions: string[]) => {
+    for (const permission of permissions) {
+      await requestFeaturePermissions(permission);
+    }
+  };
+
   const startApp = async (packageName: string) => {
     if (!onboardingCompleted) {
-      if (
-        packageName !== 'com.augmentos.livecaptions' &&
-        packageName !== 'cloud.augmentos.live-captions'
-      ) {
+      if (packageName !== 'com.augmentos.livecaptions' && packageName !== 'cloud.augmentos.live-captions') {
         showAlert(
           'Complete Onboarding',
           'Please tap the Live Captions app to complete the onboarding process.',
@@ -232,28 +255,50 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
       }
     }
 
-    // Optimistically update UI
-    optimisticallyStartApp(packageName);
-
     // Find the app we're trying to start
     const appToStart = appStatus.find(app => app.packageName === packageName);
+    if (!appToStart) {
+      console.error('App not found:', packageName);
+      return;
+    }
 
-    console.log('fdsds####3333');
-    console.log('@@@ appStatus', appStatus);
-    console.log('@@@ appToStart', appToStart);
+    // check perms:
+    const neededPermissions = await checkPermissions(appToStart);
+    if (neededPermissions.length > 0) {
+      await showAlert(
+        neededPermissions.length > 1 ? 'Permissions Required' : 'Permission Required',
+        'Please grant the following permissions to continue: ' + neededPermissions.join(', '),
+        // neededPermissions.map(permission => ({text: permission})),
+        [
+          {
+            text: 'OK',
+            onPress: async () => {
+              await requestPermissions(neededPermissions);
+              startApp(packageName);
+            },
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ],
+        {
+          isDarkTheme,
+          iconName: 'information-outline',
+        },
+      );
+      return;
+    }
 
-    console.log('@@@ appToStart.name', appToStart?.name);
-    console.log('@@@ appToStart.tpaType', appToStart?.tpaType);
+    // Optimistically update UI
+    optimisticallyStartApp(packageName);
 
     // Check if it's a standard app
     if (appToStart?.tpaType === 'standard') {
       console.log('% appToStart', appToStart);
       // Find any running standard apps
       const runningStandardApps = appStatus.filter(
-        app =>
-          app.is_running &&
-          app.tpaType === 'standard' &&
-          app.packageName !== packageName,
+        app => app.is_running && app.tpaType === 'standard' && app.packageName !== packageName,
       );
 
       console.log('%%% runningStandardApps', runningStandardApps);
@@ -282,10 +327,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
       // Clear the pending operation since it completed successfully
       clearPendingOperation(packageName);
 
-      if (
-        !onboardingCompleted &&
-        packageName === 'com.augmentos.livecaptions'
-      ) {
+      if (!onboardingCompleted && packageName === 'com.augmentos.livecaptions') {
         // If this is the Live Captions app, make sure we've hidden the tip
         setShowOnboardingTip(false);
 
@@ -325,31 +367,29 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
     if (!showOnboardingTip) {
       return null;
     }
-
+    
+    // Default to a reasonable position if we don't have valid measurements yet
+    const defaultPosition = 90; // Default Y position from top if we can't calculate
+    const calculatedPosition = liveCaptionsPosition.height > 0 && liveCaptionsPosition.index >= 0 
+      ? (liveCaptionsPosition.index * (liveCaptionsPosition.height + 10) - 40)
+      : defaultPosition;
+    
     return (
       <View
         style={[
           styles.arrowContainer,
           {
             position: 'absolute',
-            top:
-              liveCaptionsPosition.index * (liveCaptionsPosition.height + 10) -
-              40,
+            top: calculatedPosition,
+            // Make sure it's visible in the viewport
+            opacity: liveCaptionsPosition.height > 0 ? 1 : 0.9,
           },
         ]}>
         <View style={styles.arrowWrapper}>
-          <Animated.View
+          <View
             style={[
               styles.arrowBubble,
               {
-                transform: [
-                  {
-                    scale: pulseAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [1, 1.03],
-                    }),
-                  },
-                ],
                 backgroundColor: '#00B0FF',
                 borderColor: '#0288D1',
                 shadowColor: '#0288D1',
@@ -365,7 +405,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
                   textShadowRadius: 2,
                 },
               ]}>
-              Tap to start
+              TAP TO START
             </Text>
             <Icon
               name="gesture-tap"
@@ -380,22 +420,12 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
                 },
               ]}
             />
-          </Animated.View>
-          <Animated.View
+          </View>
+          <View
             style={[
               styles.arrowIconContainer,
-              isDarkTheme
-                ? styles.arrowIconContainerDark
-                : styles.arrowIconContainerLight,
+              isDarkTheme ? styles.arrowIconContainerDark : styles.arrowIconContainerLight,
               {
-                transform: [
-                  {
-                    translateY: bounceAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -5],
-                    }),
-                  },
-                ],
                 backgroundColor: '#00B0FF',
                 borderColor: '#0288D1',
                 marginTop: 5,
@@ -403,14 +433,11 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
                 shadowOpacity: 0.4,
               },
             ]}>
-            <Animated.View
+            <View
               style={[
                 styles.glowEffect,
                 {
-                  opacity: pulseAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.3, 0.5],
-                  }),
+                  opacity: 0.4,
                   backgroundColor: 'rgba(0, 176, 255, 0.3)',
                 },
               ]}
@@ -425,7 +452,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
                 textShadowRadius: 3,
               }}
             />
-          </Animated.View>
+          </View>
         </View>
       </View>
     );
@@ -437,17 +464,13 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
       return false;
     }
     // Check if this is the first occurrence of this package name
-    const firstIndex = appStatus.findIndex(
-      a => a.packageName === app.packageName,
-    );
+    const firstIndex = appStatus.findIndex(a => a.packageName === app.packageName);
     return firstIndex === appStatus.indexOf(app);
   });
 
   // remove the notify app on iOS
   if (Platform.OS === 'ios') {
-    availableApps = availableApps.filter(
-      app => app.packageName !== 'cloud.augmentos.notify' && app.name !== 'Notify',
-    );
+    availableApps = availableApps.filter(app => app.packageName !== 'cloud.augmentos.notify' && app.name !== 'Notify');
   }
   // alphabetically sort the available apps
   availableApps.sort((a, b) => a.name.localeCompare(b.name));
@@ -455,9 +478,7 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
   return (
     <View style={styles.appsContainer}>
       <View style={styles.titleContainer}>
-        <Text style={[styles.sectionTitle, {color: textColor}]}>
-          Inactive Apps
-        </Text>
+        <Text style={[styles.sectionTitle, {color: textColor}]}>Inactive Apps</Text>
       </View>
 
       {renderOnboardingArrow()}
@@ -467,17 +488,22 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}>
         {availableApps.map((app, index) => {
-          let isLiveCaptions = app.packageName === 'com.augmentos.livecaptions';
-          let ref = isLiveCaptions ? liveCaptionsRef : null;
+          // Check if this is the LiveCaptions app
+          const isLiveCaptions = app.packageName === 'com.augmentos.livecaptions' || 
+                               app.packageName === 'cloud.augmentos.live-captions';
+          
+          // Only set ref for LiveCaptions app
+          const ref = isLiveCaptions ? liveCaptionsRef : null;
+          
+          // Update LiveCaptions index without causing rerender loops
+          // This is safer than updating state during render
           if (isLiveCaptions && liveCaptionsPosition.index !== index) {
-            setLiveCaptionsPosition({
-              x: liveCaptionsPosition.x,
-              y: liveCaptionsPosition.y,
-              width: liveCaptionsPosition.width,
-              height: liveCaptionsPosition.height,
-              index: index,
-            });
+            // Use setTimeout to defer the state update until after render
+            setTimeout(() => {
+              setLiveCaptionsPosition(prev => ({ ...prev, index }));
+            }, 0);
           }
+          
           return (
             <TouchableOpacity
               key={app.packageName}
@@ -493,12 +519,8 @@ const YourAppsList: React.FC<YourAppsListProps> = ({isDarkTheme}) => {
                   onClick={() => startApp(app.packageName)}
                   style={styles.appIconStyle}
                 />
-                <Text style={[styles.appName, {color: textColor}]}>
-                  {app.name || 'Convoscope'}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => openAppSettings(app)}
-                  style={styles.settingsButton}>
+                <Text style={[styles.appName, {color: textColor}]}>{app.name || 'Convoscope'}</Text>
+                <TouchableOpacity onPress={() => openAppSettings(app)} style={styles.settingsButton}>
                   <Icon name="cog-outline" size={24} color={textColor} />
                 </TouchableOpacity>
               </View>

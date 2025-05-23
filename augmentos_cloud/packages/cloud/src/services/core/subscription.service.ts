@@ -7,10 +7,16 @@
  * - Tracking subscription history
  * - Validating subscription access
  * - Providing subscription queries for broadcasting
+ * - Enforcing permission checks on subscriptions
  */
 
 import { StreamType, ExtendedStreamType, isLanguageStream, UserSession, parseLanguageStream, createTranscriptionStream, CalendarEvent } from '@augmentos/sdk';
-import { logger } from '@augmentos/utils';
+import { logger as rootLogger } from '../logging/pino-logger';
+import { SimplePermissionChecker } from '../permissions/simple-permission-checker';
+import App from '../../models/app.model';
+import { sessionService } from './session.service';
+
+const logger = rootLogger.child({ service: 'subscription.service' });
 
 /**
  * Record of a subscription change
@@ -53,10 +59,10 @@ export class SubscriptionService {
   private history = new Map<string, SubscriptionHistory[]>();
 
   /**
-   * Cache for the last calendar event per session
+   * Cache for all calendar events per session
    * @private
    */
-  private lastCalendarEventCache = new Map<string, CalendarEvent>();
+  private calendarEventsCache = new Map<string, CalendarEvent[]>();
 
   /**
    * Cache for the last location per session
@@ -65,22 +71,42 @@ export class SubscriptionService {
   private lastLocationCache = new Map<string, Location>();
 
   /**
-   * Caches the last calendar event for a session
+   * Caches a calendar event for a session (appends to the list)
    * @param sessionId - User session identifier
    * @param event - Calendar event to cache
    */
   cacheCalendarEvent(sessionId: string, event: CalendarEvent): void {
-    this.lastCalendarEventCache.set(sessionId, event);
-    logger.info(`Cached calendar event for session ${sessionId}`);
+    if (!this.calendarEventsCache.has(sessionId)) {
+      this.calendarEventsCache.set(sessionId, []);
+    }
+    this.calendarEventsCache.get(sessionId)!.push(event);
+    logger.info({ userId: sessionId, sessionId, eventCount: this.calendarEventsCache.get(sessionId)!.length }, 'Cached calendar event');
   }
 
   /**
-   * Gets the last cached calendar event for a session
+   * Gets all cached calendar events for a session
    * @param sessionId - User session identifier
-   * @returns The last calendar event or undefined if none exists
+   * @returns Array of calendar events (empty if none)
+   */
+  getAllCalendarEvents(sessionId: string): CalendarEvent[] {
+    return this.calendarEventsCache.get(sessionId) || [];
+  }
+
+  /**
+   * Removes all cached calendar events for a session
+   * @param sessionId - User session identifier
+   */
+  clearCalendarEvents(sessionId: string): void {
+    this.calendarEventsCache.delete(sessionId);
+    logger.info({ sessionId, userId: sessionId }, 'Cleared all calendar events');
+  }
+
+  /**
+   * @deprecated Use getAllCalendarEvents instead
    */
   getLastCalendarEvent(sessionId: string): CalendarEvent | undefined {
-    return this.lastCalendarEventCache.get(sessionId);
+    const events = this.calendarEventsCache.get(sessionId);
+    return events && events.length > 0 ? events[events.length - 1] : undefined;
   }
 
   /**
@@ -90,7 +116,7 @@ export class SubscriptionService {
    */
   cacheLocation(sessionId: string, location: Location): void {
     this.lastLocationCache.set(sessionId, location);
-    logger.info(`Cached location for session ${sessionId}`);
+    logger.info({ sessionId, location: { lat: location.latitude, lng: location.longitude } }, 'Cached location');
   }
 
   /**
@@ -114,27 +140,41 @@ export class SubscriptionService {
   }
 
   /**
+   * Caches the subscription update version for each session-app
+   * @private
+   */
+  private subscriptionUpdateVersion = new Map<string, number>();
+
+  /**
    * Updates subscriptions for a TPA.
    * @param sessionId - User session identifier
    * @param packageName - TPA identifier
    * @param userId - User identifier for validation
    * @param subscriptions - New set of subscriptions
-   * @throws If invalid subscription types are requested
+   * @throws If invalid subscription types are requested or permissions are missing
    */
-  updateSubscriptions(
+  async updateSubscriptions(
     sessionId: string,
     packageName: string,
     userId: string,
     subscriptions: ExtendedStreamType[]
-  ): void {
+  ): Promise<void> {
     const key = this.getKey(sessionId, packageName);
+
+    // Increment version for this key
+    const currentVersion = (this.subscriptionUpdateVersion.get(key) || 0) + 1;
+    this.subscriptionUpdateVersion.set(key, currentVersion);
+
+    // Capture the version for this call
+    const thisCallVersion = currentVersion;
+
+    logger.info({ key, subscriptions, userId: sessionId, sessionId }, 'Update subscriptions request received');
     const currentSubs = this.subscriptions.get(key) || new Set();
     const action: SubscriptionHistory['action'] = currentSubs.size === 0 ? 'add' : 'update';
 
-    logger.info(`🎤 Updating subscriptions for ${key}
-        with ${subscriptions}`);
+    logger.info({ key, subscriptions, userId: sessionId, sessionId }, 'Processing subscription update');
 
-    // Validate subscriptions
+    // Validate subscriptions format
     const processedSubscriptions = subscriptions.map(sub =>
       sub === StreamType.TRANSCRIPTION ?
         createTranscriptionStream('en-US') :
@@ -147,19 +187,98 @@ export class SubscriptionService {
       }
     }
 
-    logger.info("🎤 Processed subscriptions: ", processedSubscriptions);
+    logger.info({ processedSubscriptions, userId: sessionId, sessionId }, 'Processed and validated subscriptions');
 
-    // Update subscriptions
-    this.subscriptions.set(key, new Set(processedSubscriptions));
+    try {
+      // Get app details
+      const app = await App.findOne({ packageName });
 
-    // Record history
-    this.addToHistory(key, {
-      timestamp: new Date(),
-      subscriptions: [...processedSubscriptions],
-      action
-    });
+      if (!app) {
+        logger.warn({ packageName, userId: sessionId, sessionId }, 'App not found when checking permissions');
+        throw new Error(`App ${packageName} not found`);
+      }
 
-    logger.info(`Updated subscriptions for ${packageName} in session ${sessionId}:`, processedSubscriptions);
+      // Filter subscriptions based on permissions
+      const { allowed, rejected } = SimplePermissionChecker.filterSubscriptions(app, processedSubscriptions);
+
+      logger.debug({ userId: sessionId, sessionId, subscriptionMap: Array.from(this.subscriptions.entries()).map(([k, v]) => [k, Array.from(v)]) }, 'Current subscription map after update');
+
+      logger.info({ packageName, sessionId, processedSubscriptions, userId: sessionId }, 'Subscriptions updated after permission check');
+
+      // If some subscriptions were rejected, send an error message to the client
+      if (rejected.length > 0) {
+        logger.warn({
+          packageName,
+          userId: sessionId, sessionId,
+          rejectedCount: rejected.length,
+          rejectedStreams: rejected.map(r => ({
+            stream: r.stream,
+            requiredPermission: r.requiredPermission
+          }))
+        }, 'Rejected subscriptions due to missing permissions');
+
+        // Find the user session to get the app connection
+        const userSession = sessionService.getSession(sessionId);
+
+        if (userSession && userSession.appConnections) {
+          const connection = userSession.appConnections.get(packageName);
+
+          if (connection && connection.readyState === 1) {
+            // Send a detailed error message to the TPA about the rejected subscriptions
+            const errorMessage = {
+              type: 'permission_error',
+              message: 'Some subscriptions were rejected due to missing permissions',
+              details: rejected.map(r => ({
+                stream: r.stream,
+                requiredPermission: r.requiredPermission,
+                message: `To subscribe to ${r.stream}, add the ${r.requiredPermission} permission in the developer console`
+              })),
+              timestamp: new Date()
+            };
+
+            connection.send(JSON.stringify(errorMessage));
+          }
+        }
+
+        // Continue with only the allowed subscriptions
+        processedSubscriptions.length = 0;
+        processedSubscriptions.push(...allowed);
+      }
+      const newSubs = new Set(processedSubscriptions);
+
+      // At the end, before setting:
+      if (this.subscriptionUpdateVersion.get(key) !== thisCallVersion) {
+        // A newer call has started, so abort this update
+        logger.info({ userId: sessionId, sessionId, key, thisCallVersion, currentVersion: this.subscriptionUpdateVersion.get(key) }, 'Skipping update as newer call has started');
+        return;
+      }
+
+      // Only now set the subscriptions
+      this.subscriptions.set(key, newSubs);
+
+      // Record history
+      this.addToHistory(key, {
+        timestamp: new Date(),
+        subscriptions: [...processedSubscriptions],
+        action
+      });
+
+      logger.info({ packageName, userId: sessionId, sessionId, processedSubscriptions }, 'Updated subscriptions successfully');
+    } catch (error) {
+      // If there's an error getting the app or checking permissions, log it but don't block
+      // This ensures backward compatibility with existing code
+      logger.error({ error, packageName, userId: sessionId, sessionId }, 'Error checking permissions');
+
+      // Continue with the subscription update
+      this.subscriptions.set(key, new Set(processedSubscriptions));
+
+      // Record history
+      this.addToHistory(key, {
+        timestamp: new Date(),
+        subscriptions: [...processedSubscriptions],
+        action
+      });
+    }
   }
 
   /**
@@ -167,6 +286,9 @@ export class SubscriptionService {
    * are subscribed to "audio_chunk", "translation", and "transcription".
    */
   hasMediaSubscriptions(sessionId: string): boolean {
+    let hasMedia = false;
+    let mediaSubscriptions: Array<{ key: string, subscription: string }> = [];
+
     for (const [key, subs] of this.subscriptions.entries()) {
       // Only consider subscriptions for the given user session.
       if (!key.startsWith(sessionId + ':')) continue;
@@ -178,16 +300,27 @@ export class SubscriptionService {
           sub === StreamType.TRANSLATION ||
           sub === StreamType.TRANSCRIPTION
         ) {
-          return true;
-        }
-        // Check if it's a language-specific subscription.
-        const langInfo = parseLanguageStream(sub as string);
-        if (langInfo && (langInfo.type === StreamType.TRANSLATION || langInfo.type === StreamType.TRANSCRIPTION)) {
-          return true;
+          mediaSubscriptions.push({ key, subscription: sub as string });
+          hasMedia = true;
+        } else {
+          // Check if it's a language-specific subscription.
+          const langInfo = parseLanguageStream(sub as string);
+          if (langInfo && (langInfo.type === StreamType.TRANSLATION || langInfo.type === StreamType.TRANSCRIPTION)) {
+            mediaSubscriptions.push({ key, subscription: sub as string });
+            hasMedia = true;
+          }
         }
       }
     }
-    return false;
+
+    logger.debug({
+      sessionId,
+      userId: sessionId,
+      hasMediaSubscriptions: hasMedia,
+      mediaSubscriptions
+    }, 'Checked session for media subscriptions');
+
+    return hasMedia;
   }
 
   /**
@@ -199,7 +332,9 @@ export class SubscriptionService {
   getSubscribedApps(userSession: UserSession, subscription: ExtendedStreamType): string[] {
     const sessionId = userSession.sessionId;
     const subscribedApps: string[] = [];
-    // console.log("🎤 1111 Subscribed apps: ", this.subscriptions.entries());
+
+    // Track why apps were subscribed for logging
+    const subscriptionMatches: Array<{ packageName: string, matchedOn: string }> = [];
 
     for (const [key, subs] of this.subscriptions.entries()) {
       if (!key.startsWith(`${sessionId}:`)) continue;
@@ -212,10 +347,28 @@ export class SubscriptionService {
           sub === StreamType.WILDCARD
         ) {
           subscribedApps.push(packageName);
+          subscriptionMatches.push({
+            packageName,
+            matchedOn: sub === subscription ? 'exact' : sub as string
+          });
           break;
         }
       }
     }
+
+    // TODO(isaiah): Wow this is extremly verbose when anything is subscribed to any audio related stream, 
+    // this is a huge issue and points out a big inefficency in the way we're storing subscriptions and calculating what is subscribed to what.
+    // 1. we should refactor this to be a subscription manager attached to a user's session instead of a global service.
+    // 2. we should be caching what streams are subscribed to what apps, so we can quickly look up the apps for a stream without iterating over all subscriptions.
+    
+    // logger.debug({
+    //   sessionId,
+    //   userId: sessionId,
+    //   requestedSubscription: subscription,
+    //   subscribedApps,
+    //   subscriptionMatches
+    // }, 'Retrieved subscribed apps for stream');
+
     return subscribedApps;
   }
 
@@ -228,7 +381,14 @@ export class SubscriptionService {
   getAppSubscriptions(sessionId: string, packageName: string): ExtendedStreamType[] {
     const key = this.getKey(sessionId, packageName);
     const subs = this.subscriptions.get(key);
-    return subs ? Array.from(subs) : [];
+    const result = subs ? Array.from(subs) : [];
+    logger.debug({
+      sessionId,
+      userId: sessionId,
+      packageName,
+      subscriptions: result
+    }, 'Retrieved app subscriptions');
+    return result;
   }
 
   /**
@@ -264,7 +424,7 @@ export class SubscriptionService {
         action: 'remove'
       });
 
-      logger.info(`Removed all subscriptions for ${packageName} in session ${userSession.sessionId}`);
+      logger.info({ packageName, sessionId: userSession.sessionId, userId: userSession.userId }, `Removed all subscriptions for TPA ${packageName} for user ${userSession.userId}`);
     }
   }
 
@@ -288,13 +448,13 @@ export class SubscriptionService {
       this.history.delete(key);
     });
 
-    // Remove cached calendar event for this session
-    this.lastCalendarEventCache.delete(sessionId);
-    
+    // Remove cached calendar events for this session
+    this.calendarEventsCache.delete(sessionId);
+
     // Remove cached location for this session
     this.lastLocationCache.delete(sessionId);
 
-    logger.info(`Removed subscription history for session ${sessionId} (${keysToRemove.length} entries)`);
+    logger.info({ userId: sessionId, sessionId, removedEntries: keysToRemove.length }, 'Removed subscription history');
   }
 
   /**
@@ -352,6 +512,33 @@ export class SubscriptionService {
   }
 
   /**
+   * Gets all TPAs subscribed to a specific AugmentOS setting key
+   * @param userSession - User session identifier
+   * @param settingKey - The augmentosSettings key (e.g., 'metricSystemEnabled')
+   * @returns Array of app IDs subscribed to the augmentos setting
+   */
+  getSubscribedAppsForAugmentosSetting(userSession: UserSession, settingKey: string): string[] {
+    const sessionId = userSession.sessionId;
+    const subscribedApps: string[] = [];
+    const subscription = `augmentos:${settingKey}`;
+
+    logger.debug({ sessionId, settingKey, subscriptionMap: Array.from(this.subscriptions.entries()).map(([k, v]) => [k, Array.from(v)]) }, 'Getting subscribed apps for AugmentOS setting');
+    for (const [key, subs] of this.subscriptions.entries()) {
+      if (!key.startsWith(`${sessionId}:`)) continue;
+      const [, packageName] = key.split(':');
+      for (const sub of subs) {
+        if (sub === subscription || sub === 'augmentos:*' || sub === 'augmentos:all') {
+          logger.info({ packageName, subscription, sessionId }, 'App is subscribed to AugmentOS setting');
+          subscribedApps.push(packageName);
+          break;
+        }
+      }
+    }
+    logger.info({ settingKey, userId: sessionId, sessionId, subscribedApps }, 'AugmentOS setting subscription results');
+    return subscribedApps;
+  }
+
+  /**
    * Validates a subscription type
    * @param subscription - Subscription to validate
    * @returns Boolean indicating if the subscription is valid
@@ -359,12 +546,20 @@ export class SubscriptionService {
    */
   private isValidSubscription(subscription: ExtendedStreamType): boolean {
     const validTypes = new Set(Object.values(StreamType));
+    // Allow augmentos:<key> subscriptions for AugmentOS settings
+    if (typeof subscription === 'string' && subscription.startsWith('augmentos:')) {
+      return true;
+    }
     return validTypes.has(subscription as StreamType) || isLanguageStream(subscription);
+  }
+
+  public getSubscriptionEntries() {
+    return Array.from(this.subscriptions.entries()).map(([k, v]) => [k, Array.from(v)]);
   }
 }
 
 // Create singleton instance
 export const subscriptionService = new SubscriptionService();
-logger.info('✅ Subscription Service');
+logger.info({}, 'Subscription Service initialized');
 
 export default subscriptionService;

@@ -14,10 +14,12 @@ import LoginOrSignup from './pages/AuthPage';
 import TPAList from './pages/TPAList';
 import CreateTPA from './pages/CreateTPA';
 import EditTPA from './pages/EditTPA';
-import Profile from './pages/Profile';
+import OrganizationSettings from './pages/OrganizationSettings';
+import Members from './pages/Members';
 import AdminPanel from './pages/AdminPanel';
 import NotFound from './pages/NotFound';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { OrganizationProvider } from './context/OrganizationContext';
 
 // Protected route component
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) {
@@ -41,7 +43,7 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
         }
       }
     }
-    
+
     //checkAdminStatus();
   }, [requireAdmin, isAuthenticated, isLoading]);
 
@@ -75,58 +77,69 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <Toaster />
-      <TooltipProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
+      <OrganizationProvider>
+        <Toaster />
+        <TooltipProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
 
-          {/* Login or Signup */}
-          <Route path="/login" element={<LoginOrSignup />} />
-          <Route path="/signup" element={<LoginOrSignup />} />
-          <Route path="/signin" element={<LoginOrSignup />} />
+            {/* Login or Signup */}
+            <Route path="/login" element={<LoginOrSignup />} />
+            <Route path="/signup" element={<LoginOrSignup />} />
+            <Route path="/signin" element={<LoginOrSignup />} />
 
-          {/* Dashboard Routes - No auth for now */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <DashboardHome />
-            </ProtectedRoute>
-          } />
-          <Route path="/tpas" element={
-            <ProtectedRoute>
-              <TPAList />
-            </ProtectedRoute>
-          } />
-          <Route path="/tpas/create" element={
-            <ProtectedRoute>
-              <CreateTPA />
-            </ProtectedRoute>
-          } />
-          <Route path="/tpas/:packageName/edit" element={
-            <ProtectedRoute>
-              <EditTPA />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/admin" element={
-            <ProtectedRoute requireAdmin={true}>
-              <AdminPanel />
-            </ProtectedRoute>
-          } />
+            {/* Organization Invite */}
+            <Route path="/invite/accept" element={<LoginOrSignup />} />
 
-          {/* Catch-all Not Found route */}
-          <Route path="*" element={<NotFound />} />
-          <Route path="*" element={<LandingPage />} />
-        </Routes>
-      </BrowserRouter>
-      </TooltipProvider>
+            {/* Dashboard Routes - No auth for now */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <DashboardHome />
+              </ProtectedRoute>
+            } />
+            <Route path="/tpas" element={
+              <ProtectedRoute>
+                <TPAList />
+              </ProtectedRoute>
+            } />
+            <Route path="/tpas/create" element={
+              <ProtectedRoute>
+                <CreateTPA />
+              </ProtectedRoute>
+            } />
+            <Route path="/tpas/:packageName/edit" element={
+              <ProtectedRoute>
+                <EditTPA />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/org-settings" element={
+              <ProtectedRoute>
+                <OrganizationSettings />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/members" element={
+              <ProtectedRoute>
+                <Members />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin" element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminPanel />
+              </ProtectedRoute>
+            } />
+
+            {/* Catch-all Not Found route */}
+            <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<LandingPage />} />
+          </Routes>
+        </BrowserRouter>
+        </TooltipProvider>
+      </OrganizationProvider>
     </AuthProvider>
   );
 };

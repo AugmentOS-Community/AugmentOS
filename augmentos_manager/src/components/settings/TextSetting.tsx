@@ -46,8 +46,8 @@ const TextSetting: React.FC<TextSettingProps> = ({
         value={localValue}
         onChangeText={setLocalValue}
         multiline
-        maxLength={1000}
-        numberOfLines={5}
+        // maxLength={1000}
+        numberOfLines={10}
         onContentSizeChange={handleContentSizeChange}
         textAlignVertical="top"
       />

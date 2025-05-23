@@ -4,6 +4,13 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../utils/supabase';
 import axios from 'axios';
 
+// Declare window type
+declare global {
+  interface Window {
+    location: Location;
+  }
+}
+
 // Define the types for our auth context
 interface AuthContextType {
   session: Session | null;
@@ -16,6 +23,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: null | unknown }>;
   signUp: (email: string, password: string) => Promise<{ error: null | unknown }>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 // Create the auth context
@@ -44,27 +52,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Signing in with email/password');
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      
+
       if (data.session?.access_token && !error) {
         console.log('Sign in successful, setting up tokens');
         setSupabaseToken(data.session.access_token);
         setSession(data.session);
         setUser(data.session.user);
-        
+
         // Store email for admin checks
         if (data.session.user?.email) {
           localStorage.setItem('userEmail', data.session.user.email);
         }
-        
+
         await exchangeForCoreToken(data.session.access_token);
-        
-        // Manual redirect to dashboard after successful sign in
-        setTimeout(() => {
-          console.log('Redirecting to dashboard after successful sign in');
-          window.location.href = `${window.location.origin}/dashboard`;
-        }, 500);
+
+        // Manual redirect to dashboard after successful sign in, unless handling invite token
+        const hasInviteToken = new URLSearchParams(window.location.search).has('token');
+        if (!hasInviteToken) {
+          setTimeout(() => {
+            console.log('Redirecting to dashboard after successful sign in');
+            window.location.href = `${window.location.origin}/dashboard`;
+          }, 500);
+        }
       }
-      
+
       return { error };
     } catch (error) {
       console.error('Error during sign in:', error);
@@ -72,41 +83,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Function to refresh user data
+  const refreshUser = async (): Promise<void> => {
+    try {
+      // Get current session and user data
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session);
+      setUser(data.session?.user || null);
+
+      // Get user data from API
+      if (data.session?.access_token) {
+        try {
+          const response = await axios.get('/api/dev/auth/me');
+          // Update user email if it changed
+          if (response.data.email && data.session?.user?.email !== response.data.email) {
+            console.log('User data refreshed from API');
+          }
+        } catch (error) {
+          console.error('Error fetching user data from API:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+    }
+  };
+
   // Handle sign up with email and password
   const signUp = async (email: string, password: string) => {
     try {
       console.log('Signing up with email/password');
-      const { data, error } = await supabase.auth.signUp({ 
-        email, 
+      const { data, error } = await supabase.auth.signUp({
+        email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/dashboard`
         }
       });
-      
+
       if (data.session?.access_token && !error) {
         console.log('Sign up successful, setting up tokens');
         setSupabaseToken(data.session.access_token);
         setSession(data.session);
         setUser(data.session.user);
-        
+
         // Store email for admin checks
         if (data.session.user?.email) {
           localStorage.setItem('userEmail', data.session.user.email);
         }
-        
+
         await exchangeForCoreToken(data.session.access_token);
-        
-        // Manual redirect to dashboard after successful sign up
-        setTimeout(() => {
-          // Redirecting to dashboard after successful sign up;
-          window.location.href = `${window.location.origin}/dashboard`;
-        }, 500);
+
+        // Manual redirect to dashboard after successful sign up, unless handling invite token
+        const hasInviteToken = new URLSearchParams(window.location.search).has('token');
+        if (!hasInviteToken) {
+          setTimeout(() => {
+            // Redirecting to dashboard after successful sign up;
+            window.location.href = `${window.location.origin}/dashboard`;
+          }, 500);
+        }
       } else if (!error) {
         // If no session but also no error, likely means email confirmation is required
         // Sign up successful, email confirmation may be required;
       }
-      
+
       return { error };
     } catch (error) {
       console.error('Error during sign up:', error);
@@ -136,23 +175,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const exchangeForCoreToken = async (supabaseToken: string) => {
     try {
       setTokenReady(false); // Mark token as not ready during exchange
-      
+
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL || 'http://localhost:8002'}/api/auth/exchange-token`,
         { supabaseToken },
         { headers: { 'Content-Type': 'application/json' } }
       );
-      
+
       if (response.status === 200 && response.data.coreToken) {
         // Successfully exchanged token for Core token;
         setupAxiosAuth(response.data.coreToken);
         setCoreToken(response.data.coreToken);
         localStorage.setItem('core_token', response.data.coreToken);
-        
+
         // Wait a short delay to ensure the token is available for subsequent API calls
         await new Promise(resolve => setTimeout(resolve, 300));
         setTokenReady(true); // Mark token as ready
-        
+
         return response.data.coreToken;
       } else {
         throw new Error(`Failed to exchange token: ${response.statusText}`);
@@ -182,15 +221,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await new Promise(resolve => setTimeout(resolve, 100));
           setTokenReady(true);
         }
-        
+
         // Get current session
         const { data } = await supabase.auth.getSession();
         setSession(data.session);
         setUser(data.session?.user || null);
-        
+
         if (data.session?.access_token) {
           setSupabaseToken(data.session.access_token);
-          
+
           // If no core token, try to exchange for one
           if (!savedCoreToken) {
             try {
@@ -221,7 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Auth state changed event;
         setSession(session);
         setUser(session?.user || null);
-        
+
         // Store user email in localStorage for admin checks
         if (session?.user?.email) {
           localStorage.setItem('userEmail', session.user.email);
@@ -233,17 +272,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // SIGNED_IN event detected;
           setTokenReady(false); // Token exchange in progress
           setSupabaseToken(session.access_token);
-          
+
           // Exchange for Core token on sign in
           try {
             await exchangeForCoreToken(session.access_token);
             // Auth completed;
-            
+
             // Handle redirection when auth is completed via JS flow
             // This helps cases where the Auth UI's redirectTo doesn't trigger
-            if (window.location.pathname.includes('/signin') || 
+            const hasInviteToken = new URLSearchParams(window.location.search).has('token');
+            if (!hasInviteToken && (window.location.pathname.includes('/signin') ||
                 window.location.pathname.includes('/login') ||
-                window.location.pathname.includes('/signup')) {
+                window.location.pathname.includes('/signup'))) {
               // Redirecting to dashboard;
               window.location.href = `${window.location.origin}/dashboard`;
             }
@@ -271,9 +311,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Calculate authenticated state 
+  // Calculate authenticated state
   const isAuthenticated = !!user && !!session;
-  
+
   // Only log significant auth state changes in development
   useEffect(() => {
     if (process.env.NODE_ENV === 'development' && isAuthenticated) {
@@ -296,7 +336,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       tokenReady,
       signIn,
       signUp,
-      signOut
+      signOut,
+      refreshUser
     }}>
       {children}
     </AuthContext.Provider>

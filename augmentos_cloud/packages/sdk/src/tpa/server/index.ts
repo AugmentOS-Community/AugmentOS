@@ -18,6 +18,8 @@ import {
   isStopWebhookRequest,
   ToolCall
 } from '../../types';
+import { Logger } from 'pino';
+import { logger as rootLogger } from '../../logging/logger';
 
 /**
  * 🔧 Configuration options for TPA Server
@@ -97,6 +99,8 @@ export class TpaServer {
   /** Array of cleanup handlers to run on shutdown */
   private cleanupHandlers: Array<() => void> = [];
 
+  public readonly logger: Logger;
+
   constructor(private config: TpaServerConfig) {
     // Set defaults and merge with provided config
     this.config = {
@@ -108,20 +112,22 @@ export class TpaServer {
       ...config
     };
 
+    this.logger = rootLogger.child({ tpa: this.config.packageName, packageName: this.config.packageName, service: 'tpa-server' });
+
     // Initialize Express app
     this.app = express();
     this.app.use(express.json());
 
     const cookieParser = require('cookie-parser');
     this.app.use(cookieParser(this.config.cookieSecret || `AOS_${this.config.packageName}_${this.config.apiKey.substring(0, 8)}`));
-    
+
     // Apply authentication middleware
     this.app.use(createAuthMiddleware({
       apiKey: this.config.apiKey,
       packageName: this.config.packageName,
       cookieSecret: this.config.cookieSecret || `AOS_${this.config.packageName}_${this.config.apiKey.substring(0, 8)}`
     }));
-    
+
 
     // Setup server features
     this.setupWebhook();
@@ -148,7 +154,7 @@ export class TpaServer {
    * @param userId - User's identifier
    */
   protected async onSession(session: TpaSession, sessionId: string, userId: string): Promise<void> {
-    console.log(`New session: ${sessionId} for user ${userId}`);
+    this.logger.debug(`New session: ${sessionId} for user ${userId}`);
   }
 
   /**
@@ -161,7 +167,7 @@ export class TpaServer {
    * @param reason - Reason for stopping
    */
   protected async onStop(sessionId: string, userId: string, reason: string): Promise<void> {
-    console.log(`Session ${sessionId} stopped for user ${userId}. Reason: ${reason}`);
+    this.logger.debug(`Session ${sessionId} stopped for user ${userId}. Reason: ${reason}`);
 
     // Default implementation: close the session if it exists
     const session = this.activeSessions.get(sessionId);
@@ -180,8 +186,8 @@ export class TpaServer {
    * @returns Optional string response that will be sent back to AugmentOS Cloud
    */
   protected async onToolCall(toolCall: ToolCall): Promise<string | undefined> {
-    console.log(`Tool call received: ${toolCall.toolId}`);
-    console.log(`Parameters: ${JSON.stringify(toolCall.toolParameters)}`);
+    this.logger.debug(`Tool call received: ${toolCall.toolId}`);
+    this.logger.debug(`Parameters: ${JSON.stringify(toolCall.toolParameters)}`);
     return undefined;
   }
 
@@ -194,9 +200,9 @@ export class TpaServer {
   public start(): Promise<void> {
     return new Promise((resolve) => {
       this.app.listen(this.config.port, () => {
-        console.log(`🎯 TPA server running at http://localhost:${this.config.port}`);
+        this.logger.info(`🎯 TPA server running at http://localhost:${this.config.port}`);
         if (this.config.publicDir) {
-          console.log(`📂 Serving static files from ${this.config.publicDir}`);
+          this.logger.info(`📂 Serving static files from ${this.config.publicDir}`);
         }
         resolve();
       });
@@ -208,7 +214,7 @@ export class TpaServer {
    * Gracefully shuts down the server and cleans up all sessions.
    */
   public stop(): void {
-    console.log('\n🛑 Shutting down...');
+    this.logger.info('\n🛑 Shutting down...');
     this.cleanup();
     process.exit(0);
   }
@@ -254,7 +260,7 @@ export class TpaServer {
    */
   private setupWebhook(): void {
     if (!this.config.webhookPath) {
-      console.error('❌ Webhook path not set');
+      this.logger.error('❌ Webhook path not set');
       throw new Error('Webhook path not set');
     }
 
@@ -272,14 +278,14 @@ export class TpaServer {
         }
         // Unknown webhook type
         else {
-          console.error('❌ Unknown webhook request type');
+          this.logger.error('❌ Unknown webhook request type');
           res.status(400).json({
             status: 'error',
             message: 'Unknown webhook request type'
           } as WebhookResponse);
         }
       } catch (error) {
-        console.error('❌ Error handling webhook:', error);
+        this.logger.error('❌ Error handling webhook:', error);
         res.status(500).json({
           status: 'error',
           message: 'Internal server error'
@@ -295,12 +301,11 @@ export class TpaServer {
   private setupToolCallEndpoint(): void {
     this.app.post('/tool', async (req, res) => {
       try {
-        console.log(`\n\n🔧 Received tool call: ${JSON.stringify(req.body)}\n\n`);
         const toolCall = req.body as ToolCall;
-        console.log(`\n\n🔧 Received tool call: ${toolCall.toolId}\n\n`);
+        this.logger.info({ body: req.body }, `🔧 Received tool call: ${toolCall.toolId}`);
         // Call the onToolCall handler and get the response
         const response = await this.onToolCall(toolCall);
-        
+
         // Send back the response if one was provided
         if (response !== undefined) {
           res.json({ status: 'success', reply: response });
@@ -308,7 +313,7 @@ export class TpaServer {
           res.json({ status: 'success', reply: null });
         }
       } catch (error) {
-        console.error('❌ Error handling tool call:', error);
+        this.logger.error('❌ Error handling tool call:', error);
         res.status(500).json({
           status: 'error',
           message: error instanceof Error ? error.message : 'Unknown error occurred calling tool'
@@ -324,45 +329,47 @@ export class TpaServer {
    * Handle a session request webhook
    */
   private async handleSessionRequest(request: SessionWebhookRequest, res: express.Response): Promise<void> {
-    const { sessionId, userId } = request;
-    console.log(`\n\n🗣️ Received session request for user ${userId}, session ${sessionId}\n\n`);
-    
+    const { sessionId, userId, augmentOSWebsocketUrl } = request;
+    this.logger.info({userId}, `🗣️ Received session request for user ${userId}, session ${sessionId}\n\n`);
+
     // Create new TPA session
     const session = new TpaSession({
       packageName: this.config.packageName,
       apiKey: this.config.apiKey,
-      augmentOSWebsocketUrl: request.augmentOSWebsocketUrl || this.config.augmentOSWebsocketUrl,
+      augmentOSWebsocketUrl, // The websocket URL for the specific AugmentOS server that this userSession is connecting to.
+      tpaServer: this,
+      userId,
     });
 
     // Setup session event handlers
     const cleanupDisconnect = session.events.onDisconnected((info) => {
       // Handle different disconnect info formats (string or object)
       if (typeof info === 'string') {
-        console.log(`👋 Session ${sessionId} disconnected: ${info}`);
+        this.logger.info(`👋 Session ${sessionId} disconnected: ${info}`);
       } else {
         // It's an object with detailed disconnect information
-        console.log(`👋 Session ${sessionId} disconnected: ${info.message} (code: ${info.code}, reason: ${info.reason})`);
-        
+        this.logger.info(`👋 Session ${sessionId} disconnected: ${info.message} (code: ${info.code}, reason: ${info.reason})`);
+
         // Check if this is a permanent disconnection after exhausted reconnection attempts
         if (info.permanent === true) {
-          console.log(`🛑 Permanent disconnection detected for session ${sessionId}, calling onStop`);
-          
+          this.logger.info(`🛑 Permanent disconnection detected for session ${sessionId}, calling onStop`);
+
           // Keep track of the original session before removal
           const session = this.activeSessions.get(sessionId);
-          
+
           // Call onStop with a reconnection failure reason
           this.onStop(sessionId, userId, `Connection permanently lost: ${info.reason}`).catch(error => {
-            console.error(`❌ Error in onStop handler for permanent disconnection:`, error);
+            this.logger.error(`❌ Error in onStop handler for permanent disconnection:`, error);
           });
         }
       }
-      
+
       // Remove the session from active sessions in all cases
       this.activeSessions.delete(sessionId);
     });
 
     const cleanupError = session.events.onError((error) => {
-      console.error(`❌ [Session ${sessionId}] Error:`, error);
+      this.logger.error(`❌ [Session ${sessionId}] Error:`, error);
     });
 
     // Start the session
@@ -372,7 +379,7 @@ export class TpaServer {
       await this.onSession(session, sessionId, userId);
       res.status(200).json({ status: 'success' } as WebhookResponse);
     } catch (error) {
-      console.error('❌ Failed to connect:', error);
+      this.logger.error('❌ Failed to connect:', error);
       cleanupDisconnect();
       cleanupError();
       res.status(500).json({
@@ -387,13 +394,13 @@ export class TpaServer {
    */
   private async handleStopRequest(request: StopWebhookRequest, res: express.Response): Promise<void> {
     const { sessionId, userId, reason } = request;
-    console.log(`\n\n🛑 Received stop request for user ${userId}, session ${sessionId}, reason: ${reason}\n\n`);
+    this.logger.info(`\n\n🛑 Received stop request for user ${userId}, session ${sessionId}, reason: ${reason}\n\n`);
 
     try {
       await this.onStop(sessionId, userId, reason);
       res.status(200).json({ status: 'success' } as WebhookResponse);
     } catch (error) {
-      console.error('❌ Error handling stop request:', error);
+      this.logger.error('❌ Error handling stop request:', error);
       res.status(500).json({
         status: 'error',
         message: 'Failed to process stop request'
@@ -425,19 +432,19 @@ export class TpaServer {
     this.app.post('/settings', async (req, res) => {
       try {
         const { userIdForSettings, settings } = req.body;
-        
+
         if (!userIdForSettings || !Array.isArray(settings)) {
           return res.status(400).json({
             status: 'error',
             message: 'Missing userId or settings array in request body'
           });
         }
-        
-        console.log(`📝 Received settings update for user ${userIdForSettings}`);
-        
+
+        this.logger.info(`⚙️ Received settings update for user ${userIdForSettings}`);
+
         // Find all active sessions for this user
         const userSessions: TpaSession[] = [];
-        
+
         // Look through all active sessions
         this.activeSessions.forEach((session, sessionId) => {
           // Check if the session has this userId (not directly accessible)
@@ -446,30 +453,30 @@ export class TpaServer {
             userSessions.push(session);
           }
         });
-        
+
         if (userSessions.length === 0) {
-          console.log(`⚠️ No active sessions found for user ${userIdForSettings}`);
+          this.logger.warn(`⚠️ No active sessions found for user ${userIdForSettings}`);
         } else {
-          console.log(`🔄 Updating settings for ${userSessions.length} active sessions`);
+          this.logger.info(`🔄 Updating settings for ${userSessions.length} active sessions`);
         }
-        
+
         // Update settings for all of the user's sessions
         for (const session of userSessions) {
           session.updateSettingsForTesting(settings);
         }
-        
+
         // Allow subclasses to handle settings updates if they implement the method
         if (typeof (this as any).onSettingsUpdate === 'function') {
           await (this as any).onSettingsUpdate(userIdForSettings, settings);
         }
-        
+
         res.json({
           status: 'success',
           message: 'Settings updated successfully',
           sessionsUpdated: userSessions.length
         });
       } catch (error) {
-        console.error('❌ Error handling settings update:', error);
+        this.logger.error('❌ Error handling settings update:', error);
         res.status(500).json({
           status: 'error',
           message: 'Internal server error processing settings update'
@@ -486,7 +493,7 @@ export class TpaServer {
     if (this.config.publicDir) {
       const publicPath = path.resolve(this.config.publicDir);
       this.app.use(express.static(publicPath));
-      console.log(`📂 Serving static files from ${publicPath}`);
+      this.logger.info(`📂 Serving static files from ${publicPath}`);
     }
   }
 
@@ -506,7 +513,7 @@ export class TpaServer {
   private cleanup(): void {
     // Close all active sessions
     for (const [sessionId, session] of this.activeSessions) {
-      console.log(`👋 Closing session ${sessionId}`);
+      this.logger.info(`👋 Closing session ${sessionId}`);
       session.disconnect();
     }
     this.activeSessions.clear();

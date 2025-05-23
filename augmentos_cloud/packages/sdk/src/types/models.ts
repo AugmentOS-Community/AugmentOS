@@ -31,6 +31,21 @@ export interface DeveloperProfile {
   logo?: string;
 }
 
+// Define PermissionType enum until it's added to the SDK
+export enum PermissionType {
+  MICROPHONE = 'MICROPHONE',
+  LOCATION = 'LOCATION',
+  CALENDAR = 'CALENDAR',
+  NOTIFICATIONS = 'NOTIFICATIONS',
+  ALL = 'ALL'
+}
+
+// Permission interface
+export interface Permission {
+  type: PermissionType;
+  description?: string;
+}
+
 /**
  * Base interface for applications
  */
@@ -45,13 +60,19 @@ export interface AppI {
   logoURL: string;
   tpaType: TpaType;               // Type of app
   appStoreId?: string;            // Which app store registered this app
-  developerId?: string;
-  
+
+  /**
+   * @deprecated Use organizationId instead. Will be removed after migration.
+   */
+  developerId?: string;           // ID of the developer who created the app
+  organizationId?: any;        // ID of the organization that owns this app
+
   // Auth
   hashedEndpointSecret?: string;
   hashedApiKey?: string;
-  
+
   // App details
+  permissions?: Permission[];
   description?: string;
   version?: string;
   settings?: AppSettings;
@@ -73,12 +94,12 @@ export interface BaseAppSetting {
 /**
  * Setting types for applications
  */
-export type AppSetting = 
+export type AppSetting =
   | (BaseAppSetting & { type: AppSettingType.TOGGLE; defaultValue: boolean; value?: boolean })
   | (BaseAppSetting & { type: AppSettingType.TEXT; defaultValue?: string; value?: string })
-  | (BaseAppSetting & { 
-      type: AppSettingType.SELECT; 
-      options: { label: string; value: any }[]; 
+  | (BaseAppSetting & {
+      type: AppSettingType.SELECT;
+      options: { label: string; value: any }[];
       defaultValue?: any;
       value?: any;
     });
@@ -111,42 +132,42 @@ export interface TpaConfig {
  */
 export function validateTpaConfig(config: any): config is TpaConfig {
   if (!config || typeof config !== 'object') return false;
-  
+
   // Check required string properties
-  if (typeof config.name !== 'string' || 
-      typeof config.description !== 'string' || 
+  if (typeof config.name !== 'string' ||
+      typeof config.description !== 'string' ||
       typeof config.version !== 'string') {
     return false;
   }
-  
+
   // Check settings array
   if (!Array.isArray(config.settings)) return false;
-  
+
   // Validate each setting
   return config.settings.every((setting: any) => {
     // Group settings just need a title
     if (setting.type === 'group') {
       return typeof setting.title === 'string';
     }
-    
+
     // Regular settings need key and label
     if (typeof setting.key !== 'string' || typeof setting.label !== 'string') {
       return false;
     }
-    
+
     // Type-specific validation
     switch (setting.type) {
       case AppSettingType.TOGGLE:
         return typeof setting.defaultValue === 'boolean';
-      
+
       case AppSettingType.TEXT:
         return setting.defaultValue === undefined || typeof setting.defaultValue === 'string';
-      
+
       case AppSettingType.SELECT:
-        return Array.isArray(setting.options) && 
-               setting.options.every((opt: any) => 
+        return Array.isArray(setting.options) &&
+               setting.options.every((opt: any) =>
                  typeof opt.label === 'string' && 'value' in opt);
-      
+
       default:
         return false;
     }

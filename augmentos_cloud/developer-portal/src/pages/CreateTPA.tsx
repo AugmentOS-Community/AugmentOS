@@ -17,10 +17,21 @@ import api, { AppResponse } from '@/services/api.service';
 import { AppI } from '@augmentos/sdk';
 import { normalizeUrl } from '@/libs/utils';
 import { toast } from 'sonner';
+import PermissionsForm from '../components/forms/PermissionsForm';
+import { Permission } from '@/types/tpa';
+import { useAuth } from '../hooks/useAuth';
+import { useOrganization } from '@/context/OrganizationContext';
 // import { TPA } from '@/types/tpa';
+// Import the public email provider list
+import publicEmailDomains from 'email-providers/all.json';
 
+/**
+ * Page for creating a new TPA (Third Party Application)
+ */
 const CreateTPA: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { currentOrg } = useOrganization();
 
   // Form state
   const [formData, setFormData] = useState<Partial<AppI>>({
@@ -30,6 +41,7 @@ const CreateTPA: React.FC = () => {
     publicUrl: '',
     logoURL: '',
     webviewURL: '',
+    permissions: [], // Initialize permissions as empty array
     // isPublic: false,
     // tpaType: TpaType.STANDARD
   });
@@ -45,6 +57,11 @@ const CreateTPA: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>('');
   const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+
+  // Helper to get org domain from user email
+  const orgDomain = user?.email?.split('@')[1] || '';
+  // Check if orgDomain is a public email provider
+  const isPublicEmailDomain = publicEmailDomains.includes(orgDomain);
 
   // Handle form changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -63,11 +80,11 @@ const CreateTPA: React.FC = () => {
       });
     }
   };
-  
+
   // Handle URL field blur event to normalize URLs
   const handleUrlBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
+
     // Only normalize URL fields
     if (name === 'publicUrl' || name === 'logoURL' || name === 'webviewURL') {
       if (value) {
@@ -78,7 +95,7 @@ const CreateTPA: React.FC = () => {
             ...prev,
             [name]: normalizedUrl
           }));
-          
+
           // Clear any URL validation errors
           if (errors[name]) {
             setErrors(prev => {
@@ -92,6 +109,14 @@ const CreateTPA: React.FC = () => {
         }
       }
     }
+  };
+
+  // Handle permissions changes
+  const handlePermissionsChange = (permissions: Permission[]) => {
+    setFormData(prev => ({
+      ...prev,
+      permissions
+    }));
   };
 
   // Validate form
@@ -123,7 +148,7 @@ const CreateTPA: React.FC = () => {
         // Apply normalizeUrl to handle missing protocols before validation
         const normalizedUrl = normalizeUrl(formData.publicUrl);
         new URL(normalizedUrl);
-        
+
         // Update the form data with the normalized URL
         setFormData(prev => ({
           ...prev,
@@ -143,7 +168,7 @@ const CreateTPA: React.FC = () => {
         // Apply normalizeUrl to handle missing protocols before validation
         const normalizedUrl = normalizeUrl(formData.logoURL);
         new URL(normalizedUrl);
-        
+
         // Update the form data with the normalized URL
         setFormData(prev => ({
           ...prev,
@@ -161,7 +186,7 @@ const CreateTPA: React.FC = () => {
         // Apply normalizeUrl to handle missing protocols before validation
         const normalizedUrl = normalizeUrl(formData.webviewURL);
         new URL(normalizedUrl);
-        
+
         // Update the form data with the normalized URL
         setFormData(prev => ({
           ...prev,
@@ -181,81 +206,81 @@ const CreateTPA: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate form
+    // Clear previous error/success messages
+    setFormError(null);
+    setSuccessMessage(null);
+
+    // Validate form data
     if (!validateForm()) {
-      setFormError('Please fix the errors in the form');
-      toast.error('Please fix the errors in the form');
+      // Scroll to top to show errors
+      window.scrollTo(0, 0);
       return;
     }
 
+    // Check if organization is selected
+    if (!currentOrg) {
+      setFormError('Please select an organization to create this app');
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    // Start loading state
     setIsLoading(true);
-    setFormError(null);
 
     try {
-      // Normalize URLs before submission
-      const normalizedFormData = {
-        ...formData,
-        publicUrl: normalizeUrl(formData.publicUrl || ''),
-        webviewURL: formData.webviewURL ? normalizeUrl(formData.webviewURL) : undefined
+      // Prepare TPA data
+      const tpaData: Partial<AppI> = {
+        packageName: formData.packageName,
+        name: formData.name,
+        description: formData.description,
+        publicUrl: formData.publicUrl,
+        logoURL: formData.logoURL,
+        webviewURL: formData.webviewURL,
+        tpaType: 'standard', // Using the default type
+        permissions: formData.permissions
       };
 
-      // Call API to create TPA
-      const result = await api.apps.create(normalizedFormData as AppI);
+      // Create TPA via API
+      const result = await api.apps.create(currentOrg.id, tpaData as AppI);
 
-      console.log('TPA created:', result);
-
-      // Set success message and state for dialog
-      setSuccessMessage(`${formData.name} was created successfully!`);
+      // Store API key and created TPA details
+      setApiKey(result.apiKey);
       setCreatedTPA(result.app);
 
-      // Store the API key from the result
-      if (result.apiKey) {
-        setApiKey(result.apiKey);
-      }
+      // Show success message
+      setSuccessMessage(`App "${formData.name}" created successfully!`);
 
-      // Show a success toast without actions to avoid confusion
-      toast.success(
-        `${formData.name} was created successfully!`,
-        {
-          description: "Opening API key dialog...",
-          duration: 3000, // Short duration
-        }
-      );
-
-      // Use React state to directly open the API key dialog
-      console.log("Setting isApiKeyDialogOpen to true");
-
-      // First attempt
+      // Show API key dialog
       setIsApiKeyDialogOpen(true);
-
-      // Ensure dialog appears with a fallback
-      setTimeout(() => {
-        console.log("Fallback: Setting isApiKeyDialogOpen to true again");
-        setIsApiKeyDialogOpen(true);
-      }, 300);
-
-      // Scroll to top without animation to avoid distractions
-      window.scrollTo(0, 0);
-
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Error creating TPA:', error);
 
-      const errorMessage = (error as AxiosError<{ error: string }>).response?.data?.error ||
-        (error as Error).message ||
-        'Failed to create app. Please try again.';
-
-      if (errorMessage.includes('already exists')) {
-        setErrors({
-          ...errors,
-          packageName: 'This package name is already taken. Please choose another one.'
-        });
+      // Handle specific error types
+      if (error instanceof AxiosError && error.response) {
+        // API error with response data
+        if (error.response.status === 409) {
+          // Package name conflict
+          setErrors({
+            ...errors,
+            packageName: 'This package name is already in use. Please choose another.'
+          });
+          setFormError('Package name is already in use');
+        } else if (error.response.data?.error) {
+          // Other API error with message
+          setFormError(error.response.data.error);
+        } else {
+          // General API error
+          setFormError('Failed to create app. Please try again.');
+        }
+      } else {
+        // Network or other error
+        setFormError('Network error. Please check your connection and try again.');
       }
 
-      setFormError(errorMessage);
-      toast.error('Failed to create app', {
-        description: errorMessage,
-      });
+      // Scroll to top to show error
+      window.scrollTo(0, 0);
     } finally {
+      // End loading state
       setIsLoading(false);
     }
   };
@@ -301,6 +326,12 @@ const CreateTPA: React.FC = () => {
               <CardDescription>
                 Fill out the form below to register your app for AugmentOS.
               </CardDescription>
+              {currentOrg && (
+                <div className="mt-2 text-sm mb-3">
+                  <span className="text-gray-500">Creating in organization: </span>
+                  <span className="font-medium">{currentOrg.name}</span>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-6 pb-5">
               {formError && (
@@ -437,6 +468,15 @@ const CreateTPA: React.FC = () => {
                 </p>
               </div>
 
+              {/* Permissions Section */}
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Required Permissions</h3>
+                <PermissionsForm
+                  permissions={formData.permissions || []}
+                  onChange={handlePermissionsChange}
+                />
+              </div>
+
             </CardContent>
             <CardFooter className="flex justify-between border-t p-6">
               <Button variant="outline" type="button" onClick={() => navigate('/tpas')}>
@@ -501,6 +541,7 @@ const CreateTPA: React.FC = () => {
               setApiKey(newKey);
               console.log(`API key regenerated for ${createdTPA?.name}`);
             }}
+            orgId={currentOrg?.id}
           />
         </>
       )}

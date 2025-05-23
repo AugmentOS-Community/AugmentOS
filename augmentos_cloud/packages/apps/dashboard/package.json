@@ -13,10 +13,12 @@
     "@augmentos/sdk": "workspace:*",
     "@augmentos/utils": "workspace:*",
     "@augmentos/agents": "workspace:*",
+    "express": "^4.18.2",
     "axios": "^1.6.7"
   },
 
   "devDependencies": {
+    "bun-types": "1.0.17",
     "typescript": "^5.0.0"
   }
 }

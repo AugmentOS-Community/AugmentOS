@@ -4,11 +4,7 @@ import axios from "axios";
 
 // Configure base axios defaults
 axios.defaults.withCredentials = true;
-
-// Get appropriate base URL based on endpoint type
-const getBaseUrl = (): string => {
-  return import.meta.env.VITE_CLOUD_API_URL || "http://localhost:8002";
-};
+axios.defaults.baseURL = import.meta.env.VITE_CLOUD_API_URL || "http://localhost:8002";
 
 // Response interfaces
 export interface ApiResponse<T> {
@@ -40,6 +36,11 @@ export interface User {
   createdAt?: string;
 }
 
+// Filter options interface
+export interface AppFilterOptions {
+  organizationId?: string;
+}
+
 // App service functions
 const appService = {
   /**
@@ -49,7 +50,7 @@ const appService = {
   getPublicApps: async (): Promise<AppI[]> => {
     try {
       const response = await axios.get<ApiResponse<AppI[]>>(
-        `${getBaseUrl()}/api/apps/public`
+        `/api/apps/public`
       );
       return response.data.data || [];
     } catch (error) {
@@ -61,12 +62,18 @@ const appService = {
   /**
    * Get all available apps (auth required)
    * Uses store backend
+   * @param options Optional filter options
    */
-  getAvailableApps: async (): Promise<AppI[]> => {
+  getAvailableApps: async (options?: AppFilterOptions): Promise<AppI[]> => {
     try {
-      const response = await axios.get<ApiResponse<AppI[]>>(
-        `${getBaseUrl()}/api/apps/available`
-      );
+      let url = `/api/apps/available`;
+
+      // Add organization filter if provided
+      if (options?.organizationId) {
+        url += `?organizationId=${encodeURIComponent(options.organizationId)}`;
+      }
+
+      const response = await axios.get<ApiResponse<AppI[]>>(url);
       return response.data.data;
     } catch (error) {
       console.error("Error fetching available apps:", error);
@@ -81,7 +88,7 @@ const appService = {
   getInstalledApps: async (): Promise<AppI[]> => {
     try {
       const response = await axios.get<ApiResponse<AppI[]>>(
-        `${getBaseUrl()}/api/apps/installed`
+        `/api/apps/installed`
       );
       return response.data.data;
     } catch (error) {
@@ -97,7 +104,7 @@ const appService = {
   getAppByPackageName: async (packageName: string): Promise<AppI | null> => {
     try {
       const response = await axios.get<ApiResponse<AppI>>(
-        `${getBaseUrl()}/api/apps/${packageName}`
+        `/api/apps/${packageName}`
       );
       return response.data.data;
     } catch (error) {
@@ -113,7 +120,7 @@ const appService = {
   installApp: async (packageName: string): Promise<boolean> => {
     try {
       const response = await axios.post<ApiResponse<null>>(
-        `${getBaseUrl()}/api/apps/install/${packageName}`
+        `/api/apps/install/${packageName}`
       );
       return response.data.success;
     } catch (error) {
@@ -134,10 +141,10 @@ const appService = {
       //   throw new Error(`Failed to stop app ${packageName} before uninstallation`);
       // }
       // backend will stop the app automatically if it is running.
-      
+
       // Then uninstall it
       const response = await axios.post<ApiResponse<null>>(
-        `${getBaseUrl()}/api/apps/uninstall/${packageName}`
+        `/api/apps/uninstall/${packageName}`
       );
       return response.data.success;
     } catch (error) {
@@ -153,7 +160,7 @@ const appService = {
   startApp: async (packageName: string): Promise<boolean> => {
     try {
       const response = await axios.post<ApiResponse<null>>(
-        `${getBaseUrl()}/api/apps/${packageName}/start`,
+        `/api/apps/${packageName}/start`,
       );
       return response.data.success;
     } catch (error) {
@@ -169,7 +176,7 @@ const appService = {
   stopApp: async (packageName: string): Promise<boolean> => {
     try {
       const response = await axios.post<ApiResponse<null>>(
-        `${getBaseUrl()}/api/apps/${packageName}/stop`,
+        `/api/apps/${packageName}/stop`,
       );
       return response.data.success;
     } catch (error) {
@@ -181,12 +188,19 @@ const appService = {
   /**
    * Search for apps (no auth required)
    * Uses store backend
+   * @param query Search query string
+   * @param options Optional filter options
    */
-  searchApps: async (query: string): Promise<AppI[]> => {
+  searchApps: async (query: string, options?: AppFilterOptions): Promise<AppI[]> => {
     try {
-      const response = await axios.get<ApiResponse<AppI[]>>(
-        `${getBaseUrl()}/api/apps/search?q=${encodeURIComponent(query)}`
-      );
+      let url = `/api/apps/search?q=${encodeURIComponent(query)}`;
+
+      // Add organization filter if provided
+      if (options?.organizationId) {
+        url += `&organizationId=${encodeURIComponent(options.organizationId)}`;
+      }
+
+      const response = await axios.get<ApiResponse<AppI[]>>(url);
       return response.data.data || [];
     } catch (error) {
       console.error(`Error searching apps with query "${query}":`, error);
@@ -204,7 +218,7 @@ const userService = {
   getCurrentUser: async (): Promise<User | null> => {
     try {
       const response = await axios.get<ApiResponse<User>>(
-        `${getBaseUrl()}/api/user/me`
+        `/api/user/me`
       );
       return response.data.data;
     } catch (error) {
@@ -224,13 +238,13 @@ const authService = {
   exchangeToken: async (supabaseToken: string): Promise<string> => {
     try {
       const response = await axios.post<TokenExchangeResponse>(
-        `${getBaseUrl()}/api/auth/exchange-token`,
+        `/api/auth/exchange-token`,
         { supabaseToken },
         {
           headers: { 'Content-Type': 'application/json' }
         }
       );
-      
+
       if (response.status === 200 && response.data.coreToken) {
         return response.data.coreToken;
       } else {
@@ -251,32 +265,32 @@ const authService = {
   exchangeTemporaryToken: async (tempToken: string, packageName: string): Promise<TempTokenExchangeResponse> => {
     try {
       const response = await axios.post<TempTokenExchangeResponse>(
-        `${getBaseUrl()}/api/auth/exchange-store-token`,
+        `/api/auth/exchange-store-token`,
         { aos_temp_token: tempToken, packageName },
         {
           headers: { 'Content-Type': 'application/json' }
         }
       );
-      
+
       if (response.status === 200 && response.data.success) {
         return response.data;
       } else {
-        return { 
-          success: false, 
-          error: response.data.error || `Failed with status ${response.status}` 
+        return {
+          success: false,
+          error: response.data.error || `Failed with status ${response.status}`
         };
       }
     } catch (error) {
       console.error("Error exchanging temporary token:", error);
       if (axios.isAxiosError(error) && error.response) {
-        return { 
-          success: false, 
-          error: error.response.data?.error || error.message 
+        return {
+          success: false,
+          error: error.response.data?.error || error.message
         };
       }
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : "Unknown error" 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
       };
     }
   }

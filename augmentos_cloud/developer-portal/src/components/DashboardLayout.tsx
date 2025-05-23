@@ -4,6 +4,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { useAuth } from '../hooks/useAuth';
 import api from '@/services/api.service';
+import OrgSwitcher from './OrgSwitcher';
+import ContactEmailBanner from './ui/ContactEmailBanner';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -15,12 +17,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { signOut } = useAuth();
   const currentPath = location.pathname;
   const [isAdmin, setIsAdmin] = useState(false);
-  
+
   // Check if the user is an admin
   useEffect(() => {
     // Start with admin set to false - don't show admin panel by default
     setIsAdmin(false);
-    
+
     const checkAdminStatus = async () => {
       try {
         // First, check if we have a token
@@ -28,7 +30,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         if (!authToken) {
           return;
         }
-        
+
         // Try to use API service
         try {
           const result = await api.admin.checkAdmin();
@@ -43,10 +45,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         console.error('Error checking admin status:', error);
       }
     };
-    
+
     checkAdminStatus();
   }, []);
-  
+
   // Handle sign out with navigation
   const handleSignOut = async () => {
     await signOut();
@@ -78,7 +80,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
           <div className="flex items-center gap-2">
             <Link to="https://docs.augmentos.org" >
-              <Button variant="ghost" size="sm" className='hover:bg-gray-200'>  
+              <Button variant="ghost" size="sm" className='hover:bg-gray-200'>
                 Documentation
               </Button>
             </Link>
@@ -92,6 +94,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         {/* Fixed Sidebar */}
         <aside className="w-64 bg-white border-r border-gray-200 fixed left-0 top-16 bottom-0 z-10 overflow-y-auto hidden md:block">
           <nav className="p-4 space-y-1">
+            {/* Organization Switcher */}
+            <OrgSwitcher />
+
             <Link
               to="/dashboard"
               className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActivePath('/dashboard')
@@ -117,18 +122,30 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               My Apps
             </Link>
             <Link
-              to="/profile"
-              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActivePath('/profile')
+              to="/org-settings"
+              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActivePath('/org-settings')
                 ? 'bg-gray-200 text-gray-900'
                 : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
                 }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
-              Developer Profile
+              Organization Settings
             </Link>
-            
+            <Link
+              to="/members"
+              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActivePath('/members')
+                ? 'bg-gray-200 text-gray-900'
+                : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              Members
+            </Link>
+
             <Link
               to="https://docs.augmentos.org"
               className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isActivePath('/docs')
@@ -161,6 +178,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
         {/* Main Content with Margin for Sidebar */}
         <main className="flex-1 md:ml-64 p-6 bg-gray-50 min-h-screen overflow-y-auto">
+          <ContactEmailBanner />
           {children}
         </main>
       </div>

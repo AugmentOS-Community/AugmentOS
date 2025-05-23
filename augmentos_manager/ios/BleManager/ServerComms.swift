@@ -39,6 +39,7 @@ class ServerComms {
   private var reconnectionAttempts: Int = 0
   public let calendarManager = CalendarManager()
   public let locationManager = LocationManager()
+  public let mediaManager = MediaManager()
   
   static func getInstance() -> ServerComms {
     if instance == nil {
@@ -221,37 +222,15 @@ class ServerComms {
     guard self.wsManager.isConnected() else { return }
     let calendarManager = CalendarManager()
     Task {
-      if let events = await calendarManager.fetchUpcomingEvents(days: 1) {
-        // TODO: once the server is smarter we should just send all calendar events:
-        //            for event in events {
-        //                let calendarItem = convertEKEventToCalendarItem(event)
-        //                print("CALENDAR EVENT \(calendarItem)")
-        //                self.sendCalendarEvent(calendarItem)
-        //            }
+      if let events = await calendarManager.fetchUpcomingEvents(days: 2) {
         guard events.count > 0 else { return }
-        let event = events.first!
-        let calendarItem = convertEKEventToCalendarItem(event)
-        print("CALENDAR EVENT \(calendarItem)")
-        self.sendCalendarEvent(calendarItem)
-        
-        // TODO: ios
-//        // schedule to run this function again 5 minutes after the event ends:
-//        let eventEndTime = event.endDate!
-//        let fiveMinutesAfterEnd = Calendar.current.date(byAdding: .minute, value: 5, to: eventEndTime)!
-//        let timeUntilNextCheck = fiveMinutesAfterEnd.timeIntervalSinceNow
-//        
-//        // Store references needed in the closure
-//        let weakSelf = self
-//
-//        // Only schedule if the time is positive (event ends in the future)
-//        if timeUntilNextCheck > 0 {
-//            // Use a Timer instead of DispatchQueue for better capture semantics
-//            Timer.scheduledTimer(withTimeInterval: timeUntilNextCheck, repeats: false) { _ in
-//                print("Checking for next events after previous event ended")
-//                weakSelf.sendCalendarEvents()
-//            }
-//            print("Scheduled next calendar check for \(fiveMinutesAfterEnd)")
-//        }
+        // Send up to 5 events
+        let eventsToSend = events.prefix(5)
+        for event in eventsToSend {
+          let calendarItem = convertEKEventToCalendarItem(event)
+          print("CALENDAR EVENT \(calendarItem)")
+          self.sendCalendarEvent(calendarItem)
+        }
       }
     }
   }
@@ -288,6 +267,24 @@ class ServerComms {
       print("Cannot send location update: No location data available")
     }
   }
+  
+  public func sendGlassesConnectionState(modelName: String, status: String) {
+    do {
+      let event: [String: Any] = [
+        "type": "glasses_connection_state",
+        "modelName": modelName,
+        "status": status,
+        "timestamp": Int(Date().timeIntervalSince1970 * 1000)
+      ]
+      let jsonData = try JSONSerialization.data(withJSONObject: event)
+      if let jsonString = String(data: jsonData, encoding: .utf8) {
+        wsManager.sendText(jsonString)
+      }
+    } catch {
+      print("ServerComms: Error building location_update JSON: \(error)")
+    }
+  }
+
   
   func updateAsrConfig(languages: [[String: Any]]) {
     guard wsManager.isConnected() else {

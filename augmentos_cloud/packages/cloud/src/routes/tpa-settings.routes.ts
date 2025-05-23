@@ -12,6 +12,7 @@ import appService, { isUninstallable } from '../services/core/app.service';
 import { logger } from '@augmentos/utils';
 import { CloudToTpaMessageType, UserSession } from '@augmentos/sdk';
 import { sessionService } from '../services/core/session.service';
+import { Permission } from '../models/app.model';
 
 const router = express.Router();
 
@@ -41,6 +42,7 @@ router.get('/:tpaName', async (req, res) => {
     return res.status(401).json({ error: 'Invalid Authorization header format' });
   }
   const coreToken = authParts[1];
+  let permissions: Permission[] = [];
 
   try {
     // Verify token.
@@ -58,6 +60,7 @@ router.get('/:tpaName', async (req, res) => {
       // tpaConfig = JSON.parse(rawData);
       // find the app, then call it with it's port. i.e: http://localhost:8017/tpa_config.json
       const _tpa = await appService.getApp(tpaName);
+      permissions = _tpa?.permissions || permissions;
       // const host = Object.values(systemApps).find(app => app.packageName === tpaName)?.host;
       const publicUrl = _tpa?.publicUrl;
       
@@ -73,6 +76,7 @@ router.get('/:tpaName', async (req, res) => {
       tpaConfig = _tpaConfig;
     } catch (err) {
       const _tpa = await appService.getApp(tpaName);
+      permissions = _tpa?.permissions || permissions;
       if (_tpa) {
         tpaConfig = {
           name: _tpa.name || tpaName,
@@ -136,6 +140,7 @@ router.get('/:tpaName', async (req, res) => {
       webviewURL,
       version: tpaConfig.version,
       settings: mergedSettings,
+      permissions,
     });
   } catch (error) {
     logger.error('Error processing TPA settings request:', error);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate  } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Download, X, ExternalLink, Calendar, Clock, Info, Star, Package, Building, Globe, Mail, FileText } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../api';
@@ -7,10 +7,12 @@ import { AppI } from '../types';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import Header from '../components/Header';
+import AppPermissions from '../components/AppPermissions';
 
 const AppDetails: React.FC = () => {
   const { packageName } = useParams<{ packageName: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated } = useAuth();
 
   const [app, setApp] = useState<AppI | null>(null);
@@ -24,7 +26,15 @@ const AppDetails: React.FC = () => {
       fetchAppDetails(packageName);
     }
   }, [packageName, isAuthenticated]);
-  
+
+  /**
+   * Navigates to the app store filtered by the given organization ID
+   * @param orgId Organization ID to filter by
+   */
+  const navigateToOrgApps = (orgId: string) => {
+    navigate(`/?orgId=${orgId}`);
+  };
+
   // Fetch app details and install status
   const fetchAppDetails = async (pkgName: string) => {
     try {
@@ -45,13 +55,13 @@ const AppDetails: React.FC = () => {
         try {
           // Get user's installed apps
           const installedApps = await api.app.getInstalledApps();
-          
+
           // Check if this app is installed
           const isInstalled = installedApps.some(app => app.packageName === pkgName);
-          
+
           // Update app with installed status
           appDetails.isInstalled = isInstalled;
-          
+
           if (isInstalled) {
             // Find installed date from the installed apps
             const installedApp = installedApps.find(app => app.packageName === pkgName);
@@ -153,7 +163,7 @@ const AppDetails: React.FC = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         {/* Back button */}
-        <button 
+        <button
           onClick={() => navigate('/')}
           className="flex items-center text-blue-600 hover:text-blue-800 mb-6"
         >
@@ -197,20 +207,33 @@ const AppDetails: React.FC = () => {
                       (e.target as HTMLImageElement).src = "https://placehold.co/96x96/gray/white?text=App";
                     }}
                   />
-                  
+
                   {/* App info */}
                   <div className="md:ml-6 mt-4 md:mt-0 flex-1">
                     <h1 className="text-2xl font-bold text-gray-900">{app.name}</h1>
+
+                    {/* Organization name with link to filtered app store */}
                     <p className="text-sm text-gray-500">
-                      {app.developerProfile?.company || app.developerId || ''}
+                      {app.organizationId ? (
+                        <button
+                          onClick={() => navigateToOrgApps(app.organizationId!)}
+                          className="hover:text-blue-600 hover:underline focus:outline-none"
+                        >
+                          {app.orgName || app.developerProfile?.company || app.developerId || ''}
+                        </button>
+                      ) : (
+                        app.orgName || app.developerProfile?.company || app.developerId || ''
+                      )}
                     </p>
                     {/* Debug details - Remove 'hidden' class to view in browser */}
                     <div className="text-xs text-gray-400 mt-1 hidden">
                       DeveloperID: {JSON.stringify(app.developerId)}<br/>
+                      OrgID: {JSON.stringify(app.organizationId)}<br/>
+                      OrgName: {JSON.stringify(app.orgName)}<br/>
                       Profile Company: {JSON.stringify(app.developerProfile?.company)}<br/>
                       Full Profile: {JSON.stringify(app.developerProfile)}
                     </div>
-                    
+
                     <div className="mt-4 flex flex-col gap-2">
                       {isAuthenticated ? (
                         app.isInstalled ? (
@@ -259,7 +282,7 @@ const AppDetails: React.FC = () => {
                           Sign in to install
                         </Button>
                       )}
-                      
+
                       {app.webviewURL && (
                         <Button variant="outline" asChild className="w-full md:w-48">
                           <a href={app.webviewURL} target="_blank" rel="noopener noreferrer">
@@ -276,9 +299,10 @@ const AppDetails: React.FC = () => {
 
             {/* App details sections */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Left side: description */}
+              {/* Left side: description and permissions */}
               <div className="md:col-span-2">
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {/* About section */}
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
                   <div className="p-6">
                     <h2 className="text-xl font-semibold mb-4">About this app</h2>
                     <p className="text-gray-700 whitespace-pre-line">
@@ -286,6 +310,17 @@ const AppDetails: React.FC = () => {
                     </p>
                   </div>
                 </div>
+
+                {/* Permissions section - moved here from the right column */}
+                {(app.permissions && app.permissions.length > 0)  && (
+                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="p-6">
+                      <h2 className="text-xl font-semibold mb-4">Required Permissions</h2>
+                      <AppPermissions permissions={app.permissions} />
+                    </div>
+                  </div>
+                )}
+
               </div>
 
               {/* Right side: additional details */}
@@ -294,7 +329,7 @@ const AppDetails: React.FC = () => {
                 <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
                   <div className="p-6">
                     <h2 className="text-xl font-semibold mb-4">App Details</h2>
-                    
+
                     <div className="space-y-4">
                       <div className="flex items-start">
                         <Package className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
@@ -303,7 +338,7 @@ const AppDetails: React.FC = () => {
                           <p className="text-sm text-gray-500">{app.packageName}</p>
                         </div>
                       </div>
-                      
+
                       {app.version && (
                         <div className="flex items-start">
                           <Info className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
@@ -323,7 +358,7 @@ const AppDetails: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      
+
                       {app.isInstalled && app.installedDate && (
                         <div className="flex items-start">
                           <Calendar className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
@@ -333,7 +368,7 @@ const AppDetails: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      
+
                       {app.createdAt && (
                         <div className="flex items-start">
                           <Clock className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
@@ -346,16 +381,35 @@ const AppDetails: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Developer Info Section */}
                 <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                   <div className="p-6">
                     <h2 className="text-xl font-semibold mb-4">Developer Info</h2>
-                    
+
                     <div className="space-y-4">
-                      
+                      {/* Organization Section */}
+                      {(app.orgName || app.organizationId) && (
+                        <div className="flex items-start">
+                          <Building className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Organization</p>
+                            {app.organizationId ? (
+                              <button
+                                onClick={() => navigateToOrgApps(app.organizationId!)}
+                                className="text-sm text-blue-600 hover:underline focus:outline-none"
+                              >
+                                {app.orgName || 'View all apps from this organization'}
+                              </button>
+                            ) : (
+                              <p className="text-sm text-gray-500">{app.orgName}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Show profile info if available */}
-                      {app.developerProfile?.company && (
+                      {app.developerProfile?.company && !app.orgName && (
                         <div className="flex items-start">
                           <Building className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
                           <div>
@@ -364,15 +418,15 @@ const AppDetails: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      
+
                       {app.developerProfile?.website && (
                         <div className="flex items-start">
                           <Globe className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
                           <div>
                             <p className="text-sm font-medium text-gray-700">Website</p>
-                            <a 
-                              href={app.developerProfile.website} 
-                              target="_blank" 
+                            <a
+                              href={app.developerProfile.website}
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-sm text-blue-500 hover:underline"
                             >
@@ -381,14 +435,14 @@ const AppDetails: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      
+
                       {app.developerProfile?.contactEmail && (
                         <div className="flex items-start">
                           <Mail className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
                           <div>
                             <p className="text-sm font-medium text-gray-700">Contact</p>
-                            <a 
-                              href={`mailto:${app.developerProfile.contactEmail}`} 
+                            <a
+                              href={`mailto:${app.developerProfile.contactEmail}`}
                               className="text-sm text-blue-500 hover:underline"
                             >
                               {app.developerProfile.contactEmail}
@@ -396,7 +450,7 @@ const AppDetails: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      
+
                       {app.developerProfile?.description && (
                         <div className="flex items-start">
                           <FileText className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
@@ -406,9 +460,9 @@ const AppDetails: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      
+
                       {/* Show default message if no developer info available */}
-                      {!app.developerProfile && (
+                      {!app.developerProfile && !app.orgName && !app.organizationId && (
                         <div className="text-sm text-gray-500">
                           No developer information available.
                         </div>

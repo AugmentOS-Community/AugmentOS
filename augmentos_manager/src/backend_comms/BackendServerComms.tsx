@@ -29,10 +29,79 @@ export default class BackendServerComms {
     const port = Config.AUGMENTOS_PORT;
     const protocol = secure ? 'https' : 'http';
     const defaultServerUrl = `${protocol}://${host}:${port}`;
-    console.log(
-      `${this.TAG}: Using default backend URL from env: ${defaultServerUrl}`,
-    );
+    console.log(`${this.TAG}: Using default backend URL from env: ${defaultServerUrl}`);
     return defaultServerUrl;
+  }
+
+  /**
+   * Fetch gallery photos from the server
+   * @returns Promise that resolves to gallery photos
+   */
+  public async getGalleryPhotos(): Promise<any> {
+    if (!this.coreToken) {
+      throw new Error('No core token available for authentication');
+    }
+
+    const url = `${this.serverUrl}/api/gallery`;
+    console.log('Fetching gallery photos from:', url);
+
+    const config: AxiosRequestConfig = {
+      method: 'GET',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.coreToken}`,
+      },
+    };
+
+    try {
+      const response = await axios(config);
+      if (response.status === 200 && response.data) {
+        console.log('Received gallery photos:', response.data);
+        return response.data;
+      } else {
+        throw new Error(`Bad response: ${response.statusText}`);
+      }
+    } catch (error: any) {
+      console.error('Error fetching gallery photos:', error.message || error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a photo from the gallery
+   * @param photoId ID of the photo to delete
+   * @returns Promise that resolves to success status
+   */
+  public async deleteGalleryPhoto(photoId: string): Promise<any> {
+    if (!this.coreToken) {
+      throw new Error('No core token available for authentication');
+    }
+
+    const url = `${this.serverUrl}/api/gallery/${photoId}`;
+    console.log('Deleting gallery photo:', photoId);
+
+    const config: AxiosRequestConfig = {
+      method: 'DELETE',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.coreToken}`,
+      },
+    };
+
+    try {
+      const response = await axios(config);
+      if (response.status === 200 && response.data) {
+        console.log('Photo deleted successfully:', photoId);
+        return response.data;
+      } else {
+        throw new Error(`Bad response: ${response.statusText}`);
+      }
+    } catch (error: any) {
+      console.error('Error deleting photo:', error.message || error);
+      throw error;
+    }
   }
 
   private constructor() {
@@ -55,11 +124,7 @@ export default class BackendServerComms {
     return this.coreToken;
   }
 
-  public async restRequest(
-    endpoint: string,
-    data: any,
-    callback: Callback,
-  ): Promise<void> {
+  public async restRequest(endpoint: string, data: any, callback: Callback): Promise<void> {
     try {
       const baseUrl = await this.getServerUrl();
       const url = baseUrl + endpoint;
@@ -126,10 +191,7 @@ export default class BackendServerComms {
         throw new Error(`Error sending report: ${response.statusText}`);
       }
     } catch (error: any) {
-      console.error(
-        `${this.TAG}: Error sending report -`,
-        error.message || error,
-      );
+      console.error(`${this.TAG}: Error sending report -`, error.message || error);
       throw error;
     }
   }
@@ -195,10 +257,7 @@ export default class BackendServerComms {
   }
 
   // New method to update a TPA setting on the server.
-  public async updateTpaSetting(
-    tpaName: string,
-    update: {key: string; value: any},
-  ): Promise<any> {
+  public async updateTpaSetting(tpaName: string, update: {key: string; value: any}): Promise<any> {
     if (!this.coreToken) {
       throw new Error('No core token available for authentication');
     }
@@ -413,41 +472,23 @@ export default class BackendServerComms {
 
     try {
       const response = await axios(config);
-      if (
-        response.status === 200 &&
-        response.data.success &&
-        response.data.token
-      ) {
+      if (response.status === 200 && response.data.success && response.data.token) {
         console.log(`Received temporary webview token for ${packageName}`);
         return response.data.token;
       } else {
-        throw new Error(
-          `Failed to generate webview token: ${
-            response.data.error || response.statusText
-          }`,
-        );
+        throw new Error(`Failed to generate webview token: ${response.data.error || response.statusText}`);
       }
     } catch (error: any) {
-      console.error(
-        `${this.TAG}: Error generating webview token -`,
-        error.message || error,
-      );
+      console.error(`${this.TAG}: Error generating webview token -`, error.message || error);
       // Consider more specific error handling based on response status if available
       if (axios.isAxiosError(error) && error.response) {
-        throw new Error(
-          `Failed to generate webview token: ${
-            error.response.data?.error || error.message
-          }`,
-        );
+        throw new Error(`Failed to generate webview token: ${error.response.data?.error || error.message}`);
       }
       throw error; // Re-throw the original error or a new one
     }
   }
 
-  public async hashWithApiKey(
-    stringToHash: string,
-    packageName: string,
-  ): Promise<string> {
+  public async hashWithApiKey(stringToHash: string, packageName: string): Promise<string> {
     if (!this.coreToken) {
       throw new Error('No core token available for authentication');
     }
@@ -473,18 +514,199 @@ export default class BackendServerComms {
       if (response.status === 200 && response.data.success) {
         return response.data.hash;
       } else {
-        throw new Error(
-          `Failed to generate hash: ${
-            response.data.error || response.statusText
-          }`,
-        );
+        throw new Error(`Failed to generate hash: ${response.data.error || response.statusText}`);
       }
     } catch (error: any) {
-      console.error(
-        `${this.TAG}: Error generating hash:`,
-        error.message || error,
-      );
+      console.error(`${this.TAG}: Error generating hash:`, error.message || error);
       throw error;
     }
   }
+
+  public async requestAccountDeletion(): Promise<any> {
+    if (!this.coreToken) {
+      throw new Error('No core token available for authentication');
+    }
+
+    const baseUrl = await this.getServerUrl();
+
+    //   1. Request Account Deletion:
+    //   - Endpoint: /api/account/request-deletion
+    //   - Method: POST
+    //   - Payload: { reason?: string }
+    //   - Response: Returns a requestId and a message to check email for verification code
+    //   - Description: Initiates the account deletion process by creating a deletion request with a verification code
+
+    const url = `${baseUrl}/api/account/request-deletion`;
+    const config: AxiosRequestConfig = {
+      method: 'POST',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.coreToken}`,
+      },
+    };
+
+    try {
+      const response = await axios(config);
+      if (response.status === 200 && response.data) {
+        return response.data;
+      } else {
+        throw new Error(`Bad response: ${response.statusText}`);
+      }
+    } catch (error: any) {
+      console.error('Error requesting data export:', error.message || error);
+      throw error;
+    }
+  }
+
+
+      //  2. Confirm Account Deletion:
+    //   - Endpoint: /api/account/confirm-deletion
+    //   - Method: DELETE
+    //   - Payload: { requestId: string, confirmationCode: string }
+    //   - Response: Confirmation message that the account was deleted
+    //   - Description: Completes the account deletion process by verifying the code and deleting the user account
+
+  public async confirmAccountDeletion(requestId: string, confirmationCode: string): Promise<any> {
+    if (!this.coreToken) {
+      throw new Error('No core token available for authentication');
+    }
+
+    const baseUrl = await this.getServerUrl();
+    const url = `${baseUrl}/api/account/confirm-deletion`;
+    const config: AxiosRequestConfig = {
+      method: 'DELETE',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.coreToken}`,
+      },
+      data: { requestId, confirmationCode },
+    };
+
+    try {
+      const response = await axios(config);
+      if (response.status === 200 && response.data) {
+        return response.data;
+      } else {
+        throw new Error(`Bad response: ${response.statusText}`);
+      }
+    } catch (error: any) {
+      console.error('Error confirming account deletion:', error.message || error);
+      throw error;
+    }
+  }
+  
+
+    
+    
+
+//   1. Request Data Export:
+//   - Endpoint: /api/account/request-export
+//   - Method: POST
+//   - Payload: { format: ‘json’ | ‘csv’ }
+//   - Response: Returns an export ID and status information
+//   - Description: Initiates the data export process
+//  2. Get Export Status:
+//   - Endpoint: /api/account/export-status
+//   - Method: GET
+//   - Query Parameters: id (the export ID)
+//   - Response: Status information about the export including downloadUrl when completed
+//   - Description: Checks the status of an export request
+//  3. Download Export:
+//   - Endpoint: /api/account/download-export/:id
+//   - Method: GET
+//   - URL Parameters: id (the export ID)
+//   - Response: The exported file as an attachment
+//   - Description: Downloads the completed export file
+
+  public async requestDataExport(): Promise<any> {
+    if (!this.coreToken) {
+      throw new Error('No core token available for authentication');
+    }
+
+    const baseUrl = await this.getServerUrl();
+    const url = `${baseUrl}/api/account/request-export`;
+    const config: AxiosRequestConfig = {
+      method: 'POST',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.coreToken}`,
+      },
+      data: { format: 'json' },
+    };
+
+    try {
+      const response = await axios(config);
+      if (response.status === 200 && response.data) {
+        return response.data;
+      } else {
+        throw new Error(`Bad response: ${response.statusText}`);
+      }
+    } catch (error: any) {
+      console.error('Error requesting data export:', error.message || error);
+      throw error;
+    }
+  }
+
+  public async getExportStatus(exportId: string): Promise<any> {
+    if (!this.coreToken) {
+      throw new Error('No core token available for authentication');
+    }
+
+    const baseUrl = await this.getServerUrl();
+    const url = `${baseUrl}/api/account/export-status`;
+    const config: AxiosRequestConfig = {
+      method: 'GET',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.coreToken}`,
+      },
+      params: { id: exportId },
+    };
+
+    try {
+      const response = await axios(config);
+      if (response.status === 200 && response.data) {
+        return response.data;
+      } else {
+        throw new Error(`Bad response: ${response.statusText}`);
+      }
+    } catch (error: any) {
+      console.error('Error getting export status:', error.message || error);
+      throw error;
+    }
+  }
+
+  public async downloadExport(exportId: string): Promise<any> {
+    if (!this.coreToken) {
+      throw new Error('No core token available for authentication');
+    }
+
+    const baseUrl = await this.getServerUrl();
+    const url = `${baseUrl}/api/account/download-export/${exportId}`;
+    const config: AxiosRequestConfig = {
+      method: 'GET',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.coreToken}`,
+      },
+    };
+
+    try {
+      const response = await axios(config);
+      if (response.status === 200 && response.data) {
+        return response.data;
+      } else {
+        throw new Error(`Bad response: ${response.statusText}`);
+      }
+    } catch (error: any) {
+      console.error('Error downloading export:', error.message || error);
+      throw error;
+    }
+  }
+
 }

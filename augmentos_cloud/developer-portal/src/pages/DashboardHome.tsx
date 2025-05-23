@@ -8,25 +8,27 @@ import DashboardLayout from "../components/DashboardLayout";
 import TPATable from "../components/TPATable";
 import api from '../services/api.service';
 import { useAuth } from '../hooks/useAuth';
+import { useOrganization } from '../context/OrganizationContext';
 import { AppResponse } from '../services/api.service';
 
 const DashboardHome: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  
+  const { currentOrg, loading: orgLoading } = useOrganization();
+
   const [tpas, setTpas] = useState<AppResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Removed dialog states as they're now handled by the TPATable component
 
-  // Fetch TPAs when component mounts
+  // Fetch TPAs when component mounts or organization changes
   useEffect(() => {
     const fetchTPAs = async () => {
-      if (!isAuthenticated) return;
-      
+      if (!isAuthenticated || !currentOrg) return;
+
       try {
         setIsLoading(true);
-        const tpaData = await api.apps.getAll();
+        const tpaData = await api.apps.getAll(currentOrg.id);
         setTpas(tpaData);
         setError(null);
       } catch (err) {
@@ -36,11 +38,11 @@ const DashboardHome: React.FC = () => {
         setIsLoading(false);
       }
     };
-    
-    if (!authLoading) {
+
+    if (!authLoading && !orgLoading) {
       fetchTPAs();
     }
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading, orgLoading, currentOrg]);
 
   const hasNoTpas = tpas.length === 0 && !isLoading && !error;
 
@@ -100,7 +102,7 @@ const DashboardHome: React.FC = () => {
         </div>
 
         {/* TPAs Section */}
-        <TPATable 
+        <TPATable
           tpas={tpas}
           isLoading={isLoading}
           error={error}
@@ -111,8 +113,8 @@ const DashboardHome: React.FC = () => {
             setTpas(tpas.filter(tpa => tpa.packageName !== packageName));
           }}
           onTpaUpdated={(updatedTpa) => {
-            setTpas(prevTpas => 
-              prevTpas.map(tpa => 
+            setTpas(prevTpas =>
+              prevTpas.map(tpa =>
                 tpa.packageName === updatedTpa.packageName ? updatedTpa : tpa
               )
             );

@@ -13,19 +13,37 @@ import {
 import appService from './app.service';
 import transcriptionService, { ASRStreamInstance } from '../processing/transcription.service';
 import DisplayManager from '../layout/DisplayManager6.1';
-import { createLC3Service, LC3Service, createLoggerForUserSession, logger } from '@augmentos/utils';
+import { createLC3Service, LC3Service, createLoggerForUserSession } from '@augmentos/utils';
 import { AudioWriter } from "../debug/audio-writer";
 import { systemApps } from './system-apps';
 import { SubscriptionManager } from './subscription.manager'; // Import the new manager
-import { Logger } from 'winston';
+// import { Logger } from 'winston';
 import { DebugService } from '../debug/debug-service';
+import { User } from '../../models/user.model';
+import { HeartbeatManager } from './HeartbeatManager';
+import { logger as rootLogger } from '../logging/pino-logger';
+import { Logger } from 'pino';
 
-const RECONNECT_GRACE_PERIOD_MS = 1000 * 30; // 30 seconds
+const SERVICE_NAME = 'session.service';
 const LOG_AUDIO = false;
 const DEBUG_AUDIO = false;
 export const IS_LC3 = false;
+const logger = rootLogger.child({ service: 'session.service' });
 
-console.log("🔈🔈🔈🔈🔈🔈🔈🔈 IS_LC3", IS_LC3);
+logger.info("🔈🔈🔈🔈🔈🔈🔈🔈 IS_LC3", IS_LC3);
+
+const DEFAULT_AUGMENTOS_SETTINGS = {
+  useOnboardMic: false,
+  contextualDashboard: true,
+  headUpAngle: 20,
+  brightness: 50,
+  autoBrightness: false,
+  sensingEnabled: true,
+  alwaysOnStatusBar: false,
+  bypassVad: false,
+  bypassAudioEncoding: false,
+  metricSystemEnabled: false
+};
 
 // --- Interfaces ---
 export interface SequencedAudioChunk {
@@ -57,7 +75,7 @@ export interface ExtendedUserSession extends UserSession {
   displayManager: DisplayManager;
   // Add dashboard manager to the user session
   dashboardManager: any; // Will import and use proper type later to avoid circular dependencies
-  transcript: { 
+  transcript: {
     segments: TranscriptSegment[];  // For backward compatibility (English)
     languageSegments?: Map<string, TranscriptSegment[]>; // Language-indexed map for multi-language support
   };
@@ -67,13 +85,19 @@ export interface ExtendedUserSession extends UserSession {
   transcriptionStreams: Map<string, ASRStreamInstance>;
   isTranscribing: boolean;
   loadingApps: Set<string>;
-  OSSettings: { brightness: number, volume: number };
   appConnections: Map<string, WebSocket | any>; // Consider stricter type if possible
   installedApps: AppI[]; // Add type from SDK
 
   // Add the subscription manager instance
   subscriptionManager: SubscriptionManager;
+  // Add the heartbeat manager instance
+  heartbeatManager: HeartbeatManager;
+  // Map to track reconnection timers
+  _reconnectionTimers?: Map<string, NodeJS.Timeout>;
   recentAudioBuffer: { data: ArrayBufferLike; timestamp: number }[]; // Buffer for last 10 seconds of audio
+
+  // Custom user data
+  userDatetime?: string;
 }
 
 export class SessionService {
@@ -116,7 +140,6 @@ export class SessionService {
         activeAppSessions: existingSession.activeAppSessions,
         installedApps: existingSession.installedApps,
         loadingApps: existingSession.loadingApps,
-        OSSettings: existingSession.OSSettings,
         isTranscribing: existingSession.isTranscribing,
         transcript: existingSession.transcript,
         subscriptionManager: {
@@ -140,7 +163,8 @@ export class SessionService {
 
     // Create new session
     const sessionId = userId;
-    const sessionLogger = createLoggerForUserSession(sessionId);
+    // const sessionLogger = createLoggerForUserSession(sessionId);
+    const sessionLogger = rootLogger.child({ userId });
     const installedApps = await appService.getAllApps(userId); // Fetch apps first
     sessionLogger.info(`Fetched installed apps for user ${userId}:`, installedApps);
 
@@ -155,12 +179,11 @@ export class SessionService {
       transcriptionStreams: new Map<string, ASRStreamInstance>(),
       loadingApps: new Set<string>(),
       appConnections: new Map<string, WebSocket | any>(),
-      OSSettings: { brightness: 50, volume: 50 },
-      displayManager: new DisplayManager(),
+      displayManager: {} as any, // Will set after full session init
       // Will add dashboardManager after the session is fully constructed
-      transcript: { 
+      transcript: {
         segments: [],
-        languageSegments: new Map<string, TranscriptSegment[]>() 
+        languageSegments: new Map<string, TranscriptSegment[]>()
       },
       websocket: ws,
       bufferedAudio: [],
@@ -184,6 +207,10 @@ export class SessionService {
     partialSession.subscriptionManager = new SubscriptionManager(partialSession as ExtendedUserSession);
     sessionLogger.info(`[session.service] SubscriptionManager created for session ${sessionId}`);
 
+    // Instantiate the Heartbeat Manager for this session
+    partialSession.heartbeatManager = new HeartbeatManager(partialSession as ExtendedUserSession);
+    sessionLogger.info(`[session.service] HeartbeatManager created for session ${sessionId}`);
+
     // Initialize LC3 and Audio Buffer
     const lc3ServiceInstance = createLC3Service(sessionId);
     try {
@@ -196,6 +223,10 @@ export class SessionService {
 
     // Finalize the user session
     const userSession = partialSession as ExtendedUserSession;
+
+    // Now set up the DisplayManager
+    const DisplayManager = require('../layout/DisplayManager6.1').default;
+    userSession.displayManager = new DisplayManager(userSession);
 
     // Now create the DashboardManager for this session
     // We need to dynamically import to avoid circular dependency issues
@@ -220,7 +251,6 @@ export class SessionService {
       activeAppSessions: userSession.activeAppSessions,
       installedApps: userSession.installedApps,
       loadingApps: userSession.loadingApps,
-      OSSettings: userSession.OSSettings,
       isTranscribing: userSession.isTranscribing,
       transcript: userSession.transcript,
       subscriptionManager: {
@@ -329,37 +359,37 @@ export class SessionService {
 
   addTranscriptSegment(userSession: ExtendedUserSession, segment: TranscriptSegment, language: string = 'en-US'): void {
     if (!userSession || !userSession.transcript) return;
-    
+
     // Initialize languageSegments if not exists
     if (!userSession.transcript.languageSegments) {
       userSession.transcript.languageSegments = new Map<string, TranscriptSegment[]>();
     }
-    
+
     // Ensure the language entry exists in the map
     if (!userSession.transcript.languageSegments.has(language)) {
       userSession.transcript.languageSegments.set(language, []);
     }
-    
+
     // Get the current segments for this language
     const languageSpecificSegments = userSession.transcript.languageSegments.get(language)!;
-    
+
     // Add the segment
     languageSpecificSegments.push(segment);
-    
+
     // For backward compatibility, also add to segments array if it's English
     if (language === 'en-US') {
       userSession.transcript.segments.push(segment);
     }
-    
+
     // Prune old segments (older than 30 minutes)
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-    
+
     // Clean up the language-specific segments
     userSession.transcript.languageSegments.set(
       language,
       languageSpecificSegments.filter(seg => seg.timestamp && new Date(seg.timestamp) >= thirtyMinutesAgo)
     );
-    
+
     // Clean up the legacy segments array for backward compatibility
     if (language === 'en-US') {
       userSession.transcript.segments = userSession.transcript.segments.filter(
@@ -540,6 +570,21 @@ export class SessionService {
 
     // SubscriptionManager is part of userSession, no specific cleanup needed here
 
+    // Clean up heartbeat manager
+    if (userSession.heartbeatManager) {
+      userSession.logger.info(`🧹 Cleaning up heartbeat manager for session ${userSession.sessionId}`);
+      userSession.heartbeatManager.dispose();
+    }
+
+    // Clean up any reconnection timers
+    if (userSession._reconnectionTimers) {
+      userSession.logger.info(`🧹 Cleaning up reconnection timers for session ${userSession.sessionId}`);
+      for (const [packageName, timerId] of userSession._reconnectionTimers.entries()) {
+        clearTimeout(timerId);
+      }
+      userSession._reconnectionTimers.clear();
+    }
+
     // Clean up dashboard manager if it exists
     if (userSession.dashboardManager && typeof userSession.dashboardManager.dispose === 'function') {
       userSession.logger.info(`🧹 Cleaning up dashboard manager for session ${userSession.sessionId}`);
@@ -549,19 +594,29 @@ export class SessionService {
     // Clear transcript data
     if (userSession.transcript) {
       userSession.transcript.segments = []; // Clear legacy segments
-      
+
       // Clear language-specific segments if they exist
       if (userSession.transcript.languageSegments) {
         userSession.transcript.languageSegments.clear();
       }
     }
-    
+
     userSession.bufferedAudio = [];
 
-    userSession.appConnections.forEach((ws, appName) => {
+    userSession.appConnections.forEach((ws, packageName) => {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        userSession.logger.info(`[session.service] Closing TPA connection for ${appName} during session end.`);
-        try { ws.close(1001, 'User session ended'); } catch (e) { /* ignore */ }
+        // userSession.logger.info(`[session.service] Closing TPA connection for ${appName} during session end.`);
+        // try { ws.close(1001, 'User session ended'); } catch (e) { /* ignore */ }
+        // Instead of closing from websocket, we should call triggerStopWebhook to notify the TPAs the session is ending.
+        userSession.logger.info({ service: SERVICE_NAME, packageName }, `[session.service] Triggering stop webhook for ${packageName} during session end.`);
+        appService.triggerStopByPackageName(packageName, userSession.userId)
+          .then(() => {
+            userSession.logger.info({ service: SERVICE_NAME, packageName }, `[session.service] Successfully triggered stop webhook for ${packageName}`);
+          })
+          .catch((error) => {
+            userSession.logger.error({ error, packageName }, `[session.service] Error triggering stop webhook for user: ${userSession.userId}, packageName: ${packageName}:`, error);
+            try { ws.close(1001, 'User session ended'); } catch (e) { /* ignore */ }
+          });
       }
     });
     userSession.appConnections.clear();

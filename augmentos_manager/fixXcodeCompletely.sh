@@ -28,6 +28,6 @@ pod install
 cd ..
 
 echo "🚀 Reopening Xcode workspace..."
-open ios/AugmentOS_Manager.xcworkspace
+open ios/AugmentOS.xcworkspace
 
 echo "✅ All done. Clean rebuild ready."

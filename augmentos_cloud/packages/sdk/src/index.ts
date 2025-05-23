@@ -3,6 +3,7 @@
 // Base exports
 export * from "./types";
 export * from "./tpa"
+export * from "./logging/logger";
 
 // Model exports
 // export * from './models/user';

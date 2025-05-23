@@ -30,7 +30,16 @@ interface AppDetail {
   packageName: string;
   name: string;
   description: string;
-  developerId: string;
+  developerId?: string;  // Mark as optional as we're transitioning away from it
+  organization?: {
+    id: string;
+    name: string;
+    profile?: {
+      contactEmail?: string;
+      website?: string;
+      description?: string;
+    }
+  };
   logoURL: string;
   appStoreStatus: string;
   createdAt: string;
@@ -58,53 +67,53 @@ const AdminPanel: React.FC = () => {
   /* Admin management removed */
   const [selectedApp, setSelectedApp] = useState<AppDetail | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
-  
+
   const [openReviewDialog, setOpenReviewDialog] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  
+
   // Active tab state to replace the shadcn Tabs component
   const [activeTab, setActiveTab] = useState('dashboard');
-  
+
   // Admin panel component
-  
+
   // Load admin data when component mounts
   useEffect(() => {
     const fetchData = async () => {
       try {
         // Wait for token to be ready
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         // Log the authentication state
         const token = localStorage.getItem('core_token');
         const email = localStorage.getItem('userEmail');
-        console.log('Admin panel auth info:', { 
-          hasToken: !!token, 
+        console.log('Admin panel auth info:', {
+          hasToken: !!token,
           tokenLength: token?.length,
-          email: email 
+          email: email
         });
-        
+
         // Load the admin data
         await loadAdminData();
       } catch (err) {
         console.error('Error in admin data initialization:', err);
       }
     };
-    
+
     fetchData();
   }, []);
-  
+
   // Check if user is admin and load data
   const loadAdminData = async () => {
     setIsLoading(true);
-    
+
     try {
       console.log('Loading admin data...');
-      
+
       // Use the admin API service
       // Use a fallback to mock data if API requests fail
       let statsData = null;
       let appsData = [];
-      
+
       try {
         // Stats request
         statsData = await api.admin.getStats();
@@ -112,7 +121,7 @@ const AdminPanel: React.FC = () => {
       } catch (err) {
         console.error('Error fetching stats:', err);
       }
-      
+
       try {
         // Submitted apps request
         appsData = await api.admin.getSubmittedApps();
@@ -120,15 +129,15 @@ const AdminPanel: React.FC = () => {
       } catch (err) {
         console.error('Error fetching submitted apps:', err);
       }
-      
+
       // Admin management removed
-      
+
       // ONLY update state with real API data, do not use mock data anymore
       console.log('Updating state with API data:', {
         hasStats: !!statsData,
         submittedAppsCount: appsData?.length || 0
       });
-      
+
       // Always update with real data, even if empty
       if (statsData) {
         console.log('Setting real stats data:', statsData);
@@ -150,19 +159,19 @@ const AdminPanel: React.FC = () => {
           });
         }
       }
-      
+
       // Always update submitted apps with real data
       console.log('Setting real submitted apps data, count:', appsData?.length || 0);
       setSubmittedApps(appsData || []);
-      
+
     } catch (error) {
       console.error('Error loading admin data:', error);
     } finally {
       setIsLoading(false);
     }
   };
-  
-  
+
+
   const openAppReview = async (packageName: string) => {
     try {
       const appData = await api.admin.getAppDetail(packageName);
@@ -175,14 +184,14 @@ const AdminPanel: React.FC = () => {
       alert('Error loading app details. Please try again.');
     }
   };
-  
+
   const handleApprove = async () => {
     if (!selectedApp) return;
-    
+
     setActionLoading(true);
     try {
       await api.admin.approveApp(selectedApp.packageName, reviewNotes);
-      
+
       // Refresh data
       loadAdminData();
       setOpenReviewDialog(false);
@@ -194,14 +203,14 @@ const AdminPanel: React.FC = () => {
       setActionLoading(false);
     }
   };
-  
+
   const handleReject = async () => {
     if (!selectedApp || !reviewNotes.trim()) return;
-    
+
     setActionLoading(true);
     try {
       await api.admin.rejectApp(selectedApp.packageName, reviewNotes);
-      
+
       // Refresh data
       loadAdminData();
       setOpenReviewDialog(false);
@@ -213,10 +222,10 @@ const AdminPanel: React.FC = () => {
       setActionLoading(false);
     }
   };
-  
+
   /* Admin management functions removed */
-  
-  
+
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -226,24 +235,24 @@ const AdminPanel: React.FC = () => {
       minute: '2-digit'
     });
   };
-  
+
   // Function to check API connectivity
   const checkApiConnection = async () => {
     try {
       const authToken = localStorage.getItem('core_token');
       console.log('Checking API with token:', { hasToken: !!authToken, tokenLength: authToken?.length });
-      
+
       // Try the debug endpoint that doesn't require admin auth
       const data = await api.admin.debug();
       console.log('API debug response:', data);
-      
-      alert('API connection successful!\n\n' + 
-            `Status: ${data.status}\n` + 
+
+      alert('API connection successful!\n\n' +
+            `Status: ${data.status}\n` +
             `Time: ${data.time}\n` +
             `Total apps: ${data.counts?.apps?.total || 0}\n` +
             `Submitted apps: ${data.counts?.apps?.submitted || 0}\n` +
             `Admins: ${data.counts?.admins || 0}`);
-            
+
       // If there are no admins, suggest creating one
       if (!data.counts?.admins || data.counts.admins === 0) {
         const createAdmin = confirm('No admin users found. Would you like to create a default admin user?');
@@ -258,7 +267,7 @@ const AdminPanel: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, key: 'dev-mode' })
               });
-              
+
               if (createResponse.ok) {
                 alert(`Admin user ${email} created!`);
               } else {
@@ -283,7 +292,7 @@ const AdminPanel: React.FC = () => {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-semibold">Admin Panel</h1>
         </div>
-        
+
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="h-10 w-10 animate-spin text-gray-500" />
@@ -291,14 +300,14 @@ const AdminPanel: React.FC = () => {
         ) : (
           <div>
             <div className="flex border-b mb-6">
-              <Button 
+              <Button
                 variant={activeTab === "dashboard" ? "default" : "ghost"}
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary mr-2"
                 onClick={() => setActiveTab("dashboard")}
               >
                 Dashboard
               </Button>
-              <Button 
+              <Button
                 variant={activeTab === "apps" ? "default" : "ghost"}
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary mr-2"
                 onClick={() => setActiveTab("apps")}
@@ -306,7 +315,7 @@ const AdminPanel: React.FC = () => {
                 App Submissions
               </Button>
             </div>
-            
+
             {activeTab === "dashboard" && stats && (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-8">
@@ -321,7 +330,7 @@ const AdminPanel: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
-                  
+
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium text-gray-500">Published</CardTitle>
@@ -333,7 +342,7 @@ const AdminPanel: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
-                  
+
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium text-gray-500">Rejected</CardTitle>
@@ -345,7 +354,7 @@ const AdminPanel: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
-                  
+
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium text-gray-500">Total Apps</CardTitle>
@@ -360,7 +369,7 @@ const AdminPanel: React.FC = () => {
                     </CardContent>
                   </Card>
                 </div>
-              
+
               <Card>
                 <CardHeader>
                   <CardTitle>Recent Submissions</CardTitle>
@@ -379,7 +388,7 @@ const AdminPanel: React.FC = () => {
                         </Button>
                       </div>
                     ))}
-                    
+
                     {stats.recentSubmissions.length === 0 && (
                       <div className="py-6 text-center text-gray-500">
                         No pending submissions
@@ -390,7 +399,7 @@ const AdminPanel: React.FC = () => {
               </Card>
               </>
             )}
-            
+
             {activeTab === "apps" && (
               <Card>
                 <CardHeader>
@@ -406,9 +415,9 @@ const AdminPanel: React.FC = () => {
                       {submittedApps.map((app) => (
                         <div key={app._id} className="py-4 flex justify-between items-center">
                           <div className="flex items-center">
-                            <img 
-                              src={app.logoURL || 'https://placehold.co/100x100?text=App'} 
-                              alt={app.name} 
+                            <img
+                              src={app.logoURL || 'https://placehold.co/100x100?text=App'}
+                              alt={app.name}
                               className="w-10 h-10 rounded-md mr-3"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=App';
@@ -430,11 +439,11 @@ const AdminPanel: React.FC = () => {
                 </CardContent>
               </Card>
             )}
-            
+
             {/* Admin management tab removed */}
           </div>
         )}
-        
+
         {/* App Review Dialog */}
         <Dialog open={openReviewDialog} onOpenChange={setOpenReviewDialog}>
           <DialogContent className="max-w-2xl">
@@ -444,13 +453,13 @@ const AdminPanel: React.FC = () => {
                 Review the app details before approving or rejecting.
               </DialogDescription>
             </DialogHeader>
-            
+
             {selectedApp && (
               <div className="space-y-4 py-2">
                 <div className="flex items-center space-x-4">
-                  <img 
-                    src={selectedApp.logoURL || 'https://placehold.co/100x100?text=App'} 
-                    alt={selectedApp.name} 
+                  <img
+                    src={selectedApp.logoURL || 'https://placehold.co/100x100?text=App'}
+                    alt={selectedApp.name}
                     className="w-16 h-16 rounded-md"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=App';
@@ -461,27 +470,31 @@ const AdminPanel: React.FC = () => {
                     <p className="text-sm text-gray-500">{selectedApp.packageName}</p>
                   </div>
                 </div>
-                
+
                 <hr className="border-t border-gray-200" />
-                
+
                 <div>
                   <h4 className="font-medium mb-1">Description</h4>
                   <p className="text-sm">{selectedApp.description || 'No description provided'}</p>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <h4 className="font-medium mb-1">Developer</h4>
-                    <p className="text-sm">{selectedApp.developerId}</p>
+                    <p className="text-sm">
+                      {selectedApp.organization ?
+                        selectedApp.organization.name :
+                        selectedApp.developerId || 'Unknown'}
+                    </p>
                   </div>
                   <div>
                     <h4 className="font-medium mb-1">Submitted</h4>
                     <p className="text-sm">{formatDate(selectedApp.updatedAt)}</p>
                   </div>
                 </div>
-                
+
                 <hr className="border-t border-gray-200" />
-                
+
                 <div>
                   <h4 className="font-medium mb-1">Review Notes</h4>
                   <Textarea
@@ -494,7 +507,7 @@ const AdminPanel: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             <DialogFooter className="space-x-3">
               <Button
                 variant="outline"
@@ -521,7 +534,7 @@ const AdminPanel: React.FC = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        
+
         {/* Admin management dialog removed */}
       </div>
     </DashboardLayout>

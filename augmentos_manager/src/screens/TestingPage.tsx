@@ -1,0 +1,1 @@
+export { default } from '../../__mocks__/TestingPageMock'; 

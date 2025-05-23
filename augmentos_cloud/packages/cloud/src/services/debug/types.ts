@@ -6,7 +6,6 @@ export interface DebugSessionInfo {
   activeAppSessions: string[];
   installedApps: Array<{ packageName: string; name: string }>;
   loadingApps: Set<string>;
-  OSSettings: { brightness: number; volume: number };
   isTranscribing: boolean;
   transcript: {
     segments: Array<{

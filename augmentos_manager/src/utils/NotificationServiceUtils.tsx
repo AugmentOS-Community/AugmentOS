@@ -1,14 +1,14 @@
-import { Alert, NativeModules, Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import showAlert from './AlertUtils';
 
-const { NotificationAccess } = NativeModules;
+// Access NotificationAccess at runtime to respect mocks
 
 export async function checkNotificationAccessSpecialPermission() {
   if (Platform.OS !== 'android') {
     return false;
   }
 
-  return await NotificationAccess.hasNotificationAccess();
+  return await NativeModules.NotificationAccess.hasNotificationAccess();
 }
 
 export async function checkAndRequestNotificationAccessSpecialPermission() {
@@ -17,7 +17,7 @@ export async function checkAndRequestNotificationAccessSpecialPermission() {
   }
 
   try {
-    const hasAccess = await NotificationAccess.hasNotificationAccess();
+    const hasAccess = await NativeModules.NotificationAccess.hasNotificationAccess();
     if (!hasAccess) {
       showAlert(
         'Enable Notification Access',
@@ -34,7 +34,7 @@ export async function checkAndRequestNotificationAccessSpecialPermission() {
           {
             text: 'Go to Settings',
             onPress: () => {
-              NotificationAccess.requestNotificationAccess()
+              NativeModules.NotificationAccess.requestNotificationAccess()
                 .then(() => {
                   console.log("Notification access settings opened successfully");
                 })

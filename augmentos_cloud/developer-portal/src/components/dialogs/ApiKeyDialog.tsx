@@ -13,14 +13,16 @@ interface ApiKeyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onKeyRegenerated?: (newKey: string) => void;
+  orgId?: string;
 }
 
-const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ 
-  tpa, 
-  open, 
-  onOpenChange, 
+const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
+  tpa,
+  open,
+  onOpenChange,
   apiKey,
-  onKeyRegenerated 
+  onKeyRegenerated,
+  orgId
 }) => {
   // Local states for dialog
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -35,12 +37,12 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
   // Format API key to be partially masked
   const formatApiKey = (key: string): string => {
     if (!key) return "";
-    
+
     // If there's no key or invalid key, show a masked placeholder
     if (!key || key.length < 10) {
       return "";
     }
-    
+
     // It's a real key, show it fully (since it's one-time view)
     return key;
   };
@@ -66,22 +68,22 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
   // Confirm regeneration
   const handleConfirmRegenerate = async () => {
     if (!tpa) return;
-    
+
     setIsRegenerating(true);
     setError(null);
     setSuccess(null);
-    
+
     try {
       // Call API to regenerate key
-      const response = await api.apps.apiKey.regenerate(tpa.packageName);
+      const response = await api.apps.apiKey.regenerate(tpa.packageName, orgId);
       const newKey = response.apiKey;
-      
+
       // Update local state
       setApiKey(newKey);
       setLastRegenerated(new Date());
       setSuccess("API key regenerated successfully");
       setShowConfirmation(false);
-      
+
       // Notify parent component
       if (onKeyRegenerated) {
         onKeyRegenerated(newKey);
@@ -98,18 +100,18 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
   useEffect(() => {
     if (tpa) {
       const tpaId = tpa.packageName;
-      
+
       // Only reset state if TPA has changed
       if (currentTpaId !== tpaId) {
         console.log(`TPA changed from ${currentTpaId} to ${tpaId}, resetting dialog state`);
-        
+
         // Reset all state
         setApiKey('');
         setError(null);
         setSuccess(null);
         setShowConfirmation(false);
         setIsCopied(false);
-        
+
         // Update current TPA ID tracker
         setCurrentTpaId(tpaId);
       }
@@ -132,12 +134,12 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
         console.warn("ApiKeyDialog opened without a TPA");
         return;
       }
-      
+
       // Use the apiKey provided by props if available
       if (apiKey && apiKey.length > 10) {
         setApiKey(apiKey);
       }
-      
+
       setShowConfirmation(false);
       setIsCopied(false);
     }
@@ -151,7 +153,7 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
       setError(null);
       setSuccess(null);
       setIsCopied(false);
-      
+
       // Important: Reset the API key when dialog closes
       // This prevents leaking keys between different TPAs
       setApiKey('');
@@ -171,7 +173,7 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
             {tpa && `API key for ${tpa.name}`}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="py-6">
           {/* Error Alert */}
           {error && (
@@ -180,7 +182,7 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          
+
           {/* Success Alert */}
           {success && (
             <Alert className="mb-4 bg-green-50 text-green-800 border-green-200">
@@ -188,14 +190,14 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
               <AlertDescription className="text-green-700">{success}</AlertDescription>
             </Alert>
           )}
-          
+
           {/* Regeneration Confirmation */}
           {showConfirmation ? (
             <div className="space-y-4">
               <Alert variant="destructive" className="bg-amber-50 border-amber-200 text-amber-800">
                 <AlertCircle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-700">
-                  Warning: Regenerating this API key will invalidate the previous key. 
+                  Warning: Regenerating this API key will invalidate the previous key.
                   Any applications using the old key will stop working.
                 </AlertDescription>
               </Alert>
@@ -203,19 +205,19 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
                 Are you sure you want to continue?
               </p>
               <div className="flex gap-2 justify-end">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={handleCancelRegeneration}
                   disabled={isRegenerating}
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   variant="destructive"
                   onClick={handleConfirmRegenerate}
                   disabled={isRegenerating}
                 >
-                  {isRegenerating ? 
+                  {isRegenerating ?
                     <>
                       <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                       Regenerating...
@@ -238,14 +240,14 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
                       <div className="flex-1 font-mono text-sm p-2 border rounded-md bg-gray-50 overflow-x-auto break-all">
                         {formatApiKey(_apiKey)}
                       </div>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={handleCopyApiKey}
                         className="shrink-0"
                       >
-                        {isCopied ? 
-                          <CheckCircle className="h-4 w-4 text-green-600" /> : 
+                        {isCopied ?
+                          <CheckCircle className="h-4 w-4 text-green-600" /> :
                           <Copy className="h-4 w-4" />
                         }
                       </Button>
@@ -265,7 +267,7 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
                   </div>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">Webhook URL</h3>
                 <div className="font-mono text-sm p-2 border rounded-md bg-gray-50 overflow-x-auto break-all">
@@ -278,7 +280,7 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({
             </>
           )}
         </div>
-        
+
         {!showConfirmation && (
           <DialogFooter className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-4 sm:gap-2 mt-4">
             <p className="text-xs text-gray-500">

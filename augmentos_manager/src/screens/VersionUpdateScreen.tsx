@@ -16,9 +16,10 @@ import { ScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Button from '../components/Button';
 import InstallApkModule from '../bridge/InstallApkModule';
-import { saveSetting } from '../logic/SettingsHelper';
+import { saveSetting, loadSetting } from '../logic/SettingsHelper';
 import { Linking } from 'react-native';
 import showAlert from '../utils/AlertUtils';
+import { SETTINGS_KEYS } from '../consts';
 
 interface VersionUpdateScreenProps {
   route: {
@@ -42,6 +43,7 @@ const VersionUpdateScreen: React.FC<VersionUpdateScreenProps> = ({
   const [isVersionMismatch, setIsVersionMismatch] = useState(!!initialLocalVersion && !!initialCloudVersion);
   const [localVersion, setLocalVersion] = useState<string | null>(initialLocalVersion || null);
   const [cloudVersion, setCloudVersion] = useState<string | null>(initialCloudVersion || null);
+  const [customBackendUrl, setCustomBackendUrl] = useState<string | null>(null);
 
   // Prevent navigation using the hardware back button
   useFocusEffect(
@@ -158,6 +160,15 @@ const VersionUpdateScreen: React.FC<VersionUpdateScreenProps> = ({
     });
   };
 
+  // Load custom backend URL on mount
+  useEffect(() => {
+    const fetchCustomBackendUrl = async () => {
+      const url = await loadSetting(SETTINGS_KEYS.CUSTOM_BACKEND_URL, null);
+      setCustomBackendUrl(url);
+    };
+    fetchCustomBackendUrl();
+  }, []);
+
   // Only check cloud version on mount if we don't have initial data
   useEffect(() => {
     if (!initialLocalVersion && !initialConnectionError) {
@@ -166,6 +177,23 @@ const VersionUpdateScreen: React.FC<VersionUpdateScreenProps> = ({
       setIsLoading(false);
     }
   }, []);
+
+  const handleResetBackendUrl = async () => {
+    await saveSetting(SETTINGS_KEYS.CUSTOM_BACKEND_URL, null);
+    setCustomBackendUrl(null);
+    showAlert(
+      'Backend URL Reset',
+      'Backend URL has been reset to default. The app will use the default backend on the next connection attempt or app restart.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            checkCloudVersion();
+          },
+        },
+      ]
+    );
+  };
 
   // Loading state
   if (isLoading) {
@@ -263,27 +291,39 @@ const VersionUpdateScreen: React.FC<VersionUpdateScreenProps> = ({
                   ? 'Retry Connection'
                   : 'Update AugmentOS'}
             </Button>
-
-          {isVersionMismatch &&
-            <View style={styles.skipButtonContainer}>
-             <Button
-               onPress={() => {
-                 // Save setting to ignore version checks until next app restart
-                 saveSetting('ignoreVersionCheck', true);
-                 console.log('Version check skipped until next app restart');
-                 // Skip directly to Home screen
-                 navigation.reset({
-                   index: 0,
-                   routes: [{ name: 'Home' }],
-                 });
-               }}
-               isDarkTheme={isDarkTheme}
-               iconName="skip-next"
-               disabled={false}>
-               Skip Update
-             </Button>
-            </View>
-            }                                                
+            {/* Show Reset Backend URL button if connection error and custom backend is set */}
+            {connectionError && customBackendUrl && (
+              <View style={{ marginTop: 16, width: '100%', alignItems: 'center' }}>
+                <Button
+                  onPress={handleResetBackendUrl}
+                  isDarkTheme={isDarkTheme}
+                  iconName="restore"
+                  disabled={false}
+                >
+                  Reset Backend URL
+                </Button>
+              </View>
+            )}
+            {isVersionMismatch &&
+              <View style={styles.skipButtonContainer}>
+                <Button
+                  onPress={() => {
+                    // Save setting to ignore version checks until next app restart
+                    saveSetting('ignoreVersionCheck', true);
+                    console.log('Version check skipped until next app restart');
+                    // Skip directly to Home screen
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: 'Home' }],
+                    });
+                  }}
+                  isDarkTheme={isDarkTheme}
+                  iconName="skip-next"
+                  disabled={false}>
+                  Skip Update
+                </Button>
+              </View>
+            }
           </View>    
         )}
       </View>

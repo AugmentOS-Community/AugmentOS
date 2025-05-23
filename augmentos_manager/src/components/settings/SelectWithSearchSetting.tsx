@@ -1,7 +1,18 @@
 // SelectWithSearchSetting.tsx
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Modal, TouchableOpacity, FlatList, Pressable } from 'react-native';
-import PickerSelect, { PickerItem } from '../PickerSelect';
+import React, {useState, useMemo} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  Modal,
+  TouchableOpacity,
+  FlatList,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+} from 'react-native';
 
 type Option = {
   label: string;
@@ -34,77 +45,73 @@ const SelectWithSearchSetting: React.FC<SelectWithSearchSettingProps> = ({
   // Filter options based on search
   const filteredOptions = useMemo(() => {
     if (!search) return options;
-    return options.filter(option =>
-      option.label.toLowerCase().includes(search.toLowerCase())
-    );
+    return options.filter(option => option.label.toLowerCase().includes(search.toLowerCase()));
   }, [search, options]);
 
   const selectedLabel = options.find(option => option.value === value)?.label || 'Select...';
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: theme.textColor }]}>{label}</Text>
+      <Text style={[styles.label, {color: theme.textColor}]}>{label}</Text>
       <TouchableOpacity
-        style={[
-          styles.selectField,
-          { borderColor: theme.textColor, backgroundColor: theme.backgroundColor },
-        ]}
+        style={[styles.selectField, {borderColor: theme.textColor, backgroundColor: theme.backgroundColor}]}
         onPress={() => setModalVisible(true)}
-        activeOpacity={0.7}
-      >
-        <Text style={[styles.selectText, { color: theme.textColor }]}>{selectedLabel}</Text>
+        activeOpacity={0.7}>
+        <Text style={[styles.selectText, {color: theme.textColor}]}>{selectedLabel}</Text>
       </TouchableOpacity>
       <Modal
         visible={modalVisible}
-        animationType="slide"
+        animationType="fade"
         transparent={true}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.backgroundColor }]}>  
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalLabel, { color: theme.textColor }]}>{label}</Text>
-              <Pressable onPress={() => setModalVisible(false)}>
-                <Text style={[styles.closeButton, { color: theme.textColor }]}>✕</Text>
-              </Pressable>
-            </View>
-            <TextInput
-              style={[
-                styles.searchInput,
-                { color: theme.textColor, borderColor: theme.textColor, backgroundColor: theme.backgroundColor },
-              ]}
-              placeholder="Search..."
-              placeholderTextColor={theme.textColor + '99'}
-              value={search}
-              onChangeText={setSearch}
-              autoFocus
-            />
-            <FlatList
-              data={filteredOptions}
-              keyExtractor={item => item.value}
-              keyboardShouldPersistTaps="handled"
-              style={styles.optionsList}
-              renderItem={({ item }) => (
-                <Pressable
+        style={{flex: 1}}
+        onRequestClose={() => setModalVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+          <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, {backgroundColor: theme.backgroundColor}]}>
+                <TouchableWithoutFeedback>
+                  <View style={styles.modalHeader}>
+                    <Text style={[styles.modalLabel, {color: theme.textColor}]}>{label}</Text>
+                    <TouchableOpacity hitSlop={10} onPress={() => setModalVisible(false)}>
+                      <Text style={[styles.closeButton, {color: theme.textColor, marginRight: -8}]}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableWithoutFeedback>
+                <TextInput
                   style={[
-                    styles.optionItem,
-                    item.value === value && { backgroundColor: theme.textColor + '22' },
+                    styles.searchInput,
+                    {color: theme.textColor, borderColor: theme.textColor, backgroundColor: theme.backgroundColor},
                   ]}
-                  onPress={() => {
-                    onValueChange(item.value);
-                    setModalVisible(false);
-                    setSearch('');
-                  }}
-                >
-                  <Text style={[styles.optionText, { color: theme.textColor }]}>{item.label}</Text>
-                </Pressable>
-              )}
-              ListEmptyComponent={
-                <Text style={[styles.emptyText, { color: theme.textColor + '99' }]}>No options found</Text>
-              }
-            />
-          </View>
-        </View>
+                  placeholder="Search..."
+                  placeholderTextColor={theme.textColor + '99'}
+                  value={search}
+                  onChangeText={setSearch}
+                  autoFocus
+                />
+                <FlatList
+                  data={filteredOptions}
+                  keyExtractor={item => item.value}
+                  keyboardShouldPersistTaps="always"
+                  style={styles.optionsList}
+                  renderItem={({item}) => (
+                    <Pressable
+                      style={[styles.optionItem, item.value === value && {backgroundColor: theme.textColor + '22'}]}
+                      onPress={() => {
+                        onValueChange(item.value);
+                        setModalVisible(false);
+                        setSearch('');
+                      }}>
+                      <Text style={[styles.optionText, {color: theme.textColor}]}>{item.label}</Text>
+                    </Pressable>
+                  )}
+                  ListEmptyComponent={
+                    <Text style={[styles.emptyText, {color: theme.textColor + '99'}]}>No options found</Text>
+                  }
+                />
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -143,7 +150,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 5,

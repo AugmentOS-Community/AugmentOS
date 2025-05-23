@@ -158,9 +158,10 @@ export class CoreCommunicator extends EventEmitter {
     // }
 
     // AOSModule.sendCommand(JSON.stringify({ "command": "request_status" }));
+    // wait a bit to ensure the core is ready (a bit of a hack but it is reliable)
     setTimeout(() => {
       AOSModule.sendCommand(JSON.stringify({command: 'connect_wearable'}));
-    }, 2000);
+    }, 3000);
 
     // setTimeout(() => {
     //   AOSModule.sendCommand(JSON.stringify({ "command": "connect_wearable" }));
@@ -260,6 +261,11 @@ export class CoreCommunicator extends EventEmitter {
         });
       } else if ('need_permissions' in data) {
         GlobalEventEmitter.emit('NEED_PERMISSIONS');
+      } else if ('need_wifi_credentials' in data) {
+        console.log('Received need_wifi_credentials event from Core');
+        GlobalEventEmitter.emit('GLASSES_NEED_WIFI_CREDENTIALS', { 
+          deviceModel: data.device_model 
+        });
       }
     } catch (e) {
       console.error('Error parsing data from Core:', e);
@@ -504,14 +510,14 @@ export class CoreCommunicator extends EventEmitter {
       command: 'update_glasses_brightness',
       params: {
         brightness: brightness,
-        autoLight: autoBrightness,
+        autoBrightness: autoBrightness,
       },
     });
   }
 
   async setGlassesHeadUpAngle(headUpAngle: number) {
     return await this.sendData({
-      command: 'update_glasses_headUp_angle',
+      command: 'update_glasses_head_up_angle',
       params: {
         headUpAngle: headUpAngle,
       },
@@ -522,6 +528,19 @@ export class CoreCommunicator extends EventEmitter {
     return await this.sendData({
       command: 'update_glasses_dashboard_height',
       params: {height: dashboardHeight},
+    });
+  }
+
+  async setGlassesDepth(depth: number) {
+    return await this.sendData({
+      command: 'update_glasses_depth',
+      params: {depth: depth},
+    });
+  }
+
+  async showDashboard() {
+    return await this.sendData({
+      command: 'show_dashboard',
     });
   }
 
@@ -615,6 +634,16 @@ export class CoreCommunicator extends EventEmitter {
     });
   }
 
+  async setGlassesWifiCredentials(ssid: string, password: string) {
+    return await this.sendData({
+      command: 'set_glasses_wifi_credentials',
+      params: {
+        ssid,
+        password
+      },
+    });
+  }
+
   async startService() {
     // TODO: ios
     // CoreCommsService.startService();
@@ -623,6 +652,15 @@ export class CoreCommunicator extends EventEmitter {
   async stopService() {
     // TODO: ios
     // CoreCommsService.stopService();
+  }
+
+  async sendSetMetricSystemEnabled(metricSystemEnabled: boolean) {
+    return await this.sendData({
+      command: 'set_metric_system_enabled',
+      params: {
+        enabled: metricSystemEnabled,
+      },
+    });
   }
 }
 

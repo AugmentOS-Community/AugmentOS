@@ -7,10 +7,12 @@ import DashboardLayout from "../components/DashboardLayout";
 import TPATable from "../components/TPATable";
 import api, { AppResponse } from '../services/api.service';
 import { useAuth } from '../hooks/useAuth';
+import { useOrganization } from '../context/OrganizationContext';
 
 const TPAList: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading, tokenReady } = useAuth();
+  const { currentOrg, loading: orgLoading } = useOrganization();
 
   // State for TPA data
   const [tpas, setTpas] = useState<AppResponse[]>([]);
@@ -25,11 +27,15 @@ const TPAList: React.FC = () => {
         console.log('Token not ready yet, waiting before fetching TPAs...');
         return;
       }
+      if (!currentOrg) {
+        console.log('No organization selected, waiting...');
+        return;
+      }
 
       setIsLoading(true);
       try {
-        console.log('Fetching TPAs with ready token');
-        const tpaData = await api.apps.getAll();
+        console.log('Fetching TPAs for organization:', currentOrg.name);
+        const tpaData = await api.apps.getAll(currentOrg.id);
         setTpas(tpaData);
         setError(null);
       } catch (err) {
@@ -40,20 +46,20 @@ const TPAList: React.FC = () => {
       }
     };
 
-    if (!authLoading) {
+    if (!authLoading && !orgLoading) {
       fetchTPAs();
     }
-  }, [isAuthenticated, authLoading, tokenReady]);
+  }, [isAuthenticated, authLoading, tokenReady, currentOrg, orgLoading]);
 
   // Handle TPA deletion
   const handleTpaDeleted = (packageName: string) => {
     setTpas(tpas.filter(tpa => tpa.packageName !== packageName));
   };
-  
+
   // Handle TPA update
   const handleTpaUpdated = (updatedTpa: AppResponse) => {
-    setTpas(prevTpas => 
-      prevTpas.map(tpa => 
+    setTpas(prevTpas =>
+      prevTpas.map(tpa =>
         tpa.packageName === updatedTpa.packageName ? updatedTpa : tpa
       )
     );
@@ -73,7 +79,7 @@ const TPAList: React.FC = () => {
           </Button>
         </div>
 
-        <TPATable 
+        <TPATable
           tpas={tpas}
           isLoading={isLoading}
           error={error}

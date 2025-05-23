@@ -6,7 +6,8 @@ import { Request, Response } from 'express';
 import { validateCoreToken } from '../middleware/supabaseMiddleware';
 import { tokenService } from '../services/core/temp-token.service';
 import { validateTpaApiKey } from '../middleware/validateApiKey';
-import { logger } from '@augmentos/utils';
+import { logger as rootLogger } from '../services/logging/pino-logger';
+const logger = rootLogger.child({ service: 'auth.routes' });
 import appService from '../services/core/app.service';
 
 const router = express.Router();
@@ -25,12 +26,18 @@ router.post('/exchange-token', async (req: Request, res: Response) => {
     // Verify the token using your Supabase JWT secret
     const decoded = jwt.verify(supabaseToken, SUPABASE_JWT_SECRET);
     const subject = decoded.sub;
-    // `decoded` will contain the user’s claims from Supabase
-    // e.g. user ID, role, expiration, etc.
+    const email = (decoded as jwt.JwtPayload).email;
+
+    // Find user document to get organization information
+    const User = require('../models/user.model').User;
+    const user = await User.findOrCreateUser(email);
 
     const newData = {
         sub: subject,
-        email: (decoded as jwt.JwtPayload).email,
+        email: email,
+        // Include organization info in token
+        organizations: user.organizations || [],
+        defaultOrg: user.defaultOrg || null
     }
 
     // Generate your own custom token (JWT or otherwise)
@@ -56,7 +63,7 @@ router.post('/generate-webview-token', validateCoreToken, async (req: Request, r
     const tempToken = await tokenService.generateTemporaryToken(userId, packageName);
     res.json({ success: true, token: tempToken });
   } catch (error) {
-    logger.error(`Error generating webview token for user ${userId}, package ${packageName}:`, error);
+    logger.error({ error, userId, packageName }, 'Failed to generate webview token');
     res.status(500).json({ success: false, error: 'Failed to generate token' });
   }
 });
@@ -80,7 +87,7 @@ router.post('/exchange-user-token', validateTpaApiKey, async (req: Request, res:
       res.status(401).json({ success: false, error: 'Invalid or expired token' });
     }
   } catch (error) {
-    logger.error(`Error exchanging webview token ${aos_temp_token} for ${packageName}:`, error);
+    logger.error({ error, packageName }, 'Failed to exchange webview token');
     res.status(500).json({ success: false, error: 'Failed to exchange token' });
   }
 });
@@ -105,16 +112,23 @@ router.post('/exchange-store-token', async (req: Request, res: Response) => {
       // For store webview, we need to return the actual tokens
       // Generate a new Supabase token
       const supabaseToken = JOE_MAMA_USER_JWT; // Using existing user token for now
-      
-      // Generate a core token as well
+
+      // Get user to include organization information
+      const User = require('../models/user.model').User;
+      const user = await User.findByEmail(result.userId);
+
+      // Generate a core token with org information
       const userData = {
         sub: result.userId,
         email: result.userId,
+        // Include organization info in token
+        organizations: user?.organizations || [],
+        defaultOrg: user?.defaultOrg || null
       };
       const coreToken = jwt.sign(userData, AUGMENTOS_AUTH_JWT_SECRET);
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         userId: result.userId,
         tokens: {
           supabaseToken,
@@ -125,7 +139,7 @@ router.post('/exchange-store-token', async (req: Request, res: Response) => {
       res.status(401).json({ success: false, error: 'Invalid or expired token' });
     }
   } catch (error) {
-    logger.error(`Error exchanging store token ${aos_temp_token}:`, error);
+    logger.error({ error, packageName }, 'Failed to exchange store token');
     res.status(500).json({ success: false, error: 'Failed to exchange token' });
   }
 });
@@ -142,7 +156,7 @@ router.post('/hash-with-api-key', validateCoreToken, async (req: Request, res: R
     const hash = await appService.hashWithApiKey(stringToHash, packageName);
     res.json({ success: true, hash });
   } catch (error) {
-    logger.error(`Error hashing string for package ${packageName}:`, error);
+    logger.error({ error, packageName }, 'Failed to hash string with API key');
     res.status(500).json({ success: false, error: 'Failed to generate hash' });
   }
 });

@@ -13,33 +13,35 @@ interface DeleteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirmDelete?: (packageName: string) => void; // Optional callback for parent component
+  orgId?: string;
 }
 
-const DeleteDialog: React.FC<DeleteDialogProps> = ({ 
-  tpa, 
-  open, 
-  onOpenChange, 
-  onConfirmDelete 
+const DeleteDialog: React.FC<DeleteDialogProps> = ({
+  tpa,
+  open,
+  onOpenChange,
+  onConfirmDelete,
+  orgId
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Handle delete confirmation
   const handleConfirmDelete = async () => {
     if (!tpa) return;
-    
+
     setIsDeleting(true);
     setError(null);
-    
+
     try {
       // Call API to delete the TPA
-      await api.apps.delete(tpa.packageName);
-      
+      await api.apps.delete(tpa.packageName, orgId);
+
       // Call the callback if provided (useful for updating UI)
       if (onConfirmDelete) {
         onConfirmDelete(tpa.packageName);
       }
-      
+
       // Close dialog after deletion
       onOpenChange(false);
     } catch (err) {
@@ -61,7 +63,7 @@ const DeleteDialog: React.FC<DeleteDialogProps> = ({
             {tpa && `Are you sure you want to delete ${tpa.name}?`}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="py-4">
           <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800">
             <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -70,7 +72,7 @@ const DeleteDialog: React.FC<DeleteDialogProps> = ({
               and remove all associated data.
             </AlertDescription>
           </Alert>
-          
+
           <div className="mt-4">
             <p className="text-sm text-gray-600">
               To confirm, you're deleting:
@@ -79,7 +81,7 @@ const DeleteDialog: React.FC<DeleteDialogProps> = ({
               {tpa?.name} <span className="font-mono text-xs text-gray-500">({tpa?.packageName})</span>
             </p>
           </div>
-          
+
           {error && (
             <Alert variant="destructive" className="mt-4">
               <AlertTriangle className="h-4 w-4" />
@@ -87,16 +89,16 @@ const DeleteDialog: React.FC<DeleteDialogProps> = ({
             </Alert>
           )}
         </div>
-        
+
         <DialogFooter className="gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isDeleting}
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             variant="destructive"
             onClick={handleConfirmDelete}
             disabled={isDeleting}

@@ -28,13 +28,21 @@ export interface AppI {
   // App details
   version?: string;
   settings?: AppSettings;
-  
+  permissions?: {
+    type: string;
+    description?: string;
+  }[];
+
   // Frontend-specific properties
   developerId?: string; // Developer's email address
   isInstalled?: boolean;
   installedDate?: string;
-  
-  // Developer profile information
+
+  // Organization information
+  organizationId?: string; // Reference to organization
+  orgName?: string; // Name of the organization
+
+  // Developer/Organization profile information
   developerProfile?: {
     company?: string;
     website?: string;
@@ -42,7 +50,7 @@ export interface AppI {
     description?: string;
     logo?: string;
   };
-  
+
   // Timestamps
   createdAt?: string;
   updatedAt?: string;

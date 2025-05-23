@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -16,31 +16,40 @@ import {
 type TextSettingNoSaveProps = {
   label: string;
   value: string;
-  onChangeText: (text: string) => void;
+  onChangeTextFn: (text: string) => void;
   theme: any;
+  maxLines?: number;
 };
 
 const TextSettingNoSave: React.FC<TextSettingNoSaveProps> = ({
   label,
   value,
-  onChangeText,
+  onChangeTextFn,
   theme,
+  maxLines,
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [tempValue, setTempValue] = useState(value);
+
+  // Debounce updates to parent
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      onChangeTextFn(tempValue);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [tempValue]);
 
   const handleOpenModal = () => {
     setTempValue(value);
     setModalVisible(true);
   };
 
-  const handleSave = () => {
-    onChangeText(tempValue);
+  const handleCancel = () => {
+    setTempValue(value);
     setModalVisible(false);
   };
 
-  const handleCancel = () => {
-    setTempValue(value);
+  const handleDone = () => {
     setModalVisible(false);
   };
 
@@ -100,7 +109,7 @@ const TextSettingNoSave: React.FC<TextSettingNoSaveProps> = ({
               </Text>
 
               <Pressable
-                onPress={handleSave}
+                onPress={handleDone}
                 style={({pressed}) => [
                   styles.headerButton,
                   Platform.OS === 'ios' && styles.iosDoneButton,
@@ -122,13 +131,24 @@ const TextSettingNoSave: React.FC<TextSettingNoSaveProps> = ({
                 styles.modalInput,
                 {
                   color: theme.textColor,
-                  borderColor:
-                    Platform.OS === 'ios' ? '#e0e0e0' : theme.textColor,
+                  borderColor: Platform.OS === 'ios' ? '#e0e0e0' : theme.textColor,
+                  minHeight: maxLines ? 22 * maxLines + 32 : undefined,
+                  maxHeight: maxLines ? 22 * maxLines + 32 : undefined,
                 },
               ]}
               value={tempValue}
-              onChangeText={setTempValue}
+              onChangeText={text => {
+                if (maxLines) {
+                  const lines = text.split('\n');
+                  if (lines.length <= maxLines) {
+                    setTempValue(text);
+                  }
+                } else {
+                  setTempValue(text);
+                }
+              }}
               multiline
+              numberOfLines={maxLines || 5}
               maxLength={10000}
               textAlignVertical="top"
               autoFocus
@@ -218,12 +238,15 @@ const styles = StyleSheet.create({
   modalInput: {
     flexShrink: 1,
     fontSize: 16,
+    lineHeight: 22,
     borderWidth: Platform.OS === 'ios' ? 0.5 : 1,
     borderRadius: Platform.OS === 'ios' ? 10 : 4,
     padding: 16,
     margin: 16,
     textAlignVertical: 'top',
     backgroundColor: Platform.OS === 'ios' ? '#f8f8f8' : 'transparent',
+    minHeight: 142,
+    maxHeight: 142,
   },
 });
 

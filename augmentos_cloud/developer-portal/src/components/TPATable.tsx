@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { AppResponse } from '../services/api.service';
+import { useOrganization } from '../context/OrganizationContext';
 
 // Import dialogs
 import ApiKeyDialog from "./dialogs/ApiKeyDialog";
@@ -42,7 +43,8 @@ const TPATable: React.FC<TPATableProps> = ({
   onTpaUpdated
 }) => {
   const navigate = useNavigate();
-  
+  const { currentOrg } = useOrganization();
+
   // States for dialogs
   const [selectedTpa, setSelectedTpa] = useState<AppResponse | null>(null);
   const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
@@ -134,19 +136,19 @@ const TPATable: React.FC<TPATableProps> = ({
                       <TableCell>
                         <div>
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            tpa.appStoreStatus === 'PUBLISHED' ? 'bg-green-100 text-green-800' : 
-                            tpa.appStoreStatus === 'SUBMITTED' ? 'bg-yellow-100 text-yellow-800' : 
-                            tpa.appStoreStatus === 'REJECTED' ? 'bg-red-100 text-red-800' : 
+                            tpa.appStoreStatus === 'PUBLISHED' ? 'bg-green-100 text-green-800' :
+                            tpa.appStoreStatus === 'SUBMITTED' ? 'bg-yellow-100 text-yellow-800' :
+                            tpa.appStoreStatus === 'REJECTED' ? 'bg-red-100 text-red-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                            {tpa.appStoreStatus === 'DEVELOPMENT' ? 'Development' : 
-                             tpa.appStoreStatus === 'SUBMITTED' ? 'Submitted' : 
-                             tpa.appStoreStatus === 'REJECTED' ? 'Rejected' : 
+                            {tpa.appStoreStatus === 'DEVELOPMENT' ? 'Development' :
+                             tpa.appStoreStatus === 'SUBMITTED' ? 'Submitted' :
+                             tpa.appStoreStatus === 'REJECTED' ? 'Rejected' :
                              tpa.appStoreStatus === 'PUBLISHED' ? 'Published' : 'Development'}
                           </span>
                           {tpa.appStoreStatus === 'REJECTED' && tpa.reviewNotes && (
                             <div className="mt-1">
-                              <button 
+                              <button
                                 onClick={() => navigate(`/tpas/${tpa.packageName}/edit`)}
                                 className="text-xs text-red-600 hover:underline focus:outline-none"
                                 title={tpa.reviewNotes}
@@ -298,22 +300,25 @@ const TPATable: React.FC<TPATableProps> = ({
               setGeneratedApiKey(newKey);
               console.log(`API key regenerated for ${selectedTpa?.name}`);
             }}
+            orgId={currentOrg?.id}
           />
 
           <SharingDialog
             tpa={selectedTpa}
             open={isShareDialogOpen}
             onOpenChange={setIsShareDialogOpen}
+            orgId={currentOrg?.id}
           />
 
           <PublishDialog
             tpa={selectedTpa}
             open={isPublishDialogOpen}
             onOpenChange={setIsPublishDialogOpen}
+            orgId={currentOrg?.id}
             onPublishComplete={(updatedTpa) => {
               // Update the selected TPA with the new data
               setSelectedTpa(updatedTpa);
-              
+
               // Notify parent component to update the app
               if (onTpaUpdated) {
                 onTpaUpdated(updatedTpa);
@@ -325,6 +330,7 @@ const TPATable: React.FC<TPATableProps> = ({
             tpa={selectedTpa}
             open={isDeleteDialogOpen}
             onOpenChange={setIsDeleteDialogOpen}
+            orgId={currentOrg?.id}
             onConfirmDelete={(packageName) => {
               // Notify parent component of deletion
               if (onTpaDeleted) {

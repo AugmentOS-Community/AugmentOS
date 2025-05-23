@@ -1,19 +1,22 @@
 /**
  * @fileoverview Service for managing TPAs (Third Party Applications).
  * Handles app lifecycle, authentication, and webhook interactions.
- * 
+ *
  * Currently uses in-memory storage with hardcoded system TPAs.
  * Design decision: Separate system TPAs from user-created TPAs
  * to maintain core functionality regardless of database state.
  */
 
-import { AppI, StopWebhookRequest, TpaType, WebhookResponse, AppState, SessionWebhookRequest, ToolCall } from '@augmentos/sdk';
+import { AppI, StopWebhookRequest, TpaType, WebhookResponse, AppState, SessionWebhookRequest, ToolCall, PermissionType, WebhookRequestType } from '@augmentos/sdk';
 import axios, { AxiosError } from 'axios';
 import { systemApps } from './system-apps';
 import App from '../../models/app.model';
 import { ToolSchema, ToolParameterSchema } from '@augmentos/sdk';
 import { User } from '../../models/user.model';
 import crypto from 'crypto';
+import { logger as rootLogger } from '../logging/pino-logger';
+import { Types } from 'mongoose';
+const logger = rootLogger.child({ service: 'app.service' });
 
 const AUGMENTOS_AUTH_JWT_SECRET = process.env.AUGMENTOS_AUTH_JWT_SECRET;
 const APPSTORE_ENABLED = true;
@@ -54,6 +57,12 @@ export const SYSTEM_APPS: AppI[] = [
     description: "The time, The news, The weather, The notifications, The everything. 😎🌍🚀",
     publicUrl: `http://${systemApps.dashboard.host}`,
     logoURL: `https://cloud.augmentos.org/${systemApps.dashboard.packageName}.png`,
+    permissions: [
+      {
+        type: PermissionType.ALL,
+        description: "The dashboard app needs access to everything to provide a seamless experience."
+      }
+    ],
   },
 ];
 
@@ -94,13 +103,16 @@ export class AppService {
       // Fetch the apps from the appstore.
       const _appstoreApps = await App.find({ packageName: { $in: _installedApps } }) as AppI[];
 
+      // Fetch apps shared with this user by email
+      const _sharedWithUser = await App.find({ sharedWithEmails: userId }) as AppI[];
+
       // remove duplicates.
-      const _allApps = [..._madeByUser, ..._appstoreApps];
+      const _allApps = [..._madeByUser, ..._appstoreApps, ..._sharedWithUser];
       const _appMap = new Map<string, AppI>();
       _allApps.forEach(app => {
         _appMap.set(app.packageName, app);
       });
-      
+
       usersApps.push(..._appMap.values());
       // Filter out any that are already in the LOCAL_APPS map since those would have already been fetched.
       usersApps = usersApps.filter(app => !LOCAL_APPS.some(localApp => localApp.packageName === app.packageName));
@@ -130,10 +142,12 @@ export class AppService {
     if (APPSTORE_ENABLED) {
       if (!app) {
         // Check if the app is in the app store
-        console.log('Checking app store for app:', packageName);
+        logger.debug('Checking app store for app:', packageName);
+
+        // Use lean() to get a plain JavaScript object instead of a Mongoose document
         app = await App.findOne({
           packageName: packageName
-        }) as AppI;
+        }).lean() as AppI;
       }
     }
 
@@ -143,7 +157,7 @@ export class AppService {
   async findFromAppStore(packageName: string): Promise<AppI | undefined> {
     const app = await App.findOne({
       packageName: packageName
-    }) as AppI;
+    }).lean() as AppI;
     return app;
   }
 
@@ -169,10 +183,13 @@ export class AppService {
       } catch (error: unknown) {
         if (attempt === maxRetries - 1) {
           if (axios.isAxiosError(error)) {
-            console.error(`Webhook failed: ${error}`);
-            console.error(`URL: ${url}`);
-            console.error(`Response: ${error.response?.data}`);
-            console.error(`Status: ${error.response?.status}`);
+            logger.error(`triggerWebhook failed`, {
+              url,
+              attempt,
+              status: error.response?.status,
+              data: error.response?.data,
+              message: error.message
+            });
           }
           throw new Error(`Webhook failed after ${maxRetries} attempts: ${(error as AxiosError).message || 'Unknown error'}`);
         }
@@ -203,6 +220,30 @@ export class AppService {
     };
   }
 
+  async triggerStopByPackageName(packageName: string, userId: string): Promise<void> {
+    // Look up the TPA by packageName
+    const app = await this.getApp(packageName);
+    const tpaSessionId = `${userId}-${packageName}`;
+
+    const payload: StopWebhookRequest = {
+      type: WebhookRequestType.STOP_REQUEST,
+      sessionId: tpaSessionId,
+      userId: userId,
+      reason: 'user_disabled',
+      timestamp: new Date().toISOString()
+    }
+
+    if (!app) {
+      throw new Error(`App ${packageName} not found`);
+    }
+
+    if (!app.publicUrl) {
+      throw new Error(`App ${packageName} does not have a public URL`);
+    }
+
+    await this.triggerStopWebhook(app.publicUrl, payload);
+  }
+
   isSystemApp(packageName: string, apiKey?: string): boolean {
     // Check if the app is in the system apps list
     const isSystemApp = [...LOCAL_APPS, ...SYSTEM_APPS].some(app => app.packageName === packageName);
@@ -222,7 +263,7 @@ export class AppService {
   async validateApiKey(packageName: string, apiKey: string, clientIp?: string): Promise<boolean> {
     const app = await this.getApp(packageName);
     if (!app) {
-      console.warn(`App ${packageName} not found`);
+      logger.warn(`App ${packageName} not found`);
       return false;
     }
 
@@ -248,11 +289,11 @@ export class AppService {
         ipv4 === '127.0.0.1' ||
         ipv4 === 'localhost';
 
-      console.log(`System app ${packageName} connection IP check: ${clientIp} (IPv4: ${ipv4}), isInternal: ${isInternalIp}`);
+      logger.debug(`System app ${packageName} connection IP check: ${clientIp} (IPv4: ${ipv4}), isInternal: ${isInternalIp}`);
 
       if (isInternalIp) {
         // Reject connection if not from internal network
-        console.warn(`System app ${packageName} connection is an internal IP: ${clientIp} (IPv4: ${ipv4}) - allowing access`);
+        logger.warn(`System app ${packageName} connection is an internal IP: ${clientIp} (IPv4: ${ipv4}) - allowing access`);
         return true;
       }
     }
@@ -262,7 +303,7 @@ export class AppService {
     const appDoc = await App.findOne({ packageName });
 
     if (!appDoc) {
-      console.warn(`App ${packageName} not found in database`);
+      logger.warn(`App ${packageName} not found in database`);
       return false;
     }
 
@@ -270,14 +311,14 @@ export class AppService {
     // If the app is a system app, we don't need to validate the API key
 
     if (!appDoc?.hashedApiKey) {
-      console.warn(`App ${packageName} does not have a hashed API key`);
+      logger.warn(`App ${packageName} does not have a hashed API key`);
       return false;
     }
 
     // Hash the provided API key and compare with stored hash
     const hashedKey = this.hashApiKey(apiKey);
 
-    console.log(`Validating API key for ${packageName}: ${hashedKey} === ${appDoc.hashedApiKey}`);
+    logger.debug(`Validating API key for ${packageName}: ${hashedKey} === ${appDoc.hashedApiKey}`);
     // Compare the hashed API key with the stored hashed API key
 
     return hashedKey === appDoc.hashedApiKey;
@@ -302,53 +343,53 @@ export class AppService {
    * @returns Validated and sanitized tools array or throws error if invalid
    */
   private validateToolDefinitions(tools: any[]): ToolSchema[] {
-    console.log('Validating tool definitions:', tools);
+    logger.debug('Validating tool definitions:', tools);
     if (!Array.isArray(tools)) {
       throw new Error('Tools must be an array');
     }
-    
+
     return tools.map(tool => {
       // Validate required fields
       if (!tool.id || typeof tool.id !== 'string') {
         throw new Error('Tool id is required and must be a string');
       }
-      
+
       if (!tool.description || typeof tool.description !== 'string') {
         throw new Error('Tool description is required and must be a string');
       }
-      
+
       // Activation phrases can be null or empty, no validation needed
       // We'll just ensure it's an array if provided
       if (tool.activationPhrases && !Array.isArray(tool.activationPhrases)) {
         throw new Error('Tool activationPhrases must be an array if provided');
       }
-      
+
       // Validate parameters if they exist
       const validatedParameters: Record<string, ToolParameterSchema> = {};
-      
+
       if (tool.parameters) {
         Object.entries(tool.parameters).forEach(([key, param]: [string, any]) => {
           if (!param.type || !['string', 'number', 'boolean'].includes(param.type)) {
             throw new Error(`Parameter ${key} has invalid type. Must be string, number, or boolean`);
           }
-          
+
           if (!param.description || typeof param.description !== 'string') {
             throw new Error(`Parameter ${key} requires a description`);
           }
-          
+
           validatedParameters[key] = {
             type: param.type as 'string' | 'number' | 'boolean',
             description: param.description,
             required: !!param.required
           };
-          
+
           // Add enum values if present
           if (param.enum && Array.isArray(param.enum)) {
             validatedParameters[key].enum = param.enum;
           }
         });
       }
-      
+
       return {
         id: tool.id,
         description: tool.description,
@@ -365,7 +406,7 @@ export class AppService {
     // Generate API key
     const apiKey = crypto.randomBytes(32).toString('hex');
     const hashedApiKey = this.hashApiKey(apiKey);
-    
+
     // Parse and validate tools if present
     if (appData.tools) {
       try {
@@ -374,11 +415,11 @@ export class AppService {
         throw new Error(`Invalid tool definitions: ${error.message}`);
       }
     }
-    
-    // Create app
+
+    // Create app with organization ownership
     const app = await App.create({
       ...appData,
-      developerId,
+      developerId, // Keep for backward compatibility during migration
       hashedApiKey
     });
 
@@ -389,26 +430,32 @@ export class AppService {
   /**
    * Update an app
    */
-  async updateApp(packageName: string, appData: any, developerId: string): Promise<AppI> {
-    // Ensure developer owns the app
+  async updateApp(packageName: string, appData: any, developerId: string, organizationId?: Types.ObjectId): Promise<AppI> {
+    // Ensure organization owns the app
     const app = await App.findOne({ packageName });
-
     if (!app) {
       throw new Error(`App with package name ${packageName} not found`);
     }
-
     if (!developerId) {
       throw new Error('Developer ID is required');
     }
 
-    if (!app.developerId) {
-      throw new Error('Developer ID not found for this app');
+    // Check if user has permission to update the app
+    let hasPermission = false;
+
+    // If organization ID is provided, check ownership
+    if (organizationId && app.organizationId) {
+      hasPermission = app.organizationId.toString() === organizationId.toString();
+    }
+    // For backward compatibility, check developer ID
+    else if (app.developerId) {
+      hasPermission = app.developerId.toString() === developerId;
     }
 
-    if (app.developerId.toString() !== developerId) {
+    if (!hasPermission) {
       throw new Error('You do not have permission to update this app');
     }
-    
+
     // Parse and validate tools if present
     if (appData.tools) {
       try {
@@ -417,7 +464,7 @@ export class AppService {
         throw new Error(`Invalid tool definitions: ${error.message}`);
       }
     }
-    
+
     // If developerInfo is provided, ensure it's properly structured
     if (appData.developerInfo) {
       // Make sure only valid fields are included
@@ -447,35 +494,58 @@ export class AppService {
   /**
    * Publish an app to the app store
    */
-  async publishApp(packageName: string, developerId: string): Promise<AppI> {
-    // Ensure developer owns the app
+  async publishApp(packageName: string, developerId: string, organizationId?: Types.ObjectId): Promise<AppI> {
+    // Ensure organization owns the app
     const app = await App.findOne({ packageName });
-
     if (!app) {
       throw new Error(`App with package name ${packageName} not found`);
     }
-
     if (!developerId) {
       throw new Error('Developer ID is required');
     }
 
-    if (!app.developerId) {
-      throw new Error('Developer ID not found for this app');
+    // Check if user has permission to publish the app
+    let hasPermission = false;
+
+    // If organization ID is provided, check ownership
+    if (organizationId && app.organizationId) {
+      hasPermission = app.organizationId.toString() === organizationId.toString();
+    }
+    // For backward compatibility, check developer ID
+    else if (app.developerId) {
+      hasPermission = app.developerId.toString() === developerId;
     }
 
-    if (app.developerId.toString() !== developerId) {
+    if (!hasPermission) {
       throw new Error('You do not have permission to publish this app');
     }
 
-    // Verify that the developer has filled out the required profile information
-    const developer = await User.findOne({ email: developerId });
-    if (!developer) {
-      throw new Error('Developer not found');
-    }
+    // If the app belongs to an organization, verify organization profile completeness
+    if (organizationId) {
+      const Organization = require('../../models/organization.model').Organization;
+      const org = await Organization.findById(organizationId);
 
-    // Check if developer profile has the required fields
-    if (!developer.profile?.company || !developer.profile?.contactEmail) {
-      throw new Error('PROFILE_INCOMPLETE: Developer profile is incomplete. Please fill out your company name and contact email before publishing an app.');
+      if (!org) {
+        throw new Error('Organization not found');
+      }
+
+      // Check if organization profile has the required fields
+      if (!org.profile?.contactEmail) {
+        throw new Error('PROFILE_INCOMPLETE: Organization profile is incomplete. Please add a contact email before publishing an app.');
+      }
+    }
+    // For backward compatibility - check developer profile
+    else {
+      // Verify that the developer has filled out the required profile information
+      const developer = await User.findOne({ email: developerId });
+      if (!developer) {
+        throw new Error('Developer not found');
+      }
+
+      // Check if developer profile has the required fields
+      if (!developer.profile?.company || !developer.profile?.contactEmail) {
+        throw new Error('PROFILE_INCOMPLETE: Developer profile is incomplete. Please fill out your company name and contact email before publishing an app.');
+      }
     }
 
     // Update app status to SUBMITTED
@@ -491,50 +561,60 @@ export class AppService {
   /**
    * Delete an app
    */
-  async deleteApp(packageName: string, developerId: string): Promise<void> {
-    // Ensure developer owns the app
+  async deleteApp(packageName: string, developerId: string, organizationId?: Types.ObjectId): Promise<void> {
+    // Ensure organization owns the app
     const app = await App.findOne({ packageName });
-
     if (!app) {
       throw new Error(`App with package name ${packageName} not found`);
     }
-
     if (!developerId) {
       throw new Error('Developer ID is required');
     }
 
-    if (!app.developerId) {
-      throw new Error('Developer ID not found for this app');
+    // Check if user has permission to delete the app
+    let hasPermission = false;
+
+    // If organization ID is provided, check ownership
+    if (organizationId && app.organizationId) {
+      hasPermission = app.organizationId.toString() === organizationId.toString();
+    }
+    // For backward compatibility, check developer ID
+    else if (app.developerId) {
+      hasPermission = app.developerId.toString() === developerId;
     }
 
-
-    if (app.developerId.toString() !== developerId) {
+    if (!hasPermission) {
       throw new Error('You do not have permission to delete this app');
     }
-
     await App.findOneAndDelete({ packageName });
   }
 
   /**
    * Regenerate API key for an app
    */
-  async regenerateApiKey(packageName: string, developerId: string): Promise<string> {
-    // Ensure developer owns the app
+  async regenerateApiKey(packageName: string, developerId: string, organizationId?: Types.ObjectId): Promise<string> {
+    // Ensure organization owns the app
     const app = await App.findOne({ packageName });
-
     if (!app) {
       throw new Error(`App with package name ${packageName} not found`);
     }
-
     if (!developerId) {
       throw new Error('Developer ID is required');
     }
 
-    if (!app.developerId) {
-      throw new Error('Developer ID not found for this app');
+    // Check if user has permission to update the app
+    let hasPermission = false;
+
+    // If organization ID is provided, check ownership
+    if (organizationId && app.organizationId) {
+      hasPermission = app.organizationId.toString() === organizationId.toString();
+    }
+    // For backward compatibility, check developer ID
+    else if (app.developerId) {
+      hasPermission = app.developerId.toString() === developerId;
     }
 
-    if (app.developerId.toString() !== developerId) {
+    if (!hasPermission) {
       throw new Error('You do not have permission to update this app');
     }
 
@@ -566,11 +646,11 @@ export class AppService {
    */
   async hashWithApiKey(stringToHash: string, packageName: string): Promise<string> {
     const app = await App.findOne({ packageName });
-    
+
     if (!app || !app.hashedApiKey) {
       throw new Error(`App ${packageName} not found or has no API key`);
     }
-    
+
     // Create a hash using the provided string and the app's hashed API key
     return crypto.createHash('sha256')
       .update(stringToHash)
@@ -579,23 +659,21 @@ export class AppService {
   }
 
   /**
-   * Get apps by developer ID
-   */
-  async getAppsByDeveloperId(developerId: string): Promise<AppI[]> {
-    return App.find({ developerId }).lean();
-  }
-
-  /**
    * Get app by package name
    */
-  async getAppByPackageName(packageName: string, developerId?: string): Promise<AppI | null> {
+  async getAppByPackageName(packageName: string, developerId?: string, organizationId?: Types.ObjectId): Promise<AppI | null> {
     const query: any = { packageName };
 
-    // If developerId is provided, ensure the app belongs to this developer
-    if (developerId) {
+    // If organizationId is provided, ensure the app belongs to this organization
+    if (organizationId) {
+      query.organizationId = organizationId;
+    }
+    // For backward compatibility, if only developerId is provided
+    else if (developerId) {
       query.developerId = developerId;
     }
 
+    // Use lean() to get a plain JavaScript object instead of a Mongoose document
     return App.findOne(query).lean();
   }
 
@@ -605,7 +683,7 @@ export class AppService {
    */
   // export async function getPublicApps(developerEmail?: string): Promise<AppI[]> {
   async getPublicApps(): Promise<AppI[]> {
-    // console.log('Getting public apps - developerEmail', developerEmail);
+    // logger.debug('Getting public apps - developerEmail', developerEmail);
     // if (developerEmail) {
     //   const developer
     //     = await User.findOne({ email: developerEmail }).lean();
@@ -642,36 +720,36 @@ export class AppService {
     // Look up the TPA by packageName
     const app = await this.getApp(packageName);
 
-    console.log('🔨 Triggering tool webhook for:', packageName);
-    
+    logger.debug('🔨 Triggering tool webhook for:', packageName);
+
     if (!app) {
       throw new Error(`App ${packageName} not found`);
     }
-    
+
     if (!app.publicUrl) {
       throw new Error(`App ${packageName} does not have a public URL`);
     }
-    
+
     // Get the app document from MongoDB
     const appDoc = await App.findOne({ packageName });
     if (!appDoc) {
       throw new Error(`App ${packageName} not found in database`);
     }
-    
+
     // For security reasons, we can't retrieve the original API key
     // Instead, we'll use a special header that identifies this as a system request
     // The TPA server will need to validate this using the hashedApiKey
-    
+
     // Construct the webhook URL from the app's public URL
     const webhookUrl = `${app.publicUrl}/tool`;
-    
+
     // Set up retry configuration
     const maxRetries = 2;
     const baseDelay = 1000; // 1 second
 
-    console.log('🔨 Sending tool webhook to:', webhookUrl);
-    console.log('🔨 Payload:', payload);
-    
+    logger.debug('🔨 Sending tool webhook to:', webhookUrl);
+    logger.debug('🔨 Payload:', payload);
+
     // Attempt to send the webhook with retries
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
@@ -682,7 +760,7 @@ export class AppService {
           },
           timeout: 20000 // 10 second timeout
         });
-        
+
         // Return successful response
         return {
           status: response.status,
@@ -693,11 +771,16 @@ export class AppService {
         if (attempt === maxRetries - 1) {
           if (axios.isAxiosError(error)) {
             const axiosError = error as AxiosError;
-            console.error(`Tool webhook failed for ${packageName}: ${axiosError.message}`);
-            console.error(`URL: ${webhookUrl}`);
-            console.error(`Response: ${axiosError.response?.data}`);
-            console.error(`Status: ${axiosError.response?.status}`);
-            
+            logger.error(`Tool webhook failed for ${packageName}: ${axiosError.message}`,
+              {
+                packageName,
+                webhookUrl,
+                attempt,
+                status: axiosError.response?.status,
+                data: axiosError.response?.data
+              }
+            );
+
             // Return a standardized error response
             return {
               status: axiosError.response?.status || 500,
@@ -719,12 +802,12 @@ export class AppService {
             };
           }
         }
-        
+
         // Exponential backoff before retry
         await new Promise(resolve => setTimeout(resolve, baseDelay * Math.pow(2, attempt)));
       }
     }
-    
+
     // This should never be reached due to the error handling above,
     // but TypeScript requires a return value
     return {
@@ -745,17 +828,17 @@ export class AppService {
   async getTpaTools(packageName: string): Promise<ToolSchema[]> {
     // Look up the TPA by packageName
     const app = await this.getApp(packageName);
-    
+
     if (!app) {
       throw new Error(`App ${packageName} not found`);
     }
-    
+
     if (!app.publicUrl) {
       throw new Error(`App ${packageName} does not have a public URL`);
     }
 
-    console.log('Getting TPA tools for:', packageName);
-    
+    logger.debug('Getting TPA tools for:', packageName);
+
     try {
       // Fetch the tpa_config.json from the app's publicUrl
       const configUrl = `${app.publicUrl}/tpa_config.json`;
@@ -765,30 +848,143 @@ export class AppService {
       const config = response.data;
       if (config && Array.isArray(config.tools)) {
         // Validate the tools before returning them
-        console.log(`Found ${config.tools.length} tools in ${packageName}, validating...`);
+        logger.debug(`Found ${config.tools.length} tools in ${packageName}, validating...`);
         return this.validateToolDefinitions(config.tools);
       }
-      
+
       // If no tools found, return empty array
       return [];
     } catch (error) {
       // Check if error is a 404 (file not found) and silently ignore
       if (axios.isAxiosError(error) && error.response?.status === 404) {
         // Config file doesn't exist, silently return empty array
-        console.log(`No tpa_config.json found for app ${packageName} (404)`);
+        logger.debug(`No tpa_config.json found for app ${packageName} (404)`);
         return [];
       }
-      
-      // Log other errors but still return empty array
-      //console.error(`Failed to fetch tpa_config.json for app ${packageName}:`, error);
       return [];
     }
+  }
+
+  // Add a method to update app visibility
+  async updateAppVisibility(packageName: string, developerId: string, sharedWithOrganization: boolean): Promise<AppI> {
+    // Ensure developer owns the app
+    const app = await App.findOne({ packageName });
+    if (!app) {
+      throw new Error(`App with package name ${packageName} not found`);
+    }
+    if (!developerId || !app.developerId || app.developerId.toString() !== developerId) {
+      throw new Error('You do not have permission to update this app');
+    }
+    let organizationDomain = null;
+    let visibility: 'private' | 'organization' = 'private';
+    if (sharedWithOrganization) {
+      const emailParts = developerId.split('@');
+      if (emailParts.length === 2) {
+        organizationDomain = emailParts[1].toLowerCase();
+        visibility = 'organization';
+      }
+    }
+    app.sharedWithOrganization = sharedWithOrganization;
+    app.organizationDomain = organizationDomain;
+    app.visibility = visibility;
+    await app.save();
+    return app;
+  }
+
+  async updateSharedWithEmails(packageName: string, emails: string[], developerId: string): Promise<AppI> {
+    // Ensure developer owns the app or is in the org if shared
+    const app = await App.findOne({ packageName });
+    if (!app) {
+      throw new Error(`App with package name ${packageName} not found`);
+    }
+    if (!developerId) {
+      throw new Error('Developer ID is required');
+    }
+    const isOwner = app.developerId && app.developerId.toString() === developerId;
+    let isOrgMember = false;
+    if (app.sharedWithOrganization && app.organizationDomain) {
+      const emailDomain = developerId.split('@')[1]?.toLowerCase();
+      isOrgMember = emailDomain === app.organizationDomain;
+    }
+    if (!isOwner && !isOrgMember) {
+      throw new Error('Not authorized to update sharing list');
+    }
+    // Validate emails (basic)
+    const validEmails = emails.filter(email => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email));
+    app.sharedWithEmails = validEmails;
+    await app.save();
+    return app.toObject();
+  }
+
+  /**
+   * Get apps by organization ID
+   */
+  async getAppsByOrgId(orgId: Types.ObjectId, developerId?: string): Promise<AppI[]> {
+    return App.find({ organizationId: orgId }).lean();
+  }
+
+  // Replace getAppsByDeveloperId with getAppsByOrgId, but keep for backward compatibility
+  async getAppsByDeveloperId(developerId: string): Promise<AppI[]> {
+    return App.find({ developerId }).lean();
+  }
+
+  // These are no longer needed with the organization model, but keep for backward compatibility
+  async getAppsSharedWithEmail(email: string): Promise<AppI[]> {
+    return [];
+  }
+
+  /**
+   * Get apps created by or shared with a user (deduplicated)
+   */
+  async getAppsCreatedOrSharedWith(email: string): Promise<AppI[]> {
+    // Now just returns apps by developer ID for backward compatibility
+    return this.getAppsByDeveloperId(email);
+  }
+
+  /**
+   * Move an app from one organization to another
+   * @param packageName - The package name of the app to move
+   * @param sourceOrgId - The ID of the source organization
+   * @param targetOrgId - The ID of the target organization
+   * @param userEmail - The email of the user performing the action
+   * @returns The updated app
+   * @throws Error if app not found or user doesn't have permission
+   */
+  async moveApp(
+    packageName: string,
+    sourceOrgId: Types.ObjectId,
+    targetOrgId: Types.ObjectId,
+    userEmail: string
+  ): Promise<AppI> {
+    // Find the app in the source organization
+    const app = await App.findOne({
+      packageName,
+      organizationId: sourceOrgId
+    });
+
+    if (!app) {
+      throw new Error(`App with package name ${packageName} not found in source organization`);
+    }
+
+    // Update organization ID
+    app.organizationId = targetOrgId;
+    await app.save();
+
+    // Log the move operation
+    logger.info({
+      packageName,
+      sourceOrgId: sourceOrgId.toString(),
+      targetOrgId: targetOrgId.toString(),
+      userEmail
+    }, 'App moved to new organization');
+
+    return app;
   }
 
 }
 
 // Create singleton instance
 export const appService = new AppService();
-console.log('✅ App Service');
+logger.info('✅ App Service initialized');
 
 export default appService;

@@ -14,7 +14,9 @@ import {
   UserSession // Keep UserSession for type checking if needed
 } from '@augmentos/sdk';
 import { ExtendedUserSession } from './session.service'; // Import ExtendedUserSession
-import { Logger } from 'winston';
+import { Logger } from 'pino'; // Import Logger type
+// import { logger as rootLogger } from "../logging";
+// const logger = rootLogger.child({ service: 'subscription.manager' });
 
 /**
  * Record of a subscription change for a specific app within this session
@@ -50,8 +52,15 @@ export class SubscriptionManager {
 
   constructor(userSession: ExtendedUserSession) {
     this.userSession = userSession;
-    this.logger = userSession.logger; // Use the session's logger
-    this.logger.info('[SubscriptionManager] Initialized.');
+    if (!userSession || !userSession.logger) {
+      // If no logger is available, use a fallback
+      const { logger: rootLogger } = require('../logging/pino-logger');
+      this.logger = rootLogger.child({ service: 'SubscriptionManager', error: 'Missing userSession.logger' });
+      this.logger.error('userSession or userSession.logger is undefined in SubscriptionManager constructor');
+    } else {
+      this.logger = userSession.logger; // Use the session's logger
+      this.logger.info('[SubscriptionManager] Initialized.');
+    }
   }
 
   /**
