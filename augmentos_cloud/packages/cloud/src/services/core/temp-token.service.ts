@@ -2,7 +2,14 @@
 import crypto from 'crypto';
 import { TempToken, ITempToken } from '../../models/temp-token.model';
 import { logger as rootLogger } from "../logging";
+import { SignJWT, importPKCS8 } from 'jose';
 const logger = rootLogger.child({ service: 'temp-token.service' });
+
+// Environment variable for JWT signing
+export const TPA_AUTH_JWT_PRIVATE_KEY = process.env.TPA_AUTH_JWT_PRIVATE_KEY || null;
+if (!TPA_AUTH_JWT_PRIVATE_KEY) {
+  console.warn('[token.service] TPA_AUTH_JWT_PRIVATE_KEY is not set');
+}
 
 export class TokenService {
   /**
@@ -80,6 +87,47 @@ export class TokenService {
     } catch (error) {
       logger.error(`Error exchanging temporary token ${tempToken}:`, { error, requestingPackageName, tempToken });
       return null; // Return null on any error during exchange
+    }
+  }
+
+  /**
+   * Issue a signed JWT token for the AugmentOS user to be used in TPA webview.
+   *
+   * @param aosUserId - The AugmentOS user ID to include in the token
+   * @returns A signed JWT token containing user ID and frontend token
+   */
+  async issueUserToken(aosUserId: string): Promise<string> {
+    // Algorithm used for signing
+    const alg = 'EdDSA';
+
+    try {
+      // Import the private key from the environment
+      if (!TPA_AUTH_JWT_PRIVATE_KEY) {
+        throw new Error('[token.service] TPA_AUTH_JWT_PRIVATE_KEY is not set');
+      }
+      const privateKey = await importPKCS8(TPA_AUTH_JWT_PRIVATE_KEY, alg);
+
+      // Generate a frontend token as a secure hash of the user ID and a secret
+      const frontendTokenSecret = process.env.FRONTEND_TOKEN_SECRET || 'default-frontend-secret';
+      const frontendToken = crypto
+        .createHash('sha256')
+        .update(aosUserId + frontendTokenSecret)
+        .digest('hex');
+
+      // Create and sign the JWT token with both user ID and frontend token
+      const token = await new SignJWT({
+        sub: aosUserId,
+        frontendToken: `${aosUserId}:${frontendToken}`
+      })
+        .setProtectedHeader({ alg, kid: 'v1' })
+        .setIssuer('https://prod.augmentos.cloud')
+        .setIssuedAt()
+        .setExpirationTime('10m')
+        .sign(privateKey);
+      return token;
+    } catch (error) {
+      logger.error({ error, aosUserId }, '[token.service] Failed to issue user token');
+      throw new Error('[token.service] Failed to generate signed user token');
     }
   }
 }
