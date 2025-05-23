@@ -91,9 +91,6 @@ export class AppService {
     let usersApps: AppI[] = [];
 
     if (APPSTORE_ENABLED && userId) {
-      // Find apps the developer made.
-      const _madeByUser = await App.find({ developerId: userId }) as AppI[];
-
       // Find apps the user installed.
       const user = await User.findOne({ email: userId });
       const _installedApps = user?.installedApps?.map((installedApp: { packageName: string; installedDate: Date; }) => {
@@ -103,11 +100,8 @@ export class AppService {
       // Fetch the apps from the appstore.
       const _appstoreApps = await App.find({ packageName: { $in: _installedApps } }) as AppI[];
 
-      // Fetch apps shared with this user by email
-      const _sharedWithUser = await App.find({ sharedWithEmails: userId }) as AppI[];
-
       // remove duplicates.
-      const _allApps = [..._madeByUser, ..._appstoreApps, ..._sharedWithUser];
+      const _allApps = _appstoreApps;
       const _appMap = new Map<string, AppI>();
       _allApps.forEach(app => {
         _appMap.set(app.packageName, app);

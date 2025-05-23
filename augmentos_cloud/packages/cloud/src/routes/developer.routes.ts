@@ -6,6 +6,10 @@ import { User } from '../models/user.model';
 import { Types } from 'mongoose';
 import { OrganizationService } from '../services/core/organization.service';
 import App from '../models/app.model';
+import sessionService from '../services/core/session.service';
+import { logger as rootLogger } from '../services/logging/pino-logger';
+
+const logger = rootLogger.child({ service: 'developer.routes' });
 
 // Define request with user and organization info
 interface DevPortalRequest extends Request {
@@ -80,6 +84,42 @@ const validateSupabaseToken = async (req: Request, res: Response, next: NextFunc
 };
 
 // ------------- HANDLER FUNCTIONS -------------
+
+/**
+ * Helper function to automatically install an app for the developer who created it
+ * @param packageName - The package name of the app to install
+ * @param developerEmail - The email of the developer who created the app
+ */
+const autoInstallAppForDeveloper = async (packageName: string, developerEmail: string): Promise<void> => {
+  try {
+    logger.info(`Auto-installing app ${packageName} for developer ${developerEmail}`);
+
+    // Find or create the user
+    const user = await User.findOrCreateUser(developerEmail);
+
+    // Check if app is already installed (safety check)
+    if (user.isAppInstalled(packageName)) {
+      logger.info(`App ${packageName} is already installed for developer ${developerEmail}`);
+      return;
+    }
+
+    // Install the app using the user model method
+    await user.installApp(packageName);
+
+    logger.info(`Successfully auto-installed app ${packageName} for developer ${developerEmail}`);
+
+    // Trigger app state change notification for any active sessions
+    try {
+      sessionService.triggerAppStateChange(developerEmail);
+    } catch (error) {
+      logger.warn({ error, email: developerEmail, packageName }, 'Error sending app state notification after auto-install');
+      // Non-critical error, installation succeeded
+    }
+  } catch (error) {
+    logger.error({ error, packageName, developerEmail }, 'Error auto-installing app for developer');
+    // Don't throw the error - we don't want app creation to fail if auto-install fails
+  }
+};
 
 /**
  * Get authenticated developer user
@@ -170,6 +210,9 @@ const createApp = async (req: Request, res: Response): Promise<void> => {
       ...tpaData,
       organizationId: orgId
     }, email);
+
+    // Auto-install the app for the developer who created it
+    autoInstallAppForDeveloper(tpaData.packageName, email);
 
     res.status(201).json(result);
   } catch (error: any) {
