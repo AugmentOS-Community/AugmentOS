@@ -87,7 +87,7 @@ android {
     packagingOptions {
         pickFirst '**/libjsc.so'
         pickFirst '**/libc++_shared.so'
-                resources {
+        resources {
             excludes += ["META-INF/INDEX.LIST"]
         }
     }

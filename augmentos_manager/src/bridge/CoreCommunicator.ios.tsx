@@ -342,7 +342,7 @@ export class CoreCommunicator extends EventEmitter {
       // }
 
       // Send the command
-      AOSModule.sendCommand(JSON.stringify(dataObj));
+      CoreCommsService.sendCommandToCore(JSON.stringify(dataObj));
     } catch (error) {
       console.error('Failed to send data to Core:', error);
       GlobalEventEmitter.emit('SHOW_BANNER', {

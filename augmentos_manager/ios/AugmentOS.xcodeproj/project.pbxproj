@@ -110,7 +110,6 @@
 		C51385B62D7F6DFE00710042 /* SileroVADStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SileroVADStrategy.swift; sourceTree = "<group>"; };
 		C520E1B12D852981009491C1 /* CalendarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarManager.swift; sourceTree = "<group>"; };
 		C520E1B32D874D7D009491C1 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
-		C56BE83A2D78E51100407B70 /* g1-sample-header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "g1-sample-header.h"; sourceTree = "<group>"; };
 		C56BE83C2D78E51100407B70 /* attdet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = attdet.h; sourceTree = "<group>"; };
 		C56BE83D2D78E51100407B70 /* attdet.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = attdet.c; sourceTree = "<group>"; };
 		C56BE83E2D78E51100407B70 /* bits.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bits.h; sourceTree = "<group>"; };
@@ -350,18 +349,9 @@
 			path = Packages/VAD;
 			sourceTree = "<group>";
 		};
-		C56BE83B2D78E51100407B70 /* include */ = {
-			isa = PBXGroup;
-			children = (
-				C56BE83A2D78E51100407B70 /* g1-sample-header.h */,
-			);
-			path = include;
-			sourceTree = "<group>";
-		};
 		C56BE8612D78E51100407B70 /* CoreObjC */ = {
 			isa = PBXGroup;
 			children = (
-				C56BE83B2D78E51100407B70 /* include */,
 				C56BE83C2D78E51100407B70 /* attdet.h */,
 				C56BE83D2D78E51100407B70 /* attdet.c */,
 				C56BE83E2D78E51100407B70 /* bits.h */,
@@ -1105,10 +1095,7 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -1181,10 +1168,7 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;

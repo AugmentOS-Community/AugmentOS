@@ -20,7 +20,6 @@
 		C56BE8132D78E44000407B70 /* lc3_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lc3_private.h; sourceTree = "<group>"; };
 		C56BE8142D78E44000407B70 /* sns.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sns.c; sourceTree = "<group>"; };
 		C56BE8152D78E44000407B70 /* mdct.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mdct.c; sourceTree = "<group>"; };
-		C56BE8162D78E44000407B70 /* include */ = {isa = PBXFileReference; lastKnownFileType = folder; path = include; sourceTree = "<group>"; };
 		C56BE8172D78E44000407B70 /* tns.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tns.c; sourceTree = "<group>"; };
 		C56BE8182D78E44000407B70 /* bits.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bits.c; sourceTree = "<group>"; };
 		C56BE8192D78E44000407B70 /* PcmConverter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PcmConverter.h; sourceTree = "<group>"; };
@@ -63,7 +62,6 @@
 				C56BE8132D78E44000407B70 /* lc3_private.h */,
 				C56BE8142D78E44000407B70 /* sns.c */,
 				C56BE8152D78E44000407B70 /* mdct.c */,
-				C56BE8162D78E44000407B70 /* include */,
 				C56BE8172D78E44000407B70 /* tns.c */,
 				C56BE8182D78E44000407B70 /* bits.c */,
 				C56BE8192D78E44000407B70 /* PcmConverter.h */,
