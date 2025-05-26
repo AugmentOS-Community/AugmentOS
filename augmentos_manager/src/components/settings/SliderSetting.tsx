@@ -1,6 +1,8 @@
+import { ThemedStyle } from '@/theme';
+import { useAppTheme } from '@/utils/useAppTheme';
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Slider from '@react-native-community/slider';
+import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { Slider } from 'react-native-elements';
 
 type Theme = {
   backgroundColor: string;
@@ -14,7 +16,6 @@ type SliderSettingProps = {
   max: number;
   onValueChange: (value: number) => void; // For immediate feedback, e.g., UI updates
   onValueSet: (value: number) => void; // For BLE requests or final actions
-  theme: Theme;
 };
 
 const SliderSetting: React.FC<SliderSettingProps> = ({
@@ -24,7 +25,6 @@ const SliderSetting: React.FC<SliderSettingProps> = ({
   max,
   onValueChange,
   onValueSet,
-  theme,
 }) => {
 
   const handleValueChange = (val: number) => {
@@ -37,41 +37,47 @@ const SliderSetting: React.FC<SliderSettingProps> = ({
     onValueSet(roundedValue); // Emit only integer values
   };
 
+  const {theme, themed} = useAppTheme();
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
-      <Text style={[styles.label, { color: theme.textColor }]}>
-        {label}: {value !== undefined ? Math.round(value) : 'N/A'}
+    <View style={themed($container)}>
+      <Text style={themed($label)}>
+        {label}
       </Text>
       <Slider
-        style={styles.slider}
+        style={themed($slider)}
         value={value || 0} // Fallback to 0 if undefined
         onValueChange={handleValueChange} // Wrap the callback to round values
         onSlidingComplete={handleValueSet} // Wrap the callback to round values
         minimumValue={min}
         maximumValue={max}
-        minimumTrackTintColor="#1EB1FC"
-        maximumTrackTintColor="#d3d3d3"
-        thumbTintColor="#1EB1FC"
+        minimumTrackTintColor={theme.colors.palette.primary300}
+        maximumTrackTintColor={theme.colors.palette.neutral300}
+        thumbStyle={{
+          width: 24,
+          height: 24,
+          backgroundColor: theme.colors.text,
+        }}
       />
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    marginVertical: 10,
-    padding: 10,
-    width: '100%',
-    borderRadius: 8,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-});
+const $container: ThemedStyle<ViewStyle> = ({colors}) => ({
+  width: '100%',
+  borderRadius: 8,
+  marginTop: 16,
+})
+
+const $label: ThemedStyle<TextStyle> = ({colors}) => ({
+  fontSize: 16,
+  color: colors.text,
+  paddingBottom: 4,
+})
+
+const $slider: ThemedStyle<ViewStyle> = ({colors}) => ({
+  width: '100%',
+  height: 40,
+})
 
 export default SliderSetting;

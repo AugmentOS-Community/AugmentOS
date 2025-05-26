@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import CheckBox from '../CheckBox';
+import CheckBox from '@/components/misc/CheckBox';
 
 type Option = {
   label: string;

@@ -1,7 +1,7 @@
 // SelectSetting.tsx
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import PickerSelect, { PickerItem } from '../PickerSelect';
+import PickerSelect, { PickerItem } from '@/components/misc/PickerSelect';
 
 type Option = {
   label: string;

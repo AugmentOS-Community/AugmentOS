@@ -1,67 +1,77 @@
-# AugmentOS Setup Guide
+# Welcome to your new ignited app!
+
+> The latest and greatest boilerplate for Infinite Red opinions
+
+This is the boilerplate that [Infinite Red](https://infinite.red) uses as a way to test bleeding-edge changes to our React Native stack.
+
+- [Quick start documentation](https://github.com/infinitered/ignite/blob/master/docs/boilerplate/Boilerplate.md)
+- [Full documentation](https://github.com/infinitered/ignite/blob/master/docs/README.md)
 
 ## Getting Started
 
-1. Configure Environment
-   - Copy `.env.example` to create your `.env` file
-   - Configure server settings in `.env` (default: localhost)
+```bash
+pnpm install
+pnpm run start
+```
 
-2. Install & Start: `npm start`
+To make things work on your local simulator, or on your phone, you need first to [run `eas build`](https://github.com/infinitered/ignite/blob/master/docs/expo/EAS.md). We have many shortcuts on `package.json` to make it easier:
 
-3. Launch the backend:
+```bash
+pnpm run build:ios:sim # build for ios simulator
+pnpm run build:ios:dev # build for ios device
+pnpm run build:ios:prod # build for ios device
+```
 
-From the augmentos_cloud folder: `./run.sh`
+### `./assets` directory
 
-4. Connecting your phone to your local backend:
+This directory is designed to organize and store various assets, making it easy for you to manage and use them in your application. The assets are further categorized into subdirectories, including `icons` and `images`:
 
-### Android
-You have two options:
+```tree
+assets
+├── icons
+└── images
+```
 
-- Use your computer's local IP address:
-  - Find your IP with `ifconfig` or in System Preferences → Network
-  - Update your `.env` file with your computer's IP
-  - Ensure both your phone and computer are on the same WiFi network
+**icons**
+This is where your icon assets will live. These icons can be used for buttons, navigation elements, or any other UI components. The recommended format for icons is PNG, but other formats can be used as well.
 
-- Or create a localhost tunnel over USB (preferred for development):
-  ```
-  adb reverse tcp:8002 tcp:8002
-  ```
+Ignite comes with a built-in `Icon` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/boilerplate/app/components/Icon.md).
 
-### iOS
-For iOS devices, use your computer's local IP address:
+**images**
+This is where your images will live, such as background images, logos, or any other graphics. You can use various formats such as PNG, JPEG, or GIF for your images.
 
-- Find your IP with `ifconfig` or in System Preferences → Network
-- Update your `.env` file with your computer's IP
-- Ensure both your iOS device and computer are on the same WiFi network
-- After changing the `.env`, rebuild the app in Xcode
+Another valuable built-in component within Ignite is the `AutoImage` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/Components-AutoImage.md).
+
+How to use your `icon` or `image` assets:
+
+```typescript
+import { Image } from 'react-native';
+
+const MyComponent = () => {
+  return (
+    <Image source={require('../assets/images/my_image.png')} />
+  );
+};
+```
+
+## Running Maestro end-to-end tests
+
+Follow our [Maestro Setup](https://ignitecookbook.com/docs/recipes/MaestroSetup) recipe.
+
+## Next Steps
+
+### Ignite Cookbook
+
+[Ignite Cookbook](https://ignitecookbook.com/) is an easy way for developers to browse and share code snippets (or “recipes”) that actually work.
+
+### Upgrade Ignite boilerplate
+
+Read our [Upgrade Guide](https://ignitecookbook.com/docs/recipes/UpdatingIgnite) to learn how to upgrade your Ignite project.
 
 
+## Overview of changes
 
-## iOS Setup
-
-1. Install dependencies: `npm install`
-2. Install pods: `cd ios && pod install && cd ..`
-3. Open the workspace: `open ios/AugmentOS_Manager.xcworkspace`
-4. Run the app: `Product -> Run`
-
-### iOS Node Path Configuration
-
-By default, Xcode uses the `.xcode.env` file which contains `NODE_BINARY=$(command -v node)` to find your node installation. If you experience node-related build errors:
-
-1. Create a file at `ios/.xcode.env.local` with your specific node path:
-   ```
-   export NODE_BINARY=/path/to/your/node
-   ```
-
-2. Tips for finding your node path:
-   - NVM users: Run `which node` in terminal and use that exact path
-   - Homebrew users: Typically `/opt/homebrew/bin/node`
-   - Make sure the node version matches project requirements (Node 18+)
-   - This file is gitignored so each developer can set their own path
-
-3. After making this change, clean the build and restart Xcode
-
-### Debugging
-
-- Try deleting the `ios/build`, `ios/Podfile.lock`, and `ios/Pods` folders and then re-running `pod install`
-- Try deleting XCode's derived data: `rm -rf ~/Library/Developer/Xcode/DerivedData`
+- essentially all imports have been refactored to use absolute paths instead of relative paths
+- there is no longer a src/screens folder, as screens have been replaced with expo-router's file based routing (react-navigation under the hood) 
+- most components have been categorized into folders or the misc/ folder
+- most components now use the theme/themed from the useAppTheme() hook

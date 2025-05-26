@@ -1,7 +1,7 @@
 import {NativeEventEmitter, NativeModules, Platform} from 'react-native';
 import {EventEmitter} from 'events';
-import GlobalEventEmitter from '../logic/GlobalEventEmitter';
-import {INTENSE_LOGGING} from '../consts';
+import GlobalEventEmitter from '@/utils/GlobalEventEmitter';
+import {INTENSE_LOGGING} from '@/consts';
 import {
   isAugmentOsCoreInstalled,
   isLocationServicesEnabled as checkLocationServices,
@@ -9,7 +9,7 @@ import {
 } from './CoreServiceStarter';
 import {check, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import BleManager from 'react-native-ble-manager';
-import BackendServerComms from '../backend_comms/BackendServerComms';
+import BackendServerComms from '@/backend_comms/BackendServerComms';
 
 const {CoreCommsService, AOSModule} = NativeModules;
 const eventEmitter = new NativeEventEmitter(CoreCommsService);
@@ -17,7 +17,7 @@ const eventEmitter = new NativeEventEmitter(CoreCommsService);
 export class CoreCommunicator extends EventEmitter {
   private static instance: CoreCommunicator | null = null;
   private messageEventSubscription: any = null;
-  private validationInProgress: Promise<boolean | void> | null = null;
+  private validationInProgress: Promise<boolean> | null = null;
   private reconnectionTimer: NodeJS.Timeout | null = null;
   private isConnected: boolean = false;
 
@@ -342,7 +342,11 @@ export class CoreCommunicator extends EventEmitter {
       // }
 
       // Send the command
-      AOSModule.sendCommand(JSON.stringify(dataObj));
+      if (Platform.OS === 'android') {
+        CoreCommsService.sendCommandToCore(JSON.stringify(dataObj));
+      } else {
+        AOSModule.sendCommand(JSON.stringify(dataObj));
+      }
     } catch (error) {
       console.error('Failed to send data to Core:', error);
       GlobalEventEmitter.emit('SHOW_BANNER', {

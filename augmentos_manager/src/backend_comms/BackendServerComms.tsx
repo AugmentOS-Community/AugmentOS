@@ -1,10 +1,10 @@
 // backend_comms/BackendServerComms.ts
 import axios, {AxiosRequestConfig} from 'axios';
 import {Config} from 'react-native-config';
-import GlobalEventEmitter from '../logic/GlobalEventEmitter';
-import {loadSetting} from '../logic/SettingsHelper';
-import {SETTINGS_KEYS} from '../consts';
-import {AppInterface} from '../providers/AppStatusProvider';
+import GlobalEventEmitter from '@/utils/GlobalEventEmitter';
+import {loadSetting} from '@/utils/SettingsHelper';
+import {SETTINGS_KEYS} from '@/consts';
+import {AppInterface} from '@/contexts/AppStatusProvider';
 
 interface Callback {
   onSuccess: (data: any) => void;
@@ -24,9 +24,12 @@ export default class BackendServerComms {
       return customUrl;
     }
 
-    const secure = Config.AUGMENTOS_SECURE === 'true';
-    const host = Config.AUGMENTOS_HOST;
-    const port = Config.AUGMENTOS_PORT;
+    // const secure = Config.AUGMENTOS_SECURE === 'true';
+    // const host = Config.AUGMENTOS_HOST;
+    // const port = Config.AUGMENTOS_PORT;
+    const secure = true;
+    const host = 'global.augmentos.cloud';
+    const port = '443';
     const protocol = secure ? 'https' : 'http';
     const defaultServerUrl = `${protocol}://${host}:${port}`;
     console.log(`${this.TAG}: Using default backend URL from env: ${defaultServerUrl}`);
@@ -323,7 +326,7 @@ export default class BackendServerComms {
       }
     } catch (error: any) {
       //console.error('Error starting app:', error.message || error);
-      //GlobalEventEmitter.emit('SHOW_BANNER', { message: 'Error starting app: ' + error.message || error, type: 'error' })
+      GlobalEventEmitter.emit('SHOW_BANNER', { message: 'Error starting app: ' + error.message || error, type: 'error' })
       GlobalEventEmitter.emit('SHOW_BANNER', {
         message: `Could not connect to ${packageName}`,
         type: 'error',

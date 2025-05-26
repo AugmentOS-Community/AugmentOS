@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -16,40 +16,31 @@ import {
 type TextSettingNoSaveProps = {
   label: string;
   value: string;
-  onChangeTextFn: (text: string) => void;
+  onChangeText: (text: string) => void;
   theme: any;
-  maxLines?: number;
 };
 
 const TextSettingNoSave: React.FC<TextSettingNoSaveProps> = ({
   label,
   value,
-  onChangeTextFn,
+  onChangeText,
   theme,
-  maxLines,
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [tempValue, setTempValue] = useState(value);
-
-  // Debounce updates to parent
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      onChangeTextFn(tempValue);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [tempValue]);
 
   const handleOpenModal = () => {
     setTempValue(value);
     setModalVisible(true);
   };
 
-  const handleCancel = () => {
-    setTempValue(value);
+  const handleSave = () => {
+    onChangeText(tempValue);
     setModalVisible(false);
   };
 
-  const handleDone = () => {
+  const handleCancel = () => {
+    setTempValue(value);
     setModalVisible(false);
   };
 
@@ -109,7 +100,7 @@ const TextSettingNoSave: React.FC<TextSettingNoSaveProps> = ({
               </Text>
 
               <Pressable
-                onPress={handleDone}
+                onPress={handleSave}
                 style={({pressed}) => [
                   styles.headerButton,
                   Platform.OS === 'ios' && styles.iosDoneButton,
@@ -131,24 +122,13 @@ const TextSettingNoSave: React.FC<TextSettingNoSaveProps> = ({
                 styles.modalInput,
                 {
                   color: theme.textColor,
-                  borderColor: Platform.OS === 'ios' ? '#e0e0e0' : theme.textColor,
-                  minHeight: maxLines ? 22 * maxLines + 32 : undefined,
-                  maxHeight: maxLines ? 22 * maxLines + 32 : undefined,
+                  borderColor:
+                    Platform.OS === 'ios' ? '#e0e0e0' : theme.textColor,
                 },
               ]}
               value={tempValue}
-              onChangeText={text => {
-                if (maxLines) {
-                  const lines = text.split('\n');
-                  if (lines.length <= maxLines) {
-                    setTempValue(text);
-                  }
-                } else {
-                  setTempValue(text);
-                }
-              }}
+              onChangeText={setTempValue}
               multiline
-              numberOfLines={maxLines || 5}
               maxLength={10000}
               textAlignVertical="top"
               autoFocus
@@ -238,15 +218,12 @@ const styles = StyleSheet.create({
   modalInput: {
     flexShrink: 1,
     fontSize: 16,
-    lineHeight: 22,
     borderWidth: Platform.OS === 'ios' ? 0.5 : 1,
     borderRadius: Platform.OS === 'ios' ? 10 : 4,
     padding: 16,
     margin: 16,
     textAlignVertical: 'top',
     backgroundColor: Platform.OS === 'ios' ? '#f8f8f8' : 'transparent',
-    minHeight: 142,
-    maxHeight: 142,
   },
 });
 

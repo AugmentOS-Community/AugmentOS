@@ -1,7 +1,7 @@
 import {NativeEventEmitter, NativeModules, Platform} from 'react-native';
 import {EventEmitter} from 'events';
-import GlobalEventEmitter from '../logic/GlobalEventEmitter';
-import {INTENSE_LOGGING} from '../consts';
+import GlobalEventEmitter from '@/utils/GlobalEventEmitter';
+import {INTENSE_LOGGING} from '@/consts';
 import {
   isAugmentOsCoreInstalled,
   isLocationServicesEnabled as checkLocationServices,

@@ -6,6 +6,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <React/RCTEventEmitter.h>
 #import "./AOSModule.h"
 #import "AugmentOS-Swift.h"
 
@@ -15,6 +16,9 @@
 
 @implementation AOSModule
 
+// Static reference for event emission
+static AOSModule *sharedEmitter = nil;
+
 // Export the module for React Native
 RCT_EXPORT_MODULE(AOSModule);
 
@@ -22,8 +26,27 @@ RCT_EXPORT_MODULE(AOSModule);
     self = [super init];
     if (self) {
         _aosManager = [[AOSManager alloc] init];
+        // Set the shared emitter reference
+        sharedEmitter = self;
     }
     return self;
+}
+
+// Class method to get the shared emitter instance
++ (AOSModule *)sharedEmitter {
+    return sharedEmitter;
+}
+
+// Supported events - combined list from both classes
+- (NSArray<NSString *> *)supportedEvents {
+  return @[@"onReady", @"onPending", @"onFailure", @"onConnectionStateChanged", @"CoreMessageIntentEvent", @"CoreMessageEvent"];
+}
+
+// Method to emit events from other parts of the code
++ (void)emitEventWithName:(NSString *)eventName body:(id)body {
+    if (sharedEmitter && sharedEmitter.bridge) {
+        [sharedEmitter sendEventWithName:eventName body:body];
+    }
 }
 
 // Start scanning for devices

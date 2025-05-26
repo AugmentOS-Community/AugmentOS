@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alert, AlertButton } from 'react-native';
-import MessageModal from '../components/MessageModal';
+import MessageModal from '@/components/misc/MessageModal';
+import { useAppTheme } from './useAppTheme';
 
 // Type for button style options
 type ButtonStyle = 'default' | 'cancel' | 'destructive';
@@ -57,17 +58,17 @@ const convertToModalButton = (button: AlertButton, index: number, totalButtons: 
 };
 
 // Global component that will be rendered once at the app root
-export const ModalProvider: React.FC<{ isDarkTheme?: boolean }> = ({ isDarkTheme = false }) => {
+export function ModalProvider() {
+  const {theme} = useAppTheme()
   const [visible, setVisible] = React.useState(false);
   const [title, setTitle] = React.useState('');
   const [message, setMessage] = React.useState('');
   const [buttons, setButtons] = React.useState<ModalButton[]>([]);
   const [options, setOptions] = React.useState<{
-    isDarkTheme?: boolean;
     iconName?: string;
     iconSize?: number;
     iconColor?: string;
-  }>({ isDarkTheme });
+  }>({});
 
   React.useEffect(() => {
     // Register the modal functions for global access
@@ -85,7 +86,6 @@ export const ModalProvider: React.FC<{ isDarkTheme?: boolean }> = ({ isDarkTheme
 
         // Set options with fallback to component's props
         setOptions({
-          isDarkTheme: opts.isDarkTheme !== undefined ? opts.isDarkTheme : isDarkTheme,
           iconName: opts.iconName,
           iconSize: opts.iconSize,
           iconColor: opts.iconColor,
@@ -98,7 +98,7 @@ export const ModalProvider: React.FC<{ isDarkTheme?: boolean }> = ({ isDarkTheme
     return () => {
       setModalRef(null);
     };
-  }, [isDarkTheme]);
+  }, []);
 
   const handleDismiss = () => {
     setVisible(false);
@@ -111,7 +111,6 @@ export const ModalProvider: React.FC<{ isDarkTheme?: boolean }> = ({ isDarkTheme
       message={message}
       buttons={buttons}
       onDismiss={handleDismiss}
-      isDarkTheme={options.isDarkTheme}
       iconName={options.iconName}
       iconSize={options.iconSize}
       iconColor={options.iconColor}
@@ -128,7 +127,6 @@ export const showAlert = (
     cancelable?: boolean; 
     onDismiss?: () => void;
     useNativeAlert?: boolean;
-    isDarkTheme?: boolean;
     iconName?: string;
     iconSize?: number;
     iconColor?: string;
@@ -144,7 +142,6 @@ export const showAlert = (
 
   // Use custom modal implementation
   modalRef.showModal(title, message, buttons, {
-    isDarkTheme: options?.isDarkTheme,
     iconName: options?.iconName,
     iconSize: options?.iconSize,
     iconColor: options?.iconColor,

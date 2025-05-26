@@ -1,4 +1,122 @@
 {
   "name": "AugmentOS",
-  "displayName": "AugmentOS"
+  "displayName": "AugmentOS",
+  "expo": {
+    "name": "AugmentOS",
+    "slug": "AugmentOS",
+    "scheme": "com.augmentos",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/app-icons/ic_launcher.png",
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "newArchEnabled": true,
+    "jsEngine": "hermes",
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "icon": "./assets/app-icons/ic_launcher.png",
+      "package": "com.augmentos.augmentos",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icons/ic_launcher_foreground.png",
+        "backgroundImage": "./assets/app-icons/ic_launcher.png"
+      },
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.INTERNET",
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_ADVERTISE",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.FOREGROUND_SERVICE_CAMERA",
+        "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.WRITE_MEDIA_VIDEO",
+        "android.permission.VIBRATE",
+        "android.permission.FOREGROUND_SERVICE_CAMERA",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.WRITE_MEDIA_VIDEO"
+      ]
+    },
+    "ios": {
+      "icon": "./assets/app-icons/ic_launcher.png",
+      "supportsTablet": true,
+      "bundleIdentifier": "com.augmentos.augmentos",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to your camera to capture images.",
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone to record audio.",
+        "NSBluetoothAlwaysUsageDescription": "This app needs access to your Bluetooth to connect to your glasses.",
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to provide you with locatioin based information.",
+        "NSBluetoothPeripheralUsageDescription": "This app needs access to your Bluetooth to connect to your glasses.",
+        "NSCalendarsFullAccessUsageDescription": "This app needs access to your calendar to provide you with calendar based information.",
+        "UIBackgroundModes": ["bluetooth-central"]
+      }
+    },
+    "plugins": [
+      "expo-localization",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash/splash.png",
+          "imageWidth": 300,
+          "resizeMode": "contain",
+          "backgroundColor": "#191015"
+        }
+      ],
+      "expo-router",
+      [
+        "react-native-permissions",
+        {
+          "iosPermissions": [
+            "Camera",
+            "Microphone",
+            "Calendars",
+            "Bluetooth",
+            "LocationAccuracy",
+            "LocationWhenInUse",
+            "Notifications",
+            "PhotoLibrary"
+          ]
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "recordAudioAndroid": true
+        }
+      ]
+    ],
+    "experiments": {
+      "tsconfigPaths": true,
+      "typedRoutes": true
+    }
+  },
+  "ignite": {
+    "version": "10.4.0"
+  }
 }

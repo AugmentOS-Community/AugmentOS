@@ -1,29 +1,31 @@
+import { ThemedStyle } from '@/theme';
+import { useAppTheme } from '@/utils/useAppTheme';
 import React from 'react';
-import { View, Text, Switch, StyleSheet, Platform } from 'react-native';
+import { View, Text, Switch, StyleSheet, Platform, ViewStyle, TextStyle } from 'react-native';
 
 type ToggleSettingProps = {
   label: string;
   value: boolean;
   onValueChange: (newValue: boolean) => void;
-  theme: any;
 };
 
-const ToggleSetting: React.FC<ToggleSettingProps> = ({ label, value, onValueChange, theme }) => {
+const ToggleSetting: React.FC<ToggleSettingProps> = ({ label, value, onValueChange }) => {
 
-  const isDarkTheme = false;
+  const {theme, themed} = useAppTheme();
+
   const switchColors = {
     trackColor: {
-      false: isDarkTheme ? '#666666' : '#D1D1D6',
-      true: '#2196F3',
+      false: theme.isDark ? theme.colors.palette.neutral200 : theme.colors.palette.neutral900,
+      true: theme.colors.palette.primary300,
     },
     thumbColor:
-      Platform.OS === 'ios' ? undefined : isDarkTheme ? '#FFFFFF' : '#FFFFFF',
-    ios_backgroundColor: isDarkTheme ? '#666666' : '#D1D1D6',
+      Platform.OS === 'ios' ? undefined : theme.isDark ? theme.colors.palette.neutral200 : theme.colors.palette.neutral900,
+    ios_backgroundColor: theme.isDark ? theme.colors.palette.neutral200 : theme.colors.palette.neutral900,
   };
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: theme.textColor }]}>{label}</Text>
+      <Text style={themed($label)}>{label}</Text>
       <Switch
         value={value}
         onValueChange={onValueChange}
@@ -35,17 +37,45 @@ const ToggleSetting: React.FC<ToggleSettingProps> = ({ label, value, onValueChan
   );
 };
 
+const $label: ThemedStyle<TextStyle> = ({colors}) => ({
+  fontSize: 16,
+  color: colors.text,
+})
+
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 10,
     width: '100%',
   },
   label: {
     fontSize: 16,
   },
 });
+
+
+const SettingsSwitch = () => {
+  const {themed} = useAppTheme();
+  return (
+      <View style={themed($switchContainer)}>
+          <Text>Settings</Text>
+          <Switch
+              value={true}
+              onValueChange={() => {}}
+          />
+      </View>
+  )
+}
+
+const $switchContainer: ThemedStyle<ViewStyle> = ({colors}) => ({
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  width: '100%',
+  padding: 10,
+  backgroundColor: colors.palette.neutral100,
+  borderRadius: 12,
+})
 
 export default ToggleSetting;

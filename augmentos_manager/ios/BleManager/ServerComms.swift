@@ -97,18 +97,6 @@ class ServerComms {
     self.userid = userid
   }
 
-  private func getWsUrl() -> String {
-
-    // extract host, port, and secure from the serverUrl:
-    let url = URL(string: self.serverUrl)!
-    let host = url.host!
-    let port = url.port!
-    let secure = url.scheme == "https"
-    let wsUrl = "\(secure ? "wss" : "ws")://\(host):\(port)/glasses-ws"
-    print("ServerComms: getWsUrl(): \(wsUrl)")
-    return wsUrl
-  }
-
   func setServerUrl(_ url: String) {
     self.serverUrl = url
     print("ServerComms: setServerUrl: \(url)")
@@ -129,7 +117,7 @@ class ServerComms {
   // MARK: - Connection Management
   
   func connectWebSocket() {
-    guard let url = URL(string: getWsUrl()) else {
+    guard let url = URL(string: getServerUrl()) else {
       print("Invalid server URL")
       return
     }
@@ -504,6 +492,15 @@ class ServerComms {
   // MARK: - Helper methods
   
   private func getServerUrl() -> String {
+    if (!self.serverUrl.isEmpty) {
+      // parse the url from the string:
+      let url = URL(string: self.serverUrl)!
+      let host = url.host!
+      let port = url.port!
+      let secure = url.scheme == "https"
+      let wsUrl = "\(secure ? "wss" : "ws")://\(host):\(port)/glasses-ws"
+      return wsUrl
+    }
     let host = RNCConfig.env(for: "AUGMENTOS_HOST")!;
     let port = RNCConfig.env(for: "AUGMENTOS_PORT")!;
     let secure = RNCConfig.env(for: "AUGMENTOS_SECURE")!
