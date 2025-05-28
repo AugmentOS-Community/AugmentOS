@@ -97,11 +97,21 @@ const AppWebView: React.FC<AppWebViewProps> = ({ route, navigation, isDarkTheme,
       try {
         const backendComms = BackendServerComms.getInstance();
         const tempToken = await backendComms.generateWebviewToken(packageName);
+        let signedUserToken: string | undefined;
+        try {
+          signedUserToken = await backendComms.generateWebviewToken(packageName, "generate-webview-signed-user-token");
+        } catch (error) {
+          console.warn('Failed to generate signed user token:', error);
+          signedUserToken = undefined;
+        }
         const cloudApiUrl = determineCloudUrl();
 
         // Construct final URL
         const url = new URL(webviewURL);
         url.searchParams.set('aos_temp_token', tempToken);
+        if (signedUserToken) {
+          url.searchParams.set('aos_signed_user_token', signedUserToken);
+        }
         if (cloudApiUrl) {
           const checksum = await backendComms.hashWithApiKey(cloudApiUrl, packageName);
           url.searchParams.set('cloudApiUrl', cloudApiUrl);

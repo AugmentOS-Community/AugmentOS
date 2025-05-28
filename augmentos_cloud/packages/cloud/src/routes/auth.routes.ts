@@ -161,4 +161,27 @@ router.post('/hash-with-api-key', validateCoreToken, async (req: Request, res: R
   }
 });
 
+/**
+ * Generate a signed JWT token for webview authentication in TPAs.
+ * This token is designed to be verified client-side in TPAs using the public key.
+ */
+router.post('/generate-webview-signed-user-token', validateCoreToken, async (req: Request, res: Response) => {
+  const userId = (req as any).email; // Use the email property set by validateCoreToken
+
+  try {
+    // Use the issueUserToken from tokenService
+    const signedToken = await tokenService.issueUserToken(userId);
+    console.log('[auth.service] Signed user token generated:', signedToken);
+
+    res.json({
+      success: true,
+      token: signedToken,
+      expiresIn: '10m'  // Matching the expiration time set in the token
+    });
+  } catch (error) {
+    logger.error({ error, userId }, '[auth.service] Failed to generate signed webview user token');
+    res.status(500).json({ success: false, error: 'Failed to generate token: ' + error });
+  }
+});
+
 export default router;

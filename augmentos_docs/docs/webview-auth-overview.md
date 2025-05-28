@@ -95,4 +95,4 @@ Webview authentication enables:
 - Integration with your existing user database
 - Seamless experiences without additional login steps
 
-For detailed implementation options, including manual implementation without the SDK, see the [Webview Authentication Reference](/reference/webview-auth). 
+For detailed implementation options, including manual implementation without the SDK or for frontend-only servers, see the [Webview Authentication Reference](/reference/webview-auth).

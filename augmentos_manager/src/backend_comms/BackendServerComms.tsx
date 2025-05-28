@@ -451,13 +451,13 @@ export default class BackendServerComms {
    * @returns Promise resolving to the temporary token string.
    * @throws Error if the request fails or no core token is available.
    */
-  public async generateWebviewToken(packageName: string): Promise<string> {
+  public async generateWebviewToken(packageName: string, endpoint: string = "generate-webview-token"): Promise<string> {
     if (!this.coreToken) {
       throw new Error('Authentication required: No core token available.');
     }
 
     const baseUrl = await this.getServerUrl();
-    const url = `${baseUrl}/api/auth/generate-webview-token`;
+    const url = `${baseUrl}/api/auth/${endpoint}`;
     console.log('Requesting webview token for:', packageName, 'at URL:', url);
 
     const config: AxiosRequestConfig = {
@@ -596,10 +596,10 @@ export default class BackendServerComms {
       throw error;
     }
   }
-  
 
-    
-    
+
+
+
 
 //   1. Request Data Export:
 //   - Endpoint: /api/account/request-export
