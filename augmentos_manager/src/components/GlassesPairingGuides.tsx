@@ -5,6 +5,7 @@ import {View, Text, StyleSheet, Image, TouchableOpacity, Linking, ScrollView} fr
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
+import { showAlert } from '../utils/AlertUtils';
 
 // 1) Create an interface for the props
 interface GlassesPairingGuideProps {
@@ -133,7 +134,20 @@ export const MentraLivePairingGuide: React.FC<GlassesPairingGuideProps> = ({isDa
           <TouchableOpacity
             style={[styles.buyButton, {backgroundColor: primaryColor}]}
             onPress={() => {
-              Linking.openURL('https://mentra.glass/live');
+              showAlert(
+                'Open External Website',
+                'This will open mentra.glass in your web browser. Continue?',
+                [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel'
+                  },
+                  {
+                    text: 'Continue',
+                    onPress: () => Linking.openURL('https://mentra.glass/live')
+                  }
+                ]
+              );
             }}>
             <Text style={styles.buyButtonText}>PREORDER NOW</Text>
             <Text style={styles.shippingText}>Ships September 2025</Text>

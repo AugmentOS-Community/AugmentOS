@@ -18,8 +18,8 @@ include ':react-native-gesture-handler'
 project(':react-native-gesture-handler').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-gesture-handler/android')
 include (':react-native-safe-area-context')
 project(':react-native-safe-area-context').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-safe-area-context/android')
-include ':react-native-bluetooth-classic'
-project(':react-native-bluetooth-classic').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-bluetooth-classic/android')
+//include ':react-native-bluetooth-classic'
+//project(':react-native-bluetooth-classic').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-bluetooth-classic/android')
 
 include ':react-native-linear-gradient'
 project(':react-native-linear-gradient').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-linear-gradient/android')

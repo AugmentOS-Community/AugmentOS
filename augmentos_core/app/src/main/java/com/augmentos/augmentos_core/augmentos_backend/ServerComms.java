@@ -1,7 +1,6 @@
 package com.augmentos.augmentos_core.augmentos_backend;
 
 import android.content.Context;
-import android.os.Environment;
 import android.util.Log;
 
 import com.augmentos.augmentos_core.BuildConfig;
@@ -670,13 +669,28 @@ public class ServerComms {
                 }
                 break;
                 
-            case "video_stream_request":
-                String videoAppId = msg.optString("appId");
-                Log.d(TAG, "Received video_stream_request, appId: " + videoAppId);
-                if (serverCommsCallback != null && !videoAppId.isEmpty()) {
-                    serverCommsCallback.onVideoStreamRequest(videoAppId);
+            case "start_rtmp_stream":
+                String rtmpUrl = msg.optString("rtmpUrl", "");
+                if (serverCommsCallback != null && !rtmpUrl.isEmpty()) {
+                    serverCommsCallback.onRtmpStreamStartRequest(msg);
                 } else {
-                    Log.e(TAG, "Invalid video stream request: missing appId");
+                    Log.e(TAG, "Invalid RTMP stream request: missing rtmpUrl or callback");
+                }
+                break;
+                
+            case "stop_rtmp_stream":
+                Log.d(TAG, "Received STOP_RTMP_STREAM");
+                
+                if (serverCommsCallback != null) {
+                    serverCommsCallback.onRtmpStreamStop();
+                }
+                break;
+                
+            case "keep_rtmp_stream_alive":
+                Log.d(TAG, "Received KEEP_RTMP_STREAM_ALIVE: " + msg.toString());
+                
+                if (serverCommsCallback != null) {
+                    serverCommsCallback.onRtmpStreamKeepAlive(msg);
                 }
                 break;
 

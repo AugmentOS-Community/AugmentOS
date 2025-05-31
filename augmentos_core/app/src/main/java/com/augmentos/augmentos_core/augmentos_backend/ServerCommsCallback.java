@@ -1,7 +1,5 @@
 package com.augmentos.augmentos_core.augmentos_backend;
 
-import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.List;
@@ -26,11 +24,24 @@ public interface ServerCommsCallback {
     void onPhotoRequest(String requestId, String appId);
     
     /**
-     * Called when the server requests a video stream
+     * Called when the server requests an RTMP stream
      * 
-     * @param appId ID of the app requesting the video stream
+     * @param message The complete RTMP stream request message with all parameters
      */
-    void onVideoStreamRequest(String appId);
+    void onRtmpStreamStartRequest(JSONObject message);
+    
+    /**
+     * Called when the server requests to stop an RTMP stream
+     * 
+     */
+    void onRtmpStreamStop();
+    
+    /**
+     * Called when the server sends a keep alive message for an RTMP stream
+     * 
+     * @param message The keep alive message with streamId, ackId, and timestamp
+     */
+    void onRtmpStreamKeepAlive(JSONObject message);
 
     // New methods for explicit app started/stopped events
     void onAppStarted(String packageName);

@@ -102,7 +102,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class AugmentosService extends LifecycleService implements AugmentOsActionsCallback {
-    public static final String TAG = "AugmentOS_AugmentOSService";
+    public static final String TAG = "AugmentOSService";
 
    private final IBinder binder = new LocalBinder();
 
@@ -1477,19 +1477,50 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
                     Log.e(TAG, "Cannot process photo request: smartGlassesManager is null");
                 }
             }
-            
+
             @Override
-            public void onVideoStreamRequest(String appId) {
-                Log.d(TAG, "Video stream request received: appId=" + appId);
+            public void onRtmpStreamStartRequest(JSONObject message) {
+                String rtmpUrl = message.optString("rtmpUrl", "");
+                Log.d(TAG, "RTMP stream request received: rtmpUrl=" + rtmpUrl);
                 
                 // Forward the request to the smart glasses manager
                 if (smartGlassesManager != null) {
-                    boolean requestSent = smartGlassesManager.requestVideoStream();
+                    boolean requestSent = smartGlassesManager.requestRtmpStream(message);
                     if (!requestSent) {
-                        Log.e(TAG, "Failed to send video stream request to glasses");
+                        Log.e(TAG, "Failed to send RTMP stream request to glasses");
                     }
                 } else {
-                    Log.e(TAG, "Cannot process video stream request: smartGlassesManager is null");
+                    Log.e(TAG, "Cannot process RTMP stream request: smartGlassesManager is null");
+                }
+            }
+            
+            @Override
+            public void onRtmpStreamStop() {
+                Log.d(TAG, "RTMP stream stop request received");
+                
+                // Forward the request to the smart glasses manager
+                if (smartGlassesManager != null) {
+                    boolean requestSent = smartGlassesManager.stopRtmpStream();
+                    if (!requestSent) {
+                        Log.e(TAG, "Failed to send RTMP stream stop request to glasses");
+                    }
+                } else {
+                    Log.e(TAG, "Cannot process RTMP stream stop request: smartGlassesManager is null");
+                }
+            }
+            
+            @Override
+            public void onRtmpStreamKeepAlive(JSONObject message) {
+                Log.d(TAG, "RTMP stream keep alive received");
+                
+                // Forward the keep alive to the smart glasses manager
+                if (smartGlassesManager != null) {
+                    boolean messageSent = smartGlassesManager.sendRtmpStreamKeepAlive(message);
+                    if (!messageSent) {
+                        Log.e(TAG, "Failed to send RTMP keep alive to glasses");
+                    }
+                } else {
+                    Log.e(TAG, "Cannot process RTMP keep alive: smartGlassesManager is null");
                 }
             }
 

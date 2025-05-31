@@ -871,7 +871,6 @@
 					"\"${PODS_ROOT}/Headers/Public/hermes-engine\"",
 					"\"${PODS_ROOT}/Headers/Public/lottie-react-native\"",
 					"\"${PODS_ROOT}/Headers/Public/react-native-ble-manager\"",
-					"\"${PODS_ROOT}/Headers/Public/react-native-bluetooth-classic\"",
 					"\"${PODS_ROOT}/Headers/Public/react-native-camera\"",
 					"\"${PODS_ROOT}/Headers/Public/react-native-config\"",
 					"\"${PODS_ROOT}/Headers/Public/react-native-image-picker\"",
@@ -893,6 +892,7 @@
 					"$(SRCROOT)/../node_modules/react-native-config/ios",
 				);
 				INFOPLIST_FILE = AugmentOS_Manager/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AugmentOS;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1012,6 +1012,7 @@
 					"$(SRCROOT)/../node_modules/react-native-config/ios",
 				);
 				INFOPLIST_FILE = AugmentOS_Manager/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AugmentOS;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

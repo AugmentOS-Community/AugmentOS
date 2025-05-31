@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Explicitly add mentra live libs
+!app/src/main/jniLibs/**/*.so

@@ -53,10 +53,8 @@ public class MessageTypes {
     public static final String PHOTO_APP_ID = "appId";
     
     //VIDEO STREAM REQUEST
-    public static final String VIDEO_STREAM_REQUEST = "video_stream_request";
-    public static final String VIDEO_STREAM_RESPONSE = "video_stream_response";
+
     public static final String VIDEO_STREAM_URL = "streamUrl";
-    public static final String VIDEO_APP_ID = "appId";
 
     //specific message types (after MESSAGE_TYPE_*)
     //TRANSCRIPTS

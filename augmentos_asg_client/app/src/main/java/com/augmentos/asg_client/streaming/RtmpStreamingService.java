@@ -20,8 +20,13 @@ import android.os.Looper;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
+
+import java.util.Timer;
+import java.util.TimerTask;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
+
+import com.augmentos.asg_client.utils.WakeLockManager;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -66,6 +71,13 @@ public class RtmpStreamingService extends Service {
     private Handler mReconnectHandler;
     private boolean mReconnecting = false;
 
+    // Keep-alive timeout parameters
+    private Timer mRtmpStreamTimeoutTimer;
+    private String mCurrentStreamId;
+    private boolean mIsStreamingActive = false;
+    private static final long STREAM_TIMEOUT_MS = 60000; // 60 seconds timeout
+    private Handler mTimeoutHandler;
+
     public class LocalBinder extends Binder {
         public RtmpStreamingService getService() {
             return RtmpStreamingService.this;
@@ -89,6 +101,9 @@ public class RtmpStreamingService extends Service {
 
         // Initialize handler for reconnection logic
         mReconnectHandler = new Handler(Looper.getMainLooper());
+
+        // Initialize handler for timeout logic
+        mTimeoutHandler = new Handler(Looper.getMainLooper());
 
         // Initialize the streamer
         initStreamer();
@@ -138,11 +153,20 @@ public class RtmpStreamingService extends Service {
             mReconnectHandler.removeCallbacksAndMessages(null);
         }
 
+        // Cancel timeout timer and handler
+        cancelStreamTimeout();
+        if (mTimeoutHandler != null) {
+            mTimeoutHandler.removeCallbacksAndMessages(null);
+        }
+
         stopStreaming();
         releaseStreamer();
 
         // Release the surface
         releaseSurface();
+
+        // Release wake locks
+        releaseWakeLocks();
 
         // Unregister from EventBus
         if (EventBus.getDefault().isRegistered(this)) {
@@ -237,6 +261,9 @@ public class RtmpStreamingService extends Service {
 
         try {
             Log.d(TAG, "Initializing streamer");
+
+            // Wake up the screen before initializing camera
+            wakeUpScreen();
 
             // Create a surface for the camera
             createSurface();
@@ -356,6 +383,9 @@ public class RtmpStreamingService extends Service {
                 mStreamer.release();
                 mStreamer = null;
                 Log.i(TAG, "Streamer released");
+
+                // Release wake locks after releasing the streamer
+                releaseWakeLocks();
             } catch (Exception e) {
                 Log.e(TAG, "Error releasing streamer", e);
                 if (sStatusCallback != null) {
@@ -378,6 +408,17 @@ public class RtmpStreamingService extends Service {
      * Start streaming to the configured RTMP URL
      */
     public void startStreaming() {
+        // Check if camera is busy with photo/video capture BEFORE attempting to stream
+        if (com.augmentos.asg_client.camera.CameraNeo.isCameraInUse()) {
+            String error = "camera_busy";
+            Log.e(TAG, "Cannot start RTMP stream - camera is busy with photo/video capture");
+            EventBus.getDefault().post(new StreamingEvent.Error(error));
+            if (sStatusCallback != null) {
+                sStatusCallback.onStreamError(error);
+            }
+            return;
+        }
+
         if (mStreamer == null) {
             String error = "Streamer not initialized";
             EventBus.getDefault().post(new StreamingEvent.Error(error));
@@ -411,6 +452,24 @@ public class RtmpStreamingService extends Service {
                 Log.i(TAG, "Starting streaming to " + mRtmpUrl);
                 if (sStatusCallback != null) {
                     sStatusCallback.onStreamStarting(mRtmpUrl);
+                }
+            }
+
+            // Ensure camera preview is running before starting stream
+            if (mSurface != null && mSurface.isValid()) {
+                try {
+                    mStreamer.startPreview(mSurface, "0");
+                    Log.d(TAG, "Restarted camera preview for streaming");
+                } catch (Exception e) {
+                    Log.w(TAG, "Preview already running or failed to restart: " + e.getMessage());
+                    // Continue anyway - preview might already be active
+                }
+            } else {
+                Log.w(TAG, "Surface invalid, recreating before starting stream");
+                createSurface();
+                if (mSurface != null && mSurface.isValid()) {
+                    mStreamer.startPreview(mSurface, "0");
+                    Log.d(TAG, "Created new surface and started preview");
                 }
             }
 
@@ -495,6 +554,17 @@ public class RtmpStreamingService extends Service {
                         } else {
                             mIsStreaming = false;
                             mReconnecting = false;
+
+                            // Stop camera preview when streaming stops
+                            try {
+                                if (mStreamer != null) {
+                                    mStreamer.stopPreview();
+                                    Log.d(TAG, "Camera preview stopped");
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error stopping camera preview", e);
+                            }
+
                             updateNotification();
                             Log.i(TAG, "Streaming stopped");
                             if (sStatusCallback != null) {
@@ -533,9 +603,9 @@ public class RtmpStreamingService extends Service {
             if (sStatusCallback != null) {
                 sStatusCallback.onReconnectFailed(MAX_RECONNECT_ATTEMPTS);
             }
-            mIsStreaming = false;
-            mReconnecting = false;
-            updateNotification();
+
+            // Stop streaming completely when max attempts reached
+            stopStreaming();
             return;
         }
 
@@ -646,6 +716,77 @@ public class RtmpStreamingService extends Service {
     }
 
     /**
+     * Schedule a timeout for the current stream
+     * @param streamId The stream ID to track
+     */
+    private void scheduleStreamTimeout(String streamId) {
+        cancelStreamTimeout(); // Cancel any existing timeout
+
+        mCurrentStreamId = streamId;
+        mIsStreamingActive = true;
+
+        Log.d(TAG, "Scheduling stream timeout for streamId: " + streamId + " (" + STREAM_TIMEOUT_MS + "ms)");
+
+        mRtmpStreamTimeoutTimer = new Timer("RtmpStreamTimeout-" + streamId);
+        mRtmpStreamTimeoutTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                Log.w(TAG, "Stream timeout triggered for streamId: " + streamId);
+                mTimeoutHandler.post(() -> handleStreamTimeout(streamId));
+            }
+        }, STREAM_TIMEOUT_MS);
+    }
+
+
+    /**
+     * Handle stream timeout - stop streaming due to no keep-alive
+     * @param streamId The stream ID that timed out
+     */
+    private void handleStreamTimeout(String streamId) {
+        if (mCurrentStreamId != null && mCurrentStreamId.equals(streamId) && mIsStreamingActive) {
+            Log.w(TAG, "Stream timed out due to missing keep-alive messages: " + streamId);
+
+            // Notify about timeout
+            EventBus.getDefault().post(new StreamingEvent.Error("Stream timed out - no keep-alive from cloud"));
+            if (sStatusCallback != null) {
+                sStatusCallback.onStreamError("Stream timed out - no keep-alive from cloud");
+            }
+
+            // Stop camera preview immediately on timeout
+            try {
+                if (mStreamer != null) {
+                    mStreamer.stopPreview();
+                    Log.d(TAG, "Camera preview stopped due to timeout");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error stopping camera preview on timeout", e);
+            }
+
+            // Stop the stream
+            stopStreaming();
+            mIsStreamingActive = false;
+            mCurrentStreamId = null;
+        } else {
+            Log.d(TAG, "Ignoring timeout for old stream: " + streamId +
+                  " (current: " + mCurrentStreamId + ", active: " + mIsStreamingActive + ")");
+        }
+    }
+
+    /**
+     * Cancel the current stream timeout
+     */
+    private void cancelStreamTimeout() {
+        if (mRtmpStreamTimeoutTimer != null) {
+            Log.d(TAG, "Cancelling stream timeout timer");
+            mRtmpStreamTimeoutTimer.cancel();
+            mRtmpStreamTimeoutTimer = null;
+        }
+        mIsStreamingActive = false;
+        mCurrentStreamId = null;
+    }
+
+
+    /**
      * Static convenience methods for controlling streaming from anywhere in the app
      */
 
@@ -709,6 +850,49 @@ public class RtmpStreamingService extends Service {
     }
 
     /**
+     * Start timeout tracking for a stream (static convenience method)
+     * @param streamId The stream ID to track
+     */
+    public static void startStreamTimeout(String streamId) {
+        if (sInstance != null) {
+            sInstance.scheduleStreamTimeout(streamId);
+        }
+    }
+
+    /**
+     * Reset timeout for a stream (static convenience method)
+     * @param streamId The stream ID that sent keep-alive
+     */
+    public static void resetStreamTimeout(String streamId) {
+        if (sInstance != null) {
+            if (sInstance.mCurrentStreamId != null && sInstance.mCurrentStreamId.equals(streamId) && sInstance.mIsStreamingActive) {
+                Log.d(TAG, "Resetting stream timeout for streamId: " + streamId);
+                sInstance.scheduleStreamTimeout(streamId); // Reschedule with fresh timeout
+            } else {
+                Log.w(TAG, "Received keep-alive for unknown or inactive stream: " + streamId +
+                      " (current: " + sInstance.mCurrentStreamId + ", active: " + sInstance.mIsStreamingActive + ")");
+            }
+        }
+    }
+
+    /**
+     * Wake up the screen to ensure camera can be accessed
+     */
+    private void wakeUpScreen() {
+        Log.d(TAG, "Waking up screen for camera access");
+        // Use the WakeLockManager to acquire both CPU and screen wake locks
+        // For streaming we use longer timeout for CPU wake lock than for photo capture
+        WakeLockManager.acquireFullWakeLock(this, 180000, 5000); // 3 min CPU, 5 sec screen
+    }
+
+    /**
+     * Release any held wake locks
+     */
+    private void releaseWakeLocks() {
+        WakeLockManager.releaseAllWakeLocks();
+    }
+
+    /**
      * Attaches a PreviewView to the streamer for displaying camera preview
      * This is optional and only used if you want to show the preview in an activity
      * @param previewView the PreviewView to use for preview
@@ -743,5 +927,13 @@ public class RtmpStreamingService extends Service {
         } else if (command instanceof StreamingCommand.SetRtmpUrl) {
             setRtmpUrl(((StreamingCommand.SetRtmpUrl) command).getRtmpUrl());
         }
+    }
+
+    /**
+     * Get the current stream ID
+     * @return The current stream ID, or null if no stream is active
+     */
+    public static String getCurrentStreamId() {
+        return sInstance != null ? sInstance.mCurrentStreamId : null;
     }
 }

@@ -2,7 +2,7 @@
  * 🎮 Event Manager Module
  */
 import EventEmitter from 'events';
-import { 
+import {
   StreamType,
   ExtendedStreamType,
   AppSettings,
@@ -25,9 +25,11 @@ import {
   createTranscriptionStream,
   isValidLanguageCode,
   createTranslationStream,
-  CustomMessage
+  CustomMessage,
+  RtmpStreamStatus
 } from '../../types';
 import { DashboardMode } from '../../types/dashboard';
+import { PermissionError, PermissionErrorDetail } from '../../types/messages/cloud-to-tpa';
 
 /** 🎯 Type-safe event handler function */
 type Handler<T> = (data: T) => void;
@@ -47,6 +49,16 @@ interface SystemEvents {
   'dashboard_mode_change': { mode: DashboardMode | 'none' };
   'dashboard_always_on_change': { enabled: boolean };
   'custom_message': CustomMessage;
+  'permission_error': {
+    message: string;
+    details: PermissionErrorDetail[];
+    timestamp?: Date;
+  };
+  'permission_denied': {
+    stream: string;
+    requiredPermission: string;
+    message: string;
+  };
 }
 
 /** 📡 All possible event types */
@@ -68,6 +80,7 @@ export interface StreamDataTypes {
   [StreamType.NOTIFICATION_DISMISSED]: NotificationDismissed;
   [StreamType.AUDIO_CHUNK]: AudioChunk;
   [StreamType.VIDEO]: ArrayBuffer;
+  [StreamType.RTMP_STREAM_STATUS]: RtmpStreamStatus; // Using any for now, should be StreamStatus
   [StreamType.OPEN_DASHBOARD]: never;
   [StreamType.START_APP]: never;
   [StreamType.STOP_APP]: never;
@@ -76,11 +89,11 @@ export interface StreamDataTypes {
 }
 
 /** 📦 Data type for an event */
-export type EventData<T extends EventType> = T extends keyof StreamDataTypes 
-  ? StreamDataTypes[T] 
-  : T extends keyof SystemEvents 
-    ? SystemEvents[T] 
-    : T extends string 
+export type EventData<T extends EventType> = T extends keyof StreamDataTypes
+  ? StreamDataTypes[T]
+  : T extends keyof SystemEvents
+    ? SystemEvents[T]
+    : T extends string
       ? T extends `${StreamType.TRANSCRIPTION}:${string}`
         ? TranscriptionData
         : T extends `${StreamType.TRANSLATION}:${string}`
@@ -239,7 +252,27 @@ export class EventManager {
     this.emitter.on('dashboard_always_on_change', handler);
     return () => this.emitter.off('dashboard_always_on_change', handler);
   }
-  
+
+  /**
+   * 🚫 Listen for permission errors when subscriptions are rejected
+   * @param handler - Function to handle permission errors
+   * @returns Cleanup function to remove the handler
+   */
+  onPermissionError(handler: Handler<SystemEvents['permission_error']>) {
+    this.emitter.on('permission_error', handler);
+    return () => this.emitter.off('permission_error', handler);
+  }
+
+  /**
+   * 🚫 Listen for individual permission denied events for specific streams
+   * @param handler - Function to handle permission denied events
+   * @returns Cleanup function to remove the handler
+   */
+  onPermissionDenied(handler: Handler<SystemEvents['permission_denied']>) {
+    this.emitter.on('permission_denied', handler);
+    return () => this.emitter.off('permission_denied', handler);
+  }
+
   /**
    * 🔄 Listen for changes to a specific setting
    * @param key - Setting key to monitor
@@ -248,7 +281,7 @@ export class EventManager {
    */
   onSettingChange<T>(key: string, handler: (value: T, previousValue: T | undefined) => void): () => void {
     let previousValue: T | undefined = undefined;
-    
+
     const settingsHandler = (settings: AppSettings) => {
       try {
         const setting = settings.find(s => s.key === key);
@@ -264,10 +297,10 @@ export class EventManager {
         console.error(`Error in onSettingChange handler for key "${key}":`, error);
       }
     };
-    
+
     this.emitter.on('settings_update', settingsHandler);
     this.emitter.on('connected', settingsHandler); // Also check when first connected
-    
+
     return () => {
       this.emitter.off('settings_update', settingsHandler);
       this.emitter.off('connected', settingsHandler);
@@ -276,7 +309,7 @@ export class EventManager {
 
   /**
    * 🔄 Generic event handler
-   * 
+   *
    * Use this for stream types without specific handler methods
    */
   on<T extends ExtendedStreamType>(type: T, handler: Handler<EventData<T>>): () => void {
@@ -287,11 +320,11 @@ export class EventManager {
    * ➕ Add an event handler and subscribe if needed
    */
   private addHandler<T extends ExtendedStreamType>(
-    type: T, 
+    type: T,
     handler: Handler<EventData<T>>
   ): () => void {
     const handlers = this.handlers.get(type) ?? new Set();
-    
+
     if (handlers.size === 0) {
       // console.log(`$$$#### Subscribing to ${type}`);
       this.handlers.set(type, handlers);
@@ -317,7 +350,7 @@ export class EventManager {
    * ➖ Remove an event handler
    */
   private removeHandler<T extends ExtendedStreamType>(
-    type: T, 
+    type: T,
     handler: Handler<EventData<T>>
   ): void {
     const handlers = this.handlers.get(type);
@@ -356,13 +389,13 @@ export class EventManager {
           } catch (handlerError: unknown) {
             // Log the error but don't let it propagate
             console.error(`Error in handler for event '${String(event)}':`, handlerError);
-            
+
             // Emit an error event for tracking purposes
             if (event !== 'error') { // Prevent infinite recursion
-              const errorMessage = handlerError instanceof Error 
-                ? handlerError.message 
+              const errorMessage = handlerError instanceof Error
+                ? handlerError.message
                 : String(handlerError);
-              
+
               this.emitter.emit('error', new Error(
                 `Handler error for event '${String(event)}': ${errorMessage}`
               ));
@@ -373,14 +406,14 @@ export class EventManager {
     } catch (emitError: unknown) {
       // Catch any errors in the emission process itself
       console.error(`Fatal error emitting event '${String(event)}':`, emitError);
-      
+
       // Try to emit an error event if we're not already handling an error
       if (event !== 'error') {
         try {
-          const errorMessage = emitError instanceof Error 
-            ? emitError.message 
+          const errorMessage = emitError instanceof Error
+            ? emitError.message
             : String(emitError);
-            
+
           this.emitter.emit('error', new Error(
             `Event emission error for '${String(event)}': ${errorMessage}`
           ));
@@ -404,7 +437,7 @@ export class EventManager {
         handler(message.payload);
       }
     };
-    
+
     this.emitter.on('custom_message', messageHandler);
     return () => this.emitter.off('custom_message', messageHandler);
   }

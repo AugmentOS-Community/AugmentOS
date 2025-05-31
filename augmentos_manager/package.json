@@ -17,8 +17,10 @@
     "android:install": "adb install -r ./android/app/build/outputs/apk/release/app-release.apk",
     "android:install:release": "adb install -r ./android/app/build/outputs/apk/release/app-release.apk",
     "android:install:debug": "adb install -r ./android/app/build/outputs/apk/debug/app-debug.apk",
-    "postinstall": "./fix-react-native-symlinks.sh",
-    "fix-symlinks": "./fix-react-native-symlinks.sh"
+    "postinstall": "node -e \"process.platform === 'win32' ? require('child_process').exec('fix-react-native-symlinks.bat') : require('child_process').exec('./fix-react-native-symlinks.sh')\"",
+    "fix-symlinks": "node -e \"process.platform === 'win32' ? require('child_process').exec('fix-react-native-symlinks.bat') : require('child_process').exec('./fix-react-native-symlinks.sh')\"",
+    "fix-symlinks:unix": "./fix-react-native-symlinks.sh",
+    "fix-symlinks:windows": "fix-react-native-symlinks.bat"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.1.0",
@@ -36,7 +38,6 @@
     "react": "18.3.1",
     "react-native": "^0.75.4",
     "react-native-ble-manager": "^11.5.6",
-    "react-native-bluetooth-classic": "^1.73.0-rc.12",
     "react-native-camera": "^4.2.1",
     "react-native-config": "^1.5.5",
     "react-native-copilot": "^3.3.3",
