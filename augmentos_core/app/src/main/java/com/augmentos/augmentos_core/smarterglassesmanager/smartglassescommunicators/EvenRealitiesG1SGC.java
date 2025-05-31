@@ -208,8 +208,8 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         //goHomeHandler = new Handler();
         this.smartGlassesDevice = smartGlassesDevice;
         preferredG1DeviceId = getPreferredG1DeviceId(context);
-        brightnessValue = 50;
-        shouldUseAutoBrightness = false;
+        brightnessValue = getSavedBrightnessValue(context);
+        shouldUseAutoBrightness = getSavedAutoBrightnessValue(context);
         this.bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         this.shouldUseGlassesMic = SmartGlassesManager.getSensingEnabled(context) && !SmartGlassesManager.getForceCoreOnboardMic(context);
 
@@ -832,13 +832,13 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         return prefs.getString(SAVED_G1_ID_KEY, null);
     }
 
-//    public static int getSavedBrightnessValue(Context context){
-//        return Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.SHARED_PREF_BRIGHTNESS), "50"));
-//    }
+    public static int getSavedBrightnessValue(Context context){
+        return Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.SHARED_PREF_BRIGHTNESS), "50"));
+    }
 
-//    public static boolean getSavedAutoBrightnessValue(Context context){
-//        return PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getResources().getString(R.string.SHARED_PREF_AUTO_BRIGHTNESS), false);
-//    }
+    public static boolean getSavedAutoBrightnessValue(Context context){
+        return PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getResources().getString(R.string.SHARED_PREF_AUTO_BRIGHTNESS), false);
+    }
 
     private void savePairedDeviceNames() {
         if (savedG1LeftName != null && savedG1RightName != null) {

@@ -18,7 +18,7 @@ if (envFile.exists()) {
 
 android {
     namespace 'com.augmentos.augmentos_core'
-    compileSdk 33
+    compileSdk 34
 
     buildFeatures {
         aidl = true
@@ -28,7 +28,7 @@ android {
         namespace "com.augmentos.augmentos_core"
 
         minSdk 28
-        targetSdk 33
+        targetSdk 34
         versionCode 1
         versionName "1.0"
 

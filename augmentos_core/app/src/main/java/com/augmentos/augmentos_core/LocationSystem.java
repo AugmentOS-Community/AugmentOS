@@ -82,8 +82,54 @@ public class LocationSystem extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "Starting LocationService as foreground service");
-        startForeground(NOTIFICATION_ID, createNotification());
+        
+        // Check if we have required permissions for foreground service
+        if (!hasRequiredLocationPermissions()) {
+            Log.w(TAG, "Missing location permissions - cannot start as foreground service");
+            handleMissingLocationPermissions();
+            return START_NOT_STICKY;
+        }
+        
+        try {
+            startForeground(NOTIFICATION_ID, createNotification());
+            Log.d(TAG, "Successfully started LocationService as foreground service");
+        } catch (SecurityException e) {
+            Log.e(TAG, "SecurityException starting foreground service: " + e.getMessage());
+            handleMissingLocationPermissions();
+        }
+        
         return START_NOT_STICKY; // Don't restart if killed
+    }
+    
+    /**
+     * Check if we have all required permissions for location foreground service
+     */
+    private boolean hasRequiredLocationPermissions() {
+        // Check basic location permissions
+        boolean hasCoarseLocation = ActivityCompat.checkSelfPermission(this, 
+                Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean hasFineLocation = ActivityCompat.checkSelfPermission(this, 
+                Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        
+        // Check foreground service location permission (Android 14+)
+        boolean hasForegroundServiceLocation = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            hasForegroundServiceLocation = ActivityCompat.checkSelfPermission(this, 
+                    Manifest.permission.FOREGROUND_SERVICE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        }
+        
+        return (hasCoarseLocation || hasFineLocation) && hasForegroundServiceLocation;
+    }
+    
+    /**
+     * Handle the case where location permissions are missing
+     */
+    private void handleMissingLocationPermissions() {
+        Log.w(TAG, "Location permissions missing - stopping service gracefully");
+        
+        // Don't try to access any location data - user removed permissions for a reason
+        // Just stop the service and let the app continue without location functionality
+        stopSelf();
     }
     
     @Nullable
