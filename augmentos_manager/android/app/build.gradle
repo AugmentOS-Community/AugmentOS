@@ -76,7 +76,7 @@ android {
             profileable true
         }
         release {
-            signingConfig signingConfigs.release
+            signingConfig releaseStorePassword ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             debuggable false
