@@ -22,6 +22,8 @@ Download AugmentOS from [AugmentOS.org/install](https://AugmentOS.org/install)
 
 ### Set up ngrok
 
+We are going to use ngrok to expose your local app to the internet.  This is useful for development, but when you're ready to go live, you'll want to deploy to a cloud service like [Railway](railway-deployment) or [an Ubuntu server](ubuntu-deployment).
+
 1. [Install ngrok](https://ngrok.com/docs/getting-started/)
 2. Create an ngrok account
 3. [Set up a static address/URL in the ngrok dashboard](https://dashboard.ngrok.com/)

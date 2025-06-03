@@ -1,5 +1,5 @@
 ---
-sidebar_position: 3
+sidebar_position: 1
 ---
 
 # Build From Scratch
@@ -177,6 +177,8 @@ Update your `package.json` with the following scripts:
 Download and install the AugmentOS app from [AugmentOS.org/install](https://AugmentOS.org/install)
 
 ### 10. Set Up ngrok
+
+We are going to use ngrok to expose your local app to the internet.  This is useful for development, but when you're ready to go live, you'll want to deploy to a cloud service like [Railway](railway-deployment) or [an Ubuntu server](ubuntu-deployment).
 
 To make your locally running app accessible from the internet:
 
