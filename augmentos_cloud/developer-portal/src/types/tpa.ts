@@ -40,4 +40,5 @@ export interface TPA {
   permissions?: Permission[]; // Permissions required by the app
   settings?: Setting[]; // App configuration settings
   tools?: Tool[]; // AI tools provided by the app
+  onboardingInstructions?: string;
 }

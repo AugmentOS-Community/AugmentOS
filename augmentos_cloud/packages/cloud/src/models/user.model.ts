@@ -61,6 +61,12 @@ export interface UserI extends Document {
     logo?: string;
   };
 
+  /**
+   * Maps TPA package names to onboarding completion status for this user.
+   * Example: { "org.example.myapp": true, "org.other.app": false }
+   */
+  onboardingStatus?: Record<string, boolean>;
+
   setLocation(location: Location): Promise<void>;
   addRunningApp(appName: string): Promise<void>;
   removeRunningApp(appName: string): Promise<void>;
@@ -223,7 +229,13 @@ const UserSchema = new Schema<UserI>({
       },
       message: 'Installed apps must be unique'
     }
-  }
+  },
+
+  onboardingStatus: {
+    type: Map,
+    of: Boolean,
+    default: {},
+  },
 }, {
   timestamps: true,
   optimisticConcurrency: true,

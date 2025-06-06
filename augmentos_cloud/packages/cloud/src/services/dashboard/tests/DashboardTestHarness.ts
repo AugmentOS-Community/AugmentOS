@@ -7,7 +7,6 @@
 import { 
   DashboardMode,
   Layout,
-  systemApps,
   TpaToCloudMessageType,
   DashboardContentUpdate,
   DashboardModeChange,
@@ -74,6 +73,19 @@ class MockDisplayManager {
   getDisplayOptions(): any {
     return this.displayOptions;
   }
+  
+  // Add handleDisplayEvent for DashboardManager compatibility
+  handleDisplayEvent(displayRequest: any, userSession: any): boolean {
+    // Store the layout and options
+    this.currentLayout = displayRequest.layout;
+    this.displayOptions = {
+      view: displayRequest.view,
+      ...displayRequest
+    };
+    // Optionally render to terminal
+    this.show(displayRequest.packageName, displayRequest.layout, { view: displayRequest.view });
+    return true;
+  }
 }
 
 // Mock WebSocket service
@@ -133,6 +145,9 @@ class MockWebSocketService {
   }
 }
 
+// Local constant for dashboard package name
+const DASHBOARD_PACKAGE_NAME = 'system.augmentos.dashboard';
+
 /**
  * Dashboard test harness
  */
@@ -144,14 +159,38 @@ export class DashboardTestHarness {
   constructor() {
     this.displayManager = new MockDisplayManager();
     this.wsService = new MockWebSocketService();
+    
+    // Create a mock userSession object with required properties
+    const mockUserSession = {
+      sessionId: 'test-session-id',
+      userId: 'test-user',
+      logger: logger.child({ service: 'DashboardManager', sessionId: 'test-session-id' }),
+      displayManager: this.displayManager,
+      appConnections: new Map(),
+      userDatetime: '2025-05-26T05:35:40.141Z'
+    };
     this.dashboardManager = new DashboardManager(
-      this.wsService as any,
-      this.displayManager as any,
+      mockUserSession as any,
       {
         updateIntervalMs: 100, // Faster updates for testing
         queueSize: 3
       }
     );
+    
+    // Register DashboardManager handlers with the mock WebSocket service
+    this.wsService.registerTpaMessageHandler(
+      TpaToCloudMessageType.DASHBOARD_CONTENT_UPDATE,
+      (msg: any) => this.dashboardManager.handleTpaMessage(msg)
+    );
+    this.wsService.registerTpaMessageHandler(
+      TpaToCloudMessageType.DASHBOARD_MODE_CHANGE,
+      (msg: any) => this.dashboardManager.handleTpaMessage(msg)
+    );
+    this.wsService.registerTpaMessageHandler(
+      TpaToCloudMessageType.DASHBOARD_SYSTEM_UPDATE,
+      (msg: any) => this.dashboardManager.handleTpaMessage(msg)
+    );
+    this.wsService.onTpaDisconnected((packageName: string) => this.dashboardManager.handleTpaDisconnected(packageName));
     
     logger.info('Dashboard Test Harness initialized');
   }
@@ -165,7 +204,8 @@ export class DashboardTestHarness {
       packageName,
       content,
       modes,
-      timestamp: new Date()
+      timestamp: new Date(),
+      sessionId: 'test-session-id'
     };
     
     this.wsService.simulateTpaMessage(message);
@@ -177,10 +217,11 @@ export class DashboardTestHarness {
   updateSystemSection(section: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight', content: string): void {
     const message: DashboardSystemUpdate = {
       type: TpaToCloudMessageType.DASHBOARD_SYSTEM_UPDATE,
-      packageName: systemApps.dashboard.packageName,
+      packageName: DASHBOARD_PACKAGE_NAME,
       section,
       content,
-      timestamp: new Date()
+      timestamp: new Date(),
+      sessionId: 'test-session-id'
     };
     
     this.wsService.simulateTpaMessage(message);
@@ -192,9 +233,10 @@ export class DashboardTestHarness {
   changeDashboardMode(mode: DashboardMode): void {
     const message: DashboardModeChange = {
       type: TpaToCloudMessageType.DASHBOARD_MODE_CHANGE,
-      packageName: systemApps.dashboard.packageName,
+      packageName: DASHBOARD_PACKAGE_NAME,
       mode,
-      timestamp: new Date()
+      timestamp: new Date(),
+      sessionId: 'test-session-id'
     };
     
     this.wsService.simulateTpaMessage(message);
@@ -258,13 +300,12 @@ export class DashboardTestHarness {
     }, 1000);
     
     // Change to always-on mode
-    setTimeout(() => {
-      console.log('\n>>> Changing to ALWAYS-ON mode');
-      this.changeDashboardMode(DashboardMode.ALWAYS_ON);
-      
-      // Send always-on content
-      this.sendTpaContent('com.example.fitness', 'Steps: 5,280', [DashboardMode.ALWAYS_ON]);
-    }, 2000);
+    // setTimeout(() => {
+    //   console.log('\n>>> Changing to ALWAYS-ON mode');
+    //   // this.changeDashboardMode(DashboardMode.ALWAYS_ON); // Commented out, not in enum
+    //   // Send always-on content
+    //   // this.sendTpaContent('com.example.fitness', 'Steps: 5,280', [DashboardMode.ALWAYS_ON]);
+    // }, 2000);
     
     // Test always-on overlay
     setTimeout(() => {
@@ -333,5 +374,78 @@ export class DashboardTestHarness {
     setTimeout(() => {
       console.log('\n=== APP LIFECYCLE TEST COMPLETE ===');
     }, 5000);
+  }
+  
+  /**
+   * Run notification test scenario (user-provided test case)
+   * Now: Only test NotificationSummaryAgent and output the ranking
+   */
+  async runNotificationTest(): Promise<void> {
+    console.log('=== RUNNING NOTIFICATION SUMMARY AGENT TEST ===');
+
+    // Import NotificationSummaryAgent
+    const { NotificationSummaryAgent } = await import('@augmentos/agents');
+    const agent = new NotificationSummaryAgent();
+
+    // Notification data (from previous test)
+    const notifications = [
+      {
+        title: 'WhatsApp',
+        content: '来自2个对话的‎3条消息条消息',
+        timestamp: new Date('2025-05-26T05:35:40.141Z'),
+        uuid: 'ff685639-8d6b-43df-bd74-06fdd2d00b70',
+        appName: 'WhatsApp',
+        text: '来自2个对话的‎3条消息条消息',
+        seenCount: 0
+      },
+      {
+        title: '妈妈',
+        content: '对"Thanks"留下了心情❤️',
+        timestamp: new Date('2025-05-26T05:37:59.774Z'),
+        uuid: 'd1328f14-3457-4ba2-a41c-2d029224108b',
+        appName: 'WhatsApp',
+        text: '对"Thanks"留下了心情❤️',
+        seenCount: 0
+      },
+      {
+        title: 'Mentra <> Auki：Cayden Pierce',
+        content: 
+          "I'll come around Sunday or monday or so, tbd but I'll let you guys know",
+        timestamp: new Date('2025-05-26T05:37:59.781Z'),
+        uuid: '975c9fcf-9ac1-476c-bf26-d9afd1d6efb1',
+        appName: 'WhatsApp',
+        text: "I'll come around Sunday or monday or so, tbd but I'll let you guys know",
+        seenCount: 0
+      },
+      {
+        title: 'WhatsApp',
+        content: '来自2个对话的‎3条消息条消息',
+        timestamp: new Date('2025-05-26T05:37:59.788Z'),
+        uuid: 'fa09f9be-6934-43c1-8bb3-558f09f63ba2',
+        appName: 'WhatsApp',
+        text: '来自2个对话的‎3条消息条消息',
+        seenCount: 0
+      },
+      {
+        title: '‎Mentra <> Auki (2条消息)：Cayden Pierce',
+        content: 'Will stay in camlux',
+        timestamp: new Date('2025-05-26T05:38:00.267Z'),
+        uuid: 'ab003049-c251-47ed-9257-9bc5e85b06a5',
+        appName: 'WhatsApp',
+        text: 'Will stay in camlux',
+        seenCount: 0
+      }
+    ];
+
+    // Call the agent
+    const ranking = await agent.handleContext({
+      notifications,
+      user_datetime: '2025-05-26T05:35:40.141Z'
+    });
+
+    // Output the ranking
+    console.log('\n--- Notification Ranking ---');
+    console.log(JSON.stringify(ranking, null, 2));
+    console.log('---------------------------\n');
   }
 }

@@ -44,6 +44,7 @@ const EditTPA: React.FC = () => {
     packageName: '',
     name: '',
     description: '',
+    onboardingInstructions: '',
     publicUrl: '',
     logoURL: '',
     isPublic: false,
@@ -114,6 +115,7 @@ const EditTPA: React.FC = () => {
           packageName: tpaData.packageName,
           name: tpaData.name,
           description: tpaData.description || '',
+          onboardingInstructions: tpaData.onboardingInstructions || '',
           publicUrl: tpaData.publicUrl || '',
           logoURL: tpaData.logoURL,
           webviewURL: tpaData.webviewURL,
@@ -296,6 +298,7 @@ const EditTPA: React.FC = () => {
     const config: any = {
       name: formData.name,
       description: formData.description,
+      onboardingInstructions: formData.onboardingInstructions,
       publicUrl: formData.publicUrl || '',
       logoURL: formData.logoURL || '', // Cloudflare Images URL
       permissions: removeIdFields(formData.permissions || []),
@@ -334,6 +337,7 @@ const EditTPA: React.FC = () => {
       const normalizedData = {
         name: formData.name,
         description: formData.description,
+        onboardingInstructions: formData.onboardingInstructions,
         publicUrl: formData.publicUrl ? normalizeUrl(formData.publicUrl) : '',
         logoURL: formData.logoURL ? normalizeUrl(formData.logoURL) : '',
         webviewURL: formData.webviewURL ? normalizeUrl(formData.webviewURL) : '',
@@ -851,6 +855,7 @@ const EditTPA: React.FC = () => {
           // Always update name and description if provided
           name: importConfigData.name || prev.name,
           description: importConfigData.description || prev.description,
+          onboardingInstructions: importConfigData.onboardingInstructions || prev.onboardingInstructions,
 
           // Update URLs only if they are provided and not empty
           publicUrl: (importConfigData.publicUrl !== undefined && importConfigData.publicUrl.trim() !== '')
@@ -992,6 +997,24 @@ const EditTPA: React.FC = () => {
                   />
                   <p className="text-xs text-gray-500">
                     Provide a clear, concise description of your application's functionality.
+                  </p>
+                </div>
+
+                {/* Onboarding Instructions Section */}
+                <div className="space-y-2">
+                  <Label htmlFor="onboardingInstructions">Onboarding Instructions</Label>
+                  <Textarea
+                    id="onboardingInstructions"
+                    name="onboardingInstructions"
+                    value={formData.onboardingInstructions || ''}
+                    onChange={handleChange}
+                    placeholder="Describe the onboarding steps for your app (optional)"
+                    rows={3}
+                    maxLength={2000}
+                    style={{ maxHeight: '8em', overflowY: 'auto' }}
+                  />
+                  <p className="text-xs text-gray-500">
+                    (Optional) Provide onboarding instructions that will be shown to users the first time they launch your app. Maximum 5 lines.
                   </p>
                 </div>
 
