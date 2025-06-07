@@ -21,6 +21,7 @@ import {
   NotificationDismissed,
   AudioChunk,
   CalendarEvent,
+  VpsCoordinates,
   // Language stream helpers
   createTranscriptionStream,
   isValidLanguageCode,
@@ -81,6 +82,7 @@ export interface StreamDataTypes {
   [StreamType.AUDIO_CHUNK]: AudioChunk;
   [StreamType.VIDEO]: ArrayBuffer;
   [StreamType.RTMP_STREAM_STATUS]: RtmpStreamStatus; // Using any for now, should be StreamStatus
+  [StreamType.VPS_COORDINATES]: VpsCoordinates;
   [StreamType.OPEN_DASHBOARD]: never;
   [StreamType.START_APP]: never;
   [StreamType.STOP_APP]: never;
@@ -427,5 +429,9 @@ export class EventManager {
 
     this.emitter.on('custom_message', messageHandler);
     return () => this.emitter.off('custom_message', messageHandler);
+  }
+
+  onVpsCoordinates(handler: Handler<VpsCoordinates>) {
+    return this.addHandler(StreamType.VPS_COORDINATES, handler);
   }
 }

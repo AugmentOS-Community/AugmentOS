@@ -113,6 +113,23 @@ export interface LocationUpdate extends BaseMessage {
   lng: number;
 }
 
+/**
+ * VPS coordinates update from glasses
+ */
+export interface VpsCoordinates extends BaseMessage {
+  type: GlassesToCloudMessageType.VPS_COORDINATES | StreamType.VPS_COORDINATES;
+  deviceModel: string;
+  requestId: string;
+  x: number;
+  y: number;
+  z: number;
+  qx: number;
+  qy: number;
+  qz: number;
+  qw: number;
+  confidence: number;
+}
+
 export interface CalendarEvent extends BaseMessage {
   type: GlassesToCloudMessageType.CALENDAR_EVENT | StreamType.CALENDAR_EVENT;
   eventId: string;
@@ -220,6 +237,7 @@ export type GlassesToCloudMessage =
   | PhoneBatteryUpdate
   | GlassesConnectionState
   | LocationUpdate
+  | VpsCoordinates
   | CalendarEvent
   | Vad
   | PhoneNotification

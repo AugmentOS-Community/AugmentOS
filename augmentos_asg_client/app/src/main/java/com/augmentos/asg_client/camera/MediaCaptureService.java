@@ -75,6 +75,13 @@ public class MediaCaptureService {
     }
 
     /**
+     * Interface for sending coordinates via BLE
+     */
+    public interface VpsCoordinateCallback {
+        void onVpsCoordinates(String requestId, float x, float y, float z, float qx, float qy, float qz, float qw, float confidence);
+    }
+
+    /**
      * Constructor
      *
      * @param context           Application context
@@ -454,7 +461,7 @@ public class MediaCaptureService {
     /**
      * Takes a photo locally when offline or when server communication fails
      */
-    private void takePhotoLocally() {
+    public void takePhotoLocally() {
         // Check storage availability before taking photo
         if (!isExternalStorageAvailable()) {
             Log.e(TAG, "External storage is not available for photo capture");
@@ -466,6 +473,8 @@ public class MediaCaptureService {
 
         // Generate a temporary requestId
         String requestId = "local_" + timeStamp;
+
+        // Log.d(TAG, "Taking photo locally in offline mode");
 
         // For offline mode, take photo and queue it for later upload
         CameraNeo.takePictureWithCallback(
@@ -567,9 +576,32 @@ public class MediaCaptureService {
      * Take a photo for VPS and upload it directly to VPS server
      * This is for debugging purposes only
      */
-    public void takeDebugVpsPhotoAndUpload() {
-        Log.d(TAG, "DEBUG: Taking photo for VPS debug upload");
+    public void takeDebugVpsPhotoAndUpload(VpsCoordinateCallback vpsCallback) {
+        Log.d(TAG, "DEBUG: Returning dummy VPS coordinates");
 
+        // Generate a dummy request ID
+//        String requestId = "debug_vps_" + System.currentTimeMillis();
+//
+//        // Return dummy coordinates
+//        if (vpsCallback != null) {
+//            // Dummy position (x, y, z)
+//            float x = 1.0f;
+//            float y = 2.0f;
+//            float z = 3.0f;
+//
+//            // Dummy orientation (quaternion)
+//            float qx = 0.0f;
+//            float qy = 0.0f;
+//            float qz = 0.0f;
+//            float qw = 1.0f;
+//
+//            // Dummy confidence
+//            float confidence = 0.95f;
+//
+//            vpsCallback.onVpsCoordinates(requestId, x, y, z, qx, qy, qz, qw, confidence);
+//        }
+
+        // Original implementation commented out
         // Generate a timestamp for the photo filename
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
         String photoFilePath = mContext.getExternalFilesDir(null) + File.separator + "DEBUG_VPS_" + timeStamp + ".jpg";
@@ -597,7 +629,7 @@ public class MediaCaptureService {
                             }
 
                             // Upload the photo to VPS debug server
-                            uploadPhotoToVpsServer(filePath, requestId);
+                            uploadPhotoToVpsServer(filePath, requestId, vpsCallback);
                         }
 
                         @Override
@@ -666,7 +698,7 @@ public class MediaCaptureService {
      * DEBUG FUNCTION: Upload photo to VPS server at the specified debug URL
      * This is for debugging purposes only.
      */
-    private void uploadPhotoToVpsServer(String photoFilePath, String requestId) {
+    private void uploadPhotoToVpsServer(String photoFilePath, String requestId, VpsCoordinateCallback vpsCallback) {
         // Upload the photo to the VPS server
         new Thread(() -> {
             try {
@@ -776,9 +808,9 @@ public class MediaCaptureService {
                     Log.d(TAG, String.format("DEBUG: VPS pose - Orientation (quat): (%.2f, %.2f, %.2f, %.2f)", qx, qy, qz, qw));
                     Log.d(TAG, String.format("DEBUG: VPS pose - Confidence: %.2f", confidence));
 
-                    // TODO: You could do something with this pose information here
-                    // For example, display it on the glasses or send it to another application
-
+                    if (vpsCallback != null) {
+                        vpsCallback.onVpsCoordinates(requestId, x, y, z, qx, qy, qz, qw, confidence);
+                    }
                 } catch (JSONException e) {
                     Log.e(TAG, "DEBUG: Error parsing VPS pose data: " + e.getMessage());
                 }

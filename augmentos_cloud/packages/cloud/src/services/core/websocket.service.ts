@@ -1324,6 +1324,18 @@ export class WebSocketService {
           break;
         }
 
+        // Cache VPS coordinates for dashboard and TPAs
+        case GlassesToCloudMessageType.VPS_COORDINATES: {
+          try {
+            console.log("🔥🔥🔥: Received VPS coordinates from glasses:", message);
+            subscriptionService.cacheVpsCoordinates(userSession.sessionId, message);
+          } catch (error) {
+            userSession.logger.error(error, `[websocket.service]: Error caching VPS coordinates`);
+          }
+          this.broadcastToTpa(userSession.sessionId, message.type as any, message as any);
+          break;
+        }
+
         case GlassesToCloudMessageType.CALENDAR_EVENT: {
           const calendarEvent = message as CalendarEvent;
           userSession.logger.info('Calendar event:', calendarEvent);
@@ -1731,6 +1743,11 @@ export class WebSocketService {
                 !subscriptionService.hasSubscription(userSessionId, message.packageName, StreamType.LOCATION_UPDATE) &&
                 subMessage.subscriptions.includes(StreamType.LOCATION_UPDATE);
 
+              // Check if the app is newly subscribing to VPS coordinates
+              const isNewVpsCoordinatesSubscription =
+                !subscriptionService.hasSubscription(userSessionId, message.packageName, StreamType.VPS_COORDINATES) &&
+                subMessage.subscriptions.includes(StreamType.VPS_COORDINATES);
+
               // Update subscriptions (async)
               await subscriptionService.updateSubscriptions(
                 userSessionId,
@@ -1820,6 +1837,36 @@ export class WebSocketService {
                       sessionId: tpaSessionId,
                       streamType: StreamType.LOCATION_UPDATE,
                       data: locationUpdate,
+                      timestamp: new Date()
+                    };
+                    tpaWs.send(JSON.stringify(dataStream));
+                  }
+                }
+              }
+
+              // Send cached VPS coordinates if app just subscribed to VPS_COORDINATES
+              if (isNewVpsCoordinatesSubscription) {
+                console.log("🔥🔥🔥: isNewVpsCoordinatesSubscription:", isNewVpsCoordinatesSubscription);
+                // TODO: Implement getLastVpsCoordinates in subscriptionService if not present
+                const lastVpsCoordinates = subscriptionService.getLastVpsCoordinates?.(userSessionId);
+                if (lastVpsCoordinates) {
+                  userSession.logger.info(`Sending cached VPS coordinates to newly subscribed app ${message.packageName}`);
+                  const tpaSessionId = `${userSessionId}-${message.packageName}`;
+                  const tpaWs = userSession.appConnections.get(message.packageName);
+
+                  if (tpaWs && tpaWs.readyState === WebSocket.OPEN) {
+                    const vpsCoordinatesUpdate = {
+                      ...lastVpsCoordinates,
+                      type: GlassesToCloudMessageType.VPS_COORDINATES,
+                      sessionId: tpaSessionId,
+                      timestamp: new Date()
+                    };
+
+                    const dataStream: DataStream = {
+                      type: CloudToTpaMessageType.DATA_STREAM,
+                      sessionId: tpaSessionId,
+                      streamType: StreamType.VPS_COORDINATES,
+                      data: vpsCoordinatesUpdate,
                       timestamp: new Date()
                     };
                     tpaWs.send(JSON.stringify(dataStream));
