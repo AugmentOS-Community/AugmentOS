@@ -32,6 +32,8 @@ import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.Glass
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.GlassesWifiScanResultEvent;
 //import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SmartGlassesBatteryEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.GlassesWifiStatusChange;
+import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.KeepAliveAckEvent;
+import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.RtmpStreamStatusEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.SmartGlassesDevice;
 import com.augmentos.augmentos_core.smarterglassesmanager.utils.SmartGlassesConnectionState;
 
@@ -234,9 +236,15 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
             bluetoothScanner.stopScan(scanCallback);
             isScanning = false;
             Log.d(TAG, "BLE scan stopped");
-            EventBus.getDefault().post(new GlassesBluetoothSearchStopEvent(smartGlassesDevice.deviceModelName));
+            
+            // Post event only if we haven't been destroyed
+            if (smartGlassesDevice != null) {
+                EventBus.getDefault().post(new GlassesBluetoothSearchStopEvent(smartGlassesDevice.deviceModelName));
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error stopping BLE scan", e);
+            // Ensure isScanning is false even if stop failed
+            isScanning = false;
         }
     }
     
@@ -246,6 +254,12 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
     private final ScanCallback scanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
+            // Check if the object has been destroyed to prevent NPE
+            if (context == null || isKilled) {
+                Log.d(TAG, "Ignoring scan result - object destroyed or killed");
+                return;
+            }
+            
             if (result.getDevice() == null || result.getDevice().getName() == null) {
                 return;
             }
@@ -438,6 +452,7 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
                     isConnected = false;
                     isConnecting = false;
                     connectedDevice = null;
+                    glassesReady = false; // Reset ready state on disconnect
                     connectionEvent(SmartGlassesConnectionState.DISCONNECTED);
 
                     handler.removeCallbacks(processSendQueueRunnable);
@@ -1127,6 +1142,18 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
         String type = json.optString("type", "");
         
         switch (type) {
+            case "rtmp_stream_status":
+                // Process RTMP streaming status update from ASG client
+                Log.d(TAG, "Received RTMP status update from glasses: " + json.toString());
+
+                // Convert rtmp_status to rtmp_stream_status for cloud compatibility
+                //JSONObject rtmpStatusMsg = new JSONObject(json.toString());
+                //rtmpStatusMsg.put("type", "rtmp_stream_status");
+
+                // Forward via EventBus for cloud communication (consistent with battery/WiFi)
+                EventBus.getDefault().post(new RtmpStreamStatusEvent(json));
+                break;
+                
             case "battery_status":
                 // Process battery status
                 int level = json.optInt("level", batteryLevel);
@@ -1227,6 +1254,9 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
                 // Glasses SOC has booted and is ready for communication
                 Log.d(TAG, "🎉 Received glasses_ready message - SOC is booted and ready!");
                 
+                // Set the ready flag to stop any future readiness checks
+                glassesReady = true;
+                
                 // Stop the readiness check loop since we got confirmation
                 stopReadinessCheckLoop();
                 
@@ -1243,6 +1273,14 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
                 // Finally, mark the connection as fully established
                 Log.d(TAG, "✅ Glasses connection is now fully established!");
                 connectionEvent(SmartGlassesConnectionState.CONNECTED);
+                break;
+                
+            case "keep_alive_ack":
+                // Process keep-alive ACK from ASG client
+                Log.d(TAG, "Received keep-alive ACK from glasses: " + json.toString());
+                
+                // Forward via EventBus for cloud communication (consistent with other message types)
+                EventBus.getDefault().post(new KeepAliveAckEvent(json));
                 break;
                 
             default:
@@ -1469,14 +1507,49 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
     }
     
     @Override
-    public void requestVideoStream() {
-        Log.d(TAG, "Requesting video stream");
+    public void requestRtmpStreamStart(JSONObject message) {
+    //    try {
+            JSONObject json = message;
+            json.remove("timestamp");
+            //String rtmpUrl=json.getString("rtmpUrl");
+            //Log.d(TAG, "Requesting RTMP stream to URL: " + rtmpUrl);
+            sendJson(json);
+//            json.put("type", "start_rtmp_stream");
+//            json.put("rtmpUrl", rtmpUrl);
+//
+//            // Add parameters if provided
+//            if (parameters != null) {
+//                // Just pass the parameters object directly
+//                json.put("parameters", parameters);
+//            }
+//
+//            sendJson(json);
+//        } catch (JSONException e) {
+//            Log.e(TAG, "Error creating RTMP stream request JSON", e);
+//        }
+    }
+    
+    @Override
+    public void stopRtmpStream() {
+        Log.d(TAG, "Requesting to stop RTMP stream");
         try {
             JSONObject json = new JSONObject();
-            json.put("type", "start_video_stream");
+            json.put("type", "stop_rtmp_stream");
+            
             sendJson(json);
         } catch (JSONException e) {
-            Log.e(TAG, "Error creating video stream request JSON", e);
+            Log.e(TAG, "Error creating RTMP stream stop JSON", e);
+        }
+    }
+    
+    @Override
+    public void sendRtmpStreamKeepAlive(JSONObject message) {
+        Log.d(TAG, "Sending RTMP stream keep alive");
+        try {
+            // Forward the keep alive message directly to the glasses
+            sendJson(message);
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending RTMP stream keep alive", e);
         }
     }
     
@@ -1514,6 +1587,7 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
     private static final int READINESS_CHECK_INTERVAL_MS = 2500; // every 2.5 seconds
     private Runnable readinessCheckRunnable;
     private int readinessCheckCounter = 0;
+    private boolean glassesReady = false; // Track if glasses have confirmed they're ready
 
     /**
      * Starts the glasses SOC readiness check loop
@@ -1524,15 +1598,16 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
         // Stop any existing readiness check
         stopReadinessCheckLoop();
         
-        // Reset counter
+        // Reset counter and ready flag
         readinessCheckCounter = 0;
+        glassesReady = false;
         
         Log.d(TAG, "🔄 Starting glasses SOC readiness check loop");
         
         readinessCheckRunnable = new Runnable() {
             @Override
             public void run() {
-                if (isConnected && !isKilled) {
+                if (isConnected && !isKilled && !glassesReady) {
                     readinessCheckCounter++;
                     
                     Log.d(TAG, "🔄 Readiness check #" + readinessCheckCounter + ": waiting for glasses SOC to boot");
@@ -1549,8 +1624,13 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
                         Log.e(TAG, "Error creating phone_ready message", e);
                     }
                     
-                    // Schedule next check
-                    handler.postDelayed(this, READINESS_CHECK_INTERVAL_MS);
+                    // Schedule next check only if glasses are still not ready
+                    if (!glassesReady) {
+                        handler.postDelayed(this, READINESS_CHECK_INTERVAL_MS);
+                    }
+                } else {
+                    Log.d(TAG, "🔄 Readiness check loop stopping - connected: " + isConnected + 
+                          ", killed: " + isKilled + ", glassesReady: " + glassesReady);
                 }
             }
         };
@@ -1609,8 +1689,10 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
         
         // Reset state variables
         reconnectAttempts = 0;
+        glassesReady = false;
         
-        context = null;
+        // Note: We don't null context here to prevent race conditions with BLE callbacks
+        // The isKilled flag above serves as our destruction indicator
         smartGlassesDevice = null;
         dataObservable = null;
         

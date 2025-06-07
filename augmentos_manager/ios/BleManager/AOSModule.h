@@ -8,12 +8,12 @@
 #ifndef AOSModule_h
 #define AOSModule_h
 
-
 #import <Foundation/Foundation.h>
 #import <React/RCTBridgeModule.h>
 #import <React/RCTEventEmitter.h>
 
-@interface AOSModule : NSObject <RCTBridgeModule>
+//@interface AOSModule : NSObject <RCTBridgeModule>
+@interface AOSModule : RCTEventEmitter
 
 - (void)setup:(RCTResponseSenderBlock)successCallback errorCallback:(RCTResponseSenderBlock)errorCallback;
 
@@ -36,9 +36,10 @@
 
 - (void)getBatteryStatus:(RCTPromiseResolveBlock)resolve :(RCTPromiseRejectBlock)reject;
 
++ (void)emitEvent:(NSString *)eventName body:(id)body;
+
 // Add support for events
 - (NSArray<NSString *> *)supportedEvents;
 
 @end
-
 #endif /* AOSModule_h */

@@ -132,10 +132,13 @@ export class NotificationSummaryAgent implements Agent {
         if (notification.timestamp && typeof notification.timestamp === "number") {
           // Convert from ms to a readable UTC string.
           notification.timestamp = new Date(notification.timestamp)
-            .toISOString()
-            .replace("T", " ")
-            .substring(0, 19);
+            .toISOString();
         }
+        // Clean title, content, and text fields of emojis and non-ASCII characters
+        const clean = (str: string) => typeof str === 'string' ? str.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u200d\uFE0F]|[^\x00-\x7F]/gu, '') : str;
+        notification.title = clean(notification.title);
+        notification.content = clean(notification.content);
+        notification.text = clean(notification.text);
         return notification;
       });
 

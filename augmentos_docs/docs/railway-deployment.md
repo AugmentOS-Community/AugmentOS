@@ -177,10 +177,10 @@ Congratulations! Your AugmentOS app is now running in the cloud. Here's what you
 
 ### Explore Advanced Features
 
-- **[Events](events)**: Handle user interactions and sensor data
-- **[Settings](settings)**: Add configurable options for users
-- **[AI Tools](tools)**: Integrate with Mira AI for natural language interactions
-- **[Webview Authentication](webview-auth-overview)**: Build rich web interfaces
+- **[Events](/events)**: Handle user interactions and sensor data
+- **[Settings](/settings)**: Add configurable options for users
+- **[AI Tools](/tools)**: Integrate with Mira AI for natural language interactions
+- **[Webview Authentication](/webview-auth-overview)**: Build rich web interfaces
 
 ### Get Help
 

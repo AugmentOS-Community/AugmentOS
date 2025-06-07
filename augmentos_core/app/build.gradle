@@ -18,7 +18,7 @@ if (envFile.exists()) {
 
 android {
     namespace 'com.augmentos.augmentos_core'
-    compileSdk 33
+    compileSdk 34
 
     buildFeatures {
         aidl = true
@@ -28,7 +28,7 @@ android {
         namespace "com.augmentos.augmentos_core"
 
         minSdk 28
-        targetSdk 33
+        targetSdk 34
         versionCode 1
         versionName "1.0"
 
@@ -123,7 +123,7 @@ dependencies {
 //    implementation 'com.google.mlkit:text-recognition-korean:16.0.0'
 
     // To convert Chinese to Pinyin
-    implementation 'com.belerweb:pinyin4j:2.5.0'
+    //implementation 'com.belerweb:pinyin4j:2.5.0'
     implementation 'com.huaban:jieba-analysis:1.0.2'
 
     implementation 'io.reactivex.rxjava3:rxjava:3.0.0'

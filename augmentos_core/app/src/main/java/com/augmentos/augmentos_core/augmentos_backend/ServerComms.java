@@ -1,7 +1,6 @@
 package com.augmentos.augmentos_core.augmentos_backend;
 
 import android.content.Context;
-import android.os.Environment;
 import android.util.Log;
 
 import com.augmentos.augmentos_core.BuildConfig;
@@ -474,6 +473,26 @@ public class ServerComms {
         }
     }
 
+    public void sendRtmpStreamStatus(JSONObject statusMessage) {
+        try {
+            // Send the status message directly since it's already in the correct format
+            wsManager.sendText(statusMessage.toString());
+            Log.d(TAG, "Sent RTMP stream status: " + statusMessage.toString());
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending RTMP stream status", e);
+        }
+    }
+
+    public void sendKeepAliveAck(JSONObject ackMessage) {
+        try {
+            // Send the ACK message directly since it's already in the correct format
+            wsManager.sendText(ackMessage.toString());
+            Log.d(TAG, "Sent keep-alive ACK: " + ackMessage.toString());
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending keep-alive ACK", e);
+        }
+    }
+
 
     public void sendPhoneBatteryUpdate(int level, boolean charging, Integer timeRemaining) {
         try {
@@ -670,13 +689,28 @@ public class ServerComms {
                 }
                 break;
                 
-            case "video_stream_request":
-                String videoAppId = msg.optString("appId");
-                Log.d(TAG, "Received video_stream_request, appId: " + videoAppId);
-                if (serverCommsCallback != null && !videoAppId.isEmpty()) {
-                    serverCommsCallback.onVideoStreamRequest(videoAppId);
+            case "start_rtmp_stream":
+                String rtmpUrl = msg.optString("rtmpUrl", "");
+                if (serverCommsCallback != null && !rtmpUrl.isEmpty()) {
+                    serverCommsCallback.onRtmpStreamStartRequest(msg);
                 } else {
-                    Log.e(TAG, "Invalid video stream request: missing appId");
+                    Log.e(TAG, "Invalid RTMP stream request: missing rtmpUrl or callback");
+                }
+                break;
+                
+            case "stop_rtmp_stream":
+                Log.d(TAG, "Received STOP_RTMP_STREAM");
+                
+                if (serverCommsCallback != null) {
+                    serverCommsCallback.onRtmpStreamStop();
+                }
+                break;
+                
+            case "keep_rtmp_stream_alive":
+                Log.d(TAG, "Received KEEP_RTMP_STREAM_ALIVE: " + msg.toString());
+                
+                if (serverCommsCallback != null) {
+                    serverCommsCallback.onRtmpStreamKeepAlive(msg);
                 }
                 break;
 

@@ -8,11 +8,10 @@ import android.util.Log;
 import com.augmentos.augmentoslib.events.GlassesTapOutputEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SmartGlassesConnectionEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.hci.AudioProcessingCallback;
-import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.SmartGlassesFontSize;
-import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.SmartGlassesModes;
 import com.augmentos.augmentos_core.smarterglassesmanager.utils.SmartGlassesConnectionState;
 
 import org.greenrobot.eventbus.EventBus;
+import org.json.JSONObject;
 
 public abstract class SmartGlassesCommunicator {
     //basic glasses utils/settings
@@ -172,13 +171,34 @@ public abstract class SmartGlassesCommunicator {
     }
     
     /**
-     * Requests the smart glasses to start a video stream
+     * Requests the smart glasses to start an RTMP stream
      * Default implementation does nothing - specific communicators should override
      * 
+     * @param parameters Optional parameters for the stream
      */
-    public void requestVideoStream() {
+    public void requestRtmpStreamStart(JSONObject parameters) {
         // Default implementation does nothing
-        Log.d("SmartGlassesCommunicator", "Video stream request not implemented for this device");
+        Log.d("SmartGlassesCommunicator", "RTMP stream request not implemented for this device");
+    }
+    
+    /**
+     * Requests the smart glasses to stop the current RTMP stream
+     * Default implementation does nothing - specific communicators should override
+     */
+    public void stopRtmpStream() {
+        // Default implementation does nothing
+        Log.d("SmartGlassesCommunicator", "RTMP stream stop not implemented for this device");
+    }
+    
+    /**
+     * Sends a keep alive message for the current RTMP stream
+     * Default implementation does nothing - specific communicators should override
+     * 
+     * @param message The keep alive message with streamId, ackId, and timestamp
+     */
+    public void sendRtmpStreamKeepAlive(JSONObject message) {
+        // Default implementation does nothing
+        Log.d("SmartGlassesCommunicator", "RTMP stream keep alive not implemented for this device");
     }
     
     /**

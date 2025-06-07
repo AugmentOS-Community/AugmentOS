@@ -2,6 +2,9 @@ import BackendServerComms from '../backend_comms/BackendServerComms';
 import { AppStoreItem } from '../components/types.ts';
 import { GET_APP_STORE_DATA_ENDPOINT } from '../consts';
 
+
+const backendServerComms = BackendServerComms.getInstance();
+
 /**
  * A utility function that fetches the app store data and returns a Promise.
  *
@@ -20,7 +23,7 @@ export const fetchAppStoreData = async (): Promise<AppStoreItem[]> => {
         };
 
         try {
-            BackendServerComms.getInstance()
+            backendServerComms
                 .restRequest(GET_APP_STORE_DATA_ENDPOINT, null, callback)
                 .catch((error: any) => {
                     console.error('Error during restRequest:', error);

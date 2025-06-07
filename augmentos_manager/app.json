@@ -1,4 +1,91 @@
 {
   "name": "AugmentOS",
-  "displayName": "AugmentOS"
+  "displayName": "AugmentOS",
+  "expo": {
+    "name": "AugmentOS",
+    "slug": "AugmentOS",
+    "scheme": "com.augmentos",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/app-icons/ic_launcher.png",
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "newArchEnabled": true,
+    "jsEngine": "hermes",
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "icon": "./assets/app-icons/ic_launcher.png",
+      "package": "com.augmentos.augmentos",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icons/ic_launcher_foreground.png",
+        "backgroundImage": "./assets/app-icons/ic_launcher.png"
+      },
+      "allowBackup": false,
+      "permissions": []
+    },
+    "ios": {
+      "icon": "./assets/app-icons/ic_launcher.png",
+      "supportsTablet": true,
+      "bundleIdentifier": "com.augmentos.augmentos",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to your camera to capture images.",
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone to record audio.",
+        "NSBluetoothAlwaysUsageDescription": "This app needs access to your Bluetooth to connect to your glasses.",
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to provide you with locatioin based information.",
+        "NSBluetoothPeripheralUsageDescription": "This app needs access to your Bluetooth to connect to your glasses.",
+        "NSCalendarsUsageDescription": "This app needs access to your calendar to provide you with calendar based information.",
+        "NSCalendarsFullAccessUsageDescription": "This app needs access to your calendar to provide you with calendar based information.",
+        "NSCalendarUsageDescription": "This app needs access to your calendar to provide you with calendar based information on your glasses.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to provide you with photo based information on your glasses.",
+        "NSUserNotificationUsageDescription": "This app needs access to your notifications to provide you with notifications.",
+        "UIBackgroundModes": ["bluetooth-central"]
+      }
+    },
+    "plugins": [
+      "expo-localization",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash/splash.png",
+          "imageWidth": 300,
+          "resizeMode": "contain",
+          "backgroundColor": "#191015"
+        }
+      ],
+      "expo-router",
+      [
+        "react-native-permissions",
+        {
+          "iosPermissions": [
+            "Camera",
+            "Microphone",
+            "Calendars",
+            "Bluetooth",
+            "LocationAccuracy",
+            "LocationWhenInUse",
+            "Notifications",
+            "PhotoLibrary"
+          ]
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "recordAudioAndroid": true
+        }
+      ]
+    ],
+    "experiments": {
+      "tsconfigPaths": true,
+      "typedRoutes": true
+    }
+  },
+  "ignite": {
+    "version": "10.4.0"
+  }
 }

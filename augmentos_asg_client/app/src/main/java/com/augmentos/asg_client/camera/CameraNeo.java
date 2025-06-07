@@ -34,6 +34,8 @@ import android.util.Size;
 import android.view.Surface;
 import android.view.WindowManager;
 
+import com.augmentos.asg_client.utils.WakeLockManager;
+
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.lifecycle.LifecycleService;
@@ -75,9 +77,7 @@ public class CameraNeo extends LifecycleService {
     private String cameraId;
     private boolean isK900Device = false;
     
-    // Screen wake variables
-    private PowerManager.WakeLock wakeLock;
-    private PowerManager.WakeLock fullWakeLock;
+    // Screen wake is now handled by WakeLockManager
     
     // Target photo resolution (4:3 landscape orientation)
     private static final int TARGET_WIDTH = 1440;
@@ -902,21 +902,8 @@ public class CameraNeo extends LifecycleService {
      * Release wake locks to avoid battery drain
      */
     private void releaseWakeLocks() {
-        try {
-            if (wakeLock != null && wakeLock.isHeld()) {
-                wakeLock.release();
-                wakeLock = null;
-                Log.d(TAG, "Partial wake lock released");
-            }
-            
-            if (fullWakeLock != null && fullWakeLock.isHeld()) {
-                fullWakeLock.release();
-                fullWakeLock = null;
-                Log.d(TAG, "Full wake lock released");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error releasing wake locks", e);
-        }
+        // Use the WakeLockManager to release all wake locks
+        WakeLockManager.releaseAllWakeLocks();
     }
 
     /**
@@ -924,36 +911,8 @@ public class CameraNeo extends LifecycleService {
      */
     private void wakeUpScreen() {
         Log.d(TAG, "Waking up screen for camera access");
-
-        try {
-            // Create a partial wake lock to keep CPU running
-            PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-            if (powerManager == null) {
-                Log.e(TAG, "PowerManager is null");
-                return;
-            }
-
-            // First create a partial wake lock to keep the CPU running
-            if (wakeLock == null) {
-                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
-                        "AugmentOS:CameraWakeLock");
-                wakeLock.acquire(60000); // 60-second timeout
-            }
-
-            // Then create a full wake lock to turn the screen on
-            if (fullWakeLock == null) {
-                fullWakeLock = powerManager.newWakeLock(
-                        PowerManager.FULL_WAKE_LOCK |
-                                PowerManager.ACQUIRE_CAUSES_WAKEUP |
-                                PowerManager.ON_AFTER_RELEASE,
-                        "AugmentOS:CameraFullWakeLock");
-                fullWakeLock.acquire(5000); // 5-second timeout
-            }
-
-            Log.d(TAG, "Screen wake locks acquired");
-        } catch (Exception e) {
-            Log.e(TAG, "Error acquiring wake locks", e);
-        }
+        // Use the WakeLockManager to acquire both CPU and screen wake locks
+        WakeLockManager.acquireFullWakeLock(this);
     }
 
     // -----------------------------------------------------------------------------------

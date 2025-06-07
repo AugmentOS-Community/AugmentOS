@@ -1,12 +1,11 @@
 // src/messages/cloud-to-tpa.ts
 
 import { BaseMessage } from './base';
-import { CloudToTpaMessageType } from '../message-types';
+import { CloudToTpaMessageType, GlassesToCloudMessageType } from '../message-types';
 import { StreamType } from '../streams';
-import { AppSettings, TpaConfig } from '../models';
-import { LocationUpdate, CalendarEvent } from './glasses-to-cloud';
+import { AppSettings, TpaConfig, PermissionType } from '../models';
+import { LocationUpdate, CalendarEvent, RtmpStreamStatus, PhotoResponse } from './glasses-to-cloud';
 import { DashboardMode } from '../dashboard';
-import { TpaSession } from 'src/tpa/session';
 
 //===========================================================
 // Responses
@@ -28,6 +27,34 @@ export interface TpaConnectionError extends BaseMessage {
   type: CloudToTpaMessageType.CONNECTION_ERROR;
   message: string;
   code?: string;
+}
+
+//===========================================================
+// Permission messages
+//===========================================================
+
+/**
+ * Permission error detail for a specific stream
+ */
+export interface PermissionErrorDetail {
+  /** The stream type that was rejected */
+  stream: string;
+  /** The permission required for this stream */
+  requiredPermission: string;
+  /** Detailed message explaining the rejection */
+  message: string;
+}
+
+/**
+ * Permission error notification to TPA
+ * Sent when subscriptions are rejected due to missing permissions
+ */
+export interface PermissionError extends BaseMessage {
+  type: CloudToTpaMessageType.PERMISSION_ERROR;
+  /** General error message */
+  message: string;
+  /** Array of details for each rejected stream */
+  details: PermissionErrorDetail[];
 }
 
 //===========================================================
@@ -167,47 +194,13 @@ export interface CustomMessage extends BaseMessage {
 }
 
 /**
- * Photo response to TPA
- */
-export interface PhotoResponse extends BaseMessage {
-  type: CloudToTpaMessageType.PHOTO_RESPONSE;
-  photoUrl: string;
-  requestId: string;
-}
-
-/**
- * Video stream response to TPA
- */
-export interface VideoStreamResponse extends BaseMessage {
-  type: CloudToTpaMessageType.VIDEO_STREAM_RESPONSE;
-  streamUrl: string;
-  appId: string;
-}
-
-/**
- * Standard connection error (for server compatibility)
- */
-export interface StandardConnectionError extends BaseMessage {
-  type: 'connection_error';
-  message: string;
-}
-
-/**
- * Custom message for general-purpose communication (cloud to TPA)
- */
-export interface CustomMessage extends BaseMessage {
-  type: CloudToTpaMessageType.CUSTOM_MESSAGE;
-  action: string;  // Identifies the specific action/message type
-  payload: any;    // Custom data payload
-}
-
-/**
  * Union type for all messages from cloud to TPAs
  */
 export type CloudToTpaMessage =
   | TpaConnectionAck
   | TpaConnectionError
   | StandardConnectionError
+  | DataStream
   | AppStopped
   | SettingsUpdate
   | TranscriptionData
@@ -217,12 +210,19 @@ export type CloudToTpaMessage =
   | CalendarEvent
   | DataStream
   | PhotoResponse
-  | VideoStreamResponse
   | DashboardModeChanged
   | DashboardAlwaysOnChanged
   | CustomMessage
   | AugmentosSettingsUpdate
-  | CustomMessage;
+  // New TPA-to-TPA communication response messages
+  | TpaMessageReceived
+  | TpaUserJoined
+  | TpaUserLeft
+  | TpaRoomUpdated
+  | TpaDirectMessageResponse
+  | RtmpStreamStatus
+  | PhotoResponse
+  | PermissionError;
 
 //===========================================================
 // Type guards
@@ -233,7 +233,7 @@ export function isTpaConnectionAck(message: CloudToTpaMessage): message is TpaCo
 }
 
 export function isTpaConnectionError(message: CloudToTpaMessage): message is TpaConnectionError {
-  return message.type === CloudToTpaMessageType.CONNECTION_ERROR || message.type === 'connection_error';
+  return message.type === CloudToTpaMessageType.CONNECTION_ERROR || (message as any).type === 'connection_error';
 }
 
 export function isAppStopped(message: CloudToTpaMessage): message is AppStopped {
@@ -245,19 +245,11 @@ export function isSettingsUpdate(message: CloudToTpaMessage): message is Setting
 }
 
 export function isDataStream(message: CloudToTpaMessage): message is DataStream {
-  return message.type === CloudToTpaMessageType.DATA_STREAM || message.type === StreamType.AUDIO_CHUNK;
+  return message.type === CloudToTpaMessageType.DATA_STREAM;
 }
 
 export function isAudioChunk(message: CloudToTpaMessage): message is AudioChunk {
   return message.type === StreamType.AUDIO_CHUNK;
-}
-
-export function isPhotoResponse(message: CloudToTpaMessage): message is PhotoResponse {
-  return message.type === CloudToTpaMessageType.PHOTO_RESPONSE;
-}
-
-export function isVideoStreamResponse(message: CloudToTpaMessage): message is VideoStreamResponse {
-  return message.type === CloudToTpaMessageType.VIDEO_STREAM_RESPONSE;
 }
 
 export function isDashboardModeChanged(message: CloudToTpaMessage): message is DashboardModeChanged {
@@ -266,4 +258,90 @@ export function isDashboardModeChanged(message: CloudToTpaMessage): message is D
 
 export function isDashboardAlwaysOnChanged(message: CloudToTpaMessage): message is DashboardAlwaysOnChanged {
   return message.type === CloudToTpaMessageType.DASHBOARD_ALWAYS_ON_CHANGED;
+}
+
+export function isRtmpStreamStatus(message: CloudToTpaMessage): message is RtmpStreamStatus {
+  return message.type === GlassesToCloudMessageType.RTMP_STREAM_STATUS;
+}
+
+export function isPhotoResponse(message: CloudToTpaMessage): message is PhotoResponse {
+  return message.type === GlassesToCloudMessageType.PHOTO_RESPONSE;
+}
+
+// New type guards for TPA-to-TPA communication
+export function isTpaMessageReceived(message: CloudToTpaMessage): message is TpaMessageReceived {
+  return message.type === CloudToTpaMessageType.TPA_MESSAGE_RECEIVED;
+}
+
+export function isTpaUserJoined(message: CloudToTpaMessage): message is TpaUserJoined {
+  return message.type === CloudToTpaMessageType.TPA_USER_JOINED;
+}
+
+export function isTpaUserLeft(message: CloudToTpaMessage): message is TpaUserLeft {
+  return message.type === CloudToTpaMessageType.TPA_USER_LEFT;
+}
+
+//===========================================================
+// TPA-to-TPA Communication Response Messages
+//===========================================================
+
+/**
+ * Message received from another TPA user
+ */
+export interface TpaMessageReceived extends BaseMessage {
+  type: CloudToTpaMessageType.TPA_MESSAGE_RECEIVED;
+  payload: any;
+  messageId: string;
+  senderUserId: string;
+  senderSessionId: string;
+  roomId?: string;
+}
+
+/**
+ * Notification that a user joined the TPA
+ */
+export interface TpaUserJoined extends BaseMessage {
+  type: CloudToTpaMessageType.TPA_USER_JOINED;
+  userId: string;
+  sessionId: string;
+  joinedAt: Date;
+  userProfile?: any;
+  roomId?: string;
+}
+
+/**
+ * Notification that a user left the TPA
+ */
+export interface TpaUserLeft extends BaseMessage {
+  type: CloudToTpaMessageType.TPA_USER_LEFT;
+  userId: string;
+  sessionId: string;
+  leftAt: Date;
+  roomId?: string;
+}
+
+/**
+ * Room status update (members, config changes, etc.)
+ */
+export interface TpaRoomUpdated extends BaseMessage {
+  type: CloudToTpaMessageType.TPA_ROOM_UPDATED;
+  roomId: string;
+  updateType: 'user_joined' | 'user_left' | 'config_changed' | 'room_closed';
+  roomData: {
+    memberCount: number;
+    maxUsers?: number;
+    isPrivate?: boolean;
+    metadata?: any;
+  };
+}
+
+/**
+ * Response to a direct message attempt
+ */
+export interface TpaDirectMessageResponse extends BaseMessage {
+  type: CloudToTpaMessageType.TPA_DIRECT_MESSAGE_RESPONSE;
+  messageId: string;
+  success: boolean;
+  error?: string;
+  targetUserId: string;
 }

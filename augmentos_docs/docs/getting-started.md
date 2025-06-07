@@ -271,7 +271,7 @@ Congratulations! You've built your first AugmentOS app. To continue your journey
 
 ### Subscribe to Events
 
-You can listen for [transcriptions, translations, settings updates, and other events](events) within the onSession function.
+You can listen for [transcriptions, translations, settings updates, and other events](/events) within the onSession function.
 
 - Subscribe to real-time data streams like speech transcription, location updates, and button presses
 - Use convenient methods like `session.events.onTranscription()` and `session.events.onButtonPress()`
@@ -280,7 +280,7 @@ You can listen for [transcriptions, translations, settings updates, and other ev
 
 ### Configure Settings
 
-Configure [Settings](settings) to let users customize your app's behavior through persistent, synchronized preferences.
+Configure [Settings](/settings) to let users customize your app's behavior through persistent, synchronized preferences.
 
 - Define settings in the developer console (toggles, text inputs, dropdowns, sliders)
 - Access setting values in your app with `session.settings.get()`
@@ -289,7 +289,7 @@ Configure [Settings](settings) to let users customize your app's behavior throug
 
 ### Implement AI Tools
 
-Implement [AI Tools](tools) to extend Mira AI's capabilities with custom functions that users can invoke through natural language.
+Implement [AI Tools](/tools) to extend Mira AI's capabilities with custom functions that users can invoke through natural language.
 
 - Your app can respond to tool calls from Mira AI via `onToolCall` in your code
 - Define custom tools that can be called by AugmentOS through natural language
@@ -299,17 +299,17 @@ Implement [AI Tools](tools) to extend Mira AI's capabilities with custom functio
 
 ### Build a Webview
 
-Build [Authenticated Webviews](webview-auth-overview) to provide web interfaces with automatic AugmentOS user authentication.
+Build [Webviews](/webview-auth-overview) to provide web interfaces with automatic AugmentOS user authentication.
 
 - Access the webview at `/webview`
 - The current AugmentOS user is available at `request.authUserId`
 - Create a web interface that allows users to interact with your app's functionality
 
 ### Learn More
-- Explore [Core Concepts](core-concepts) to understand sessions, events, and the app lifecycle
-- Dive into [Events](events) to handle user interactions and sensor data
-- Master [Layouts](layouts) to create rich visual experiences on smart glasses
-- Learn about [Permissions](permissions) to understand how to access device data securely
+- Explore [Core Concepts](/core-concepts) to understand sessions, events, and the app lifecycle
+- Dive into [Events](/events) to handle user interactions and sensor data
+- Master [Layouts](/layouts) to create rich visual experiences on smart glasses
+- Learn about [Permissions](/permissions) to understand how to access device data securely
 
 ### Get Help
 - Join our [Discord community](https://discord.gg/5ukNvkEAqT) for support

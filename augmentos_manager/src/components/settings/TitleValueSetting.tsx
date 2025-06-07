@@ -1,17 +1,18 @@
+import { useAppTheme } from '@/utils/useAppTheme';
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 type TitleValueSettingProps = {
   label: string;
   value: string;
-  theme: any;
 };
 
-const TitleValueSetting: React.FC<TitleValueSettingProps> = ({ label, value, theme }) => {
+const TitleValueSetting: React.FC<TitleValueSettingProps> = ({ label, value }) => {
+  const {theme, themed} = useAppTheme()
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: theme.textColor }]}>{label}</Text>
-      <Text style={[styles.value, { color: theme.textColor }]}>{value}</Text>
+      <Text style={[styles.label, { color: theme.colors.text }]}>{label}</Text>
+      <Text style={[styles.value, { color: theme.colors.text }]}>{value}</Text>
     </View>
   );
 };

@@ -1,5 +1,6 @@
 // SelectWithSearchSetting.tsx
-import React, {useState, useMemo} from 'react';
+import {useAppTheme} from "@/utils/useAppTheme"
+import React, {useState, useMemo} from "react"
 import {
   View,
   Text,
@@ -12,52 +13,61 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
-} from 'react-native';
+} from "react-native"
+import {Icon} from "@/components/ignite"
+import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
+import SearchIcon from "../../../assets/icons/component/SearchIcon"
 
 type Option = {
-  label: string;
-  value: string;
-};
+  label: string
+  value: string
+}
 
 type Theme = {
-  backgroundColor: string;
-  textColor: string;
-};
+  backgroundColor: string
+  textColor: string
+}
 
 type SelectWithSearchSettingProps = {
-  label: string;
-  value: string;
-  options: Option[];
-  onValueChange: (value: string) => void;
-  theme: Theme;
-};
+  label: string
+  value: string
+  options: Option[]
+  onValueChange: (value: string) => void
+}
 
-const SelectWithSearchSetting: React.FC<SelectWithSearchSettingProps> = ({
-  label,
-  value,
-  options,
-  onValueChange,
-  theme,
-}) => {
-  const [search, setSearch] = useState('');
-  const [modalVisible, setModalVisible] = useState(false);
+const SelectWithSearchSetting: React.FC<SelectWithSearchSettingProps> = ({label, value, options, onValueChange}) => {
+  const {theme, themed} = useAppTheme()
+
+  const [search, setSearch] = useState("")
+  const [modalVisible, setModalVisible] = useState(false)
 
   // Filter options based on search
   const filteredOptions = useMemo(() => {
-    if (!search) return options;
-    return options.filter(option => option.label.toLowerCase().includes(search.toLowerCase()));
-  }, [search, options]);
+    if (!search) return options
+    return options.filter(option => option.label.toLowerCase().includes(search.toLowerCase()))
+  }, [search, options])
 
-  const selectedLabel = options.find(option => option.value === value)?.label || 'Select...';
+  const selectedLabel = options.find(option => option.value === value)?.label || "Select..."
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, {color: theme.textColor}]}>{label}</Text>
       <TouchableOpacity
-        style={[styles.selectField, {borderColor: theme.textColor, backgroundColor: theme.backgroundColor}]}
+        style={[
+          styles.selectRow, 
+          {
+            backgroundColor: theme.colors.background, 
+            borderRadius: theme.spacing.sm,
+            paddingVertical: theme.spacing.md,
+            paddingHorizontal: theme.spacing.lg - theme.spacing.xxs, // 20px
+          }
+        ]}
         onPress={() => setModalVisible(true)}
         activeOpacity={0.7}>
-        <Text style={[styles.selectText, {color: theme.textColor}]}>{selectedLabel}</Text>
+        <Text style={[styles.label, {color: theme.colors.text}]}>{label}</Text>
+        <View style={styles.valueContainer}>
+          <Text style={[styles.selectText, {color: theme.colors.textDim}]}>{selectedLabel}</Text>
+          <Icon icon="caretRight" size={16} color={theme.colors.textDim} style={styles.chevron} />
+        </View>
       </TouchableOpacity>
       <Modal
         visible={modalVisible}
@@ -65,29 +75,64 @@ const SelectWithSearchSetting: React.FC<SelectWithSearchSettingProps> = ({
         transparent={true}
         style={{flex: 1}}
         onRequestClose={() => setModalVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{flex: 1}}>
           <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
             <View style={styles.modalOverlay}>
-              <View style={[styles.modalContent, {backgroundColor: theme.backgroundColor}]}>
-                <TouchableWithoutFeedback>
-                  <View style={styles.modalHeader}>
-                    <Text style={[styles.modalLabel, {color: theme.textColor}]}>{label}</Text>
-                    <TouchableOpacity hitSlop={10} onPress={() => setModalVisible(false)}>
-                      <Text style={[styles.closeButton, {color: theme.textColor, marginRight: -8}]}>✕</Text>
-                    </TouchableOpacity>
+              <TouchableWithoutFeedback>
+                <View style={[
+                  styles.modalContent, 
+                  {
+                    backgroundColor: theme.colors.background, 
+                    borderColor: theme.colors.border, 
+                    borderWidth: 1,
+                    padding: theme.spacing.md,
+                    borderRadius: theme.spacing.sm,
+                    shadowRadius: theme.spacing.xs,
+                  }
+                ]}>
+                  <View style={[styles.modalHeader, {marginBottom: theme.spacing.sm}]}>
+                    <Text style={[styles.modalLabel, {color: theme.colors.textDim}]}>{label}</Text>
                   </View>
-                </TouchableWithoutFeedback>
-                <TextInput
-                  style={[
-                    styles.searchInput,
-                    {color: theme.textColor, borderColor: theme.textColor, backgroundColor: theme.backgroundColor},
-                  ]}
-                  placeholder="Search..."
-                  placeholderTextColor={theme.textColor + '99'}
-                  value={search}
-                  onChangeText={setSearch}
-                  autoFocus
-                />
+                <View style={[
+                  styles.searchContainer,
+                  {
+                    borderColor: theme.colors.inputBorderHighlight,
+                    backgroundColor: theme.colors.background,
+                    borderRadius: 100, // Pill shape
+                    marginBottom: theme.spacing.sm,
+                    paddingHorizontal: theme.spacing.sm,
+                    paddingVertical: theme.spacing.xs,
+                  }
+                ]}>
+                  <SearchIcon size={20} color={theme.colors.textDim} />
+                  <TextInput
+                    style={[
+                      styles.searchInput,
+                      {
+                        color: theme.colors.text,
+                        flex: 1,
+                        marginHorizontal: theme.spacing.xs,
+                      },
+                    ]}
+                    placeholder="Search"
+                    placeholderTextColor={theme.colors.textDim}
+                    value={search}
+                    onChangeText={setSearch}
+                    autoFocus
+                  />
+                  {search.length > 0 && (
+                    <TouchableOpacity 
+                      onPress={() => setSearch("")}
+                      hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                    >
+                      <MaterialCommunityIcons 
+                        name="close" 
+                        size={20} 
+                        color={theme.colors.textDim} 
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <FlatList
                   data={filteredOptions}
                   keyExtractor={item => item.value}
@@ -95,107 +140,118 @@ const SelectWithSearchSetting: React.FC<SelectWithSearchSettingProps> = ({
                   style={styles.optionsList}
                   renderItem={({item}) => (
                     <Pressable
-                      style={[styles.optionItem, item.value === value && {backgroundColor: theme.textColor + '22'}]}
+                      style={[
+                        styles.optionItem,
+                        {
+                          paddingVertical: theme.spacing.sm,
+                          paddingRight: theme.spacing.md,
+                        }
+                      ]}
                       onPress={() => {
-                        onValueChange(item.value);
-                        setModalVisible(false);
-                        setSearch('');
+                        onValueChange(item.value)
+                        setModalVisible(false)
+                        setSearch("")
                       }}>
-                      <Text style={[styles.optionText, {color: theme.textColor}]}>{item.label}</Text>
+                      <MaterialCommunityIcons
+                        name="check"
+                        size={24}
+                        color={item.value === value ? (theme.colors.checkmark || theme.colors.palette.primary300) : "transparent"}
+                      />
+                      <Text style={[styles.optionText, {color: theme.colors.text, flex: 1, marginLeft: theme.spacing.xs}]}>{item.label}</Text>
                     </Pressable>
                   )}
                   ListEmptyComponent={
-                    <Text style={[styles.emptyText, {color: theme.textColor + '99'}]}>No options found</Text>
+                    <Text style={[styles.emptyText, {color: theme.colors.text + "99"}]}>No options found</Text>
                   }
                 />
-              </View>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </Modal>
     </View>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 10,
-    width: '100%',
+    width: "100%",
+  },
+  selectRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   label: {
-    fontSize: 16,
-    marginBottom: 5,
+    fontSize: 15,
+    flex: 1,
   },
-  selectField: {
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    justifyContent: 'center',
-    marginBottom: 2,
+  valueContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   selectText: {
-    fontSize: 16,
-    opacity: 0.9,
+    fontSize: 15,
+  },
+  chevron: {
+    marginLeft: 2,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.25)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
-    width: '90%',
-    maxHeight: '70%',
-    borderRadius: 10,
-    padding: 16,
-    shadowColor: '#000',
+    width: "90%",
+    maxHeight: "70%",
+    shadowColor: "#000",
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.2,
-    shadowRadius: 8,
     elevation: 5,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   modalLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: "normal",
   },
   closeButton: {
     fontSize: 22,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  searchInput: {
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    marginBottom: 10,
+  },
+  searchInput: {
     fontSize: 16,
+    paddingVertical: 0, // Remove default padding
   },
   optionsList: {
     flexGrow: 0,
     maxHeight: 250,
   },
   optionItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 5,
-    marginBottom: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingLeft: 0,
   },
   optionText: {
     fontSize: 16,
   },
   emptyText: {
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 20,
     fontSize: 15,
   },
-});
+})
 
-export default SelectWithSearchSetting;
+export default SelectWithSearchSetting

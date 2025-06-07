@@ -1,39 +1,23 @@
-const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
-const path = require('path');
+/* eslint-env node */
+// Learn more https://docs.expo.io/guides/customizing-metro
+const { getDefaultConfig } = require("expo/metro-config")
 
-/**
- * Metro configuration
- * https://reactnative.dev/docs/metro
- *
- * @type {import('metro-config').MetroConfig}
- */
+/** @type {import('expo/metro-config').MetroConfig} */
+const config = getDefaultConfig(__dirname)
 
-const config = {
-  transformer: {
-    babelTransformerPath: require.resolve('react-native-svg-transformer'),
+config.transformer.getTransformOptions = async () => ({
+  transform: {
+    // Inline requires are very useful for deferring loading of large dependencies/components.
+    // For example, we use it in app.tsx to conditionally load Reactotron.
+    // However, this comes with some gotchas.
+    // Read more here: https://reactnative.dev/docs/optimizing-javascript-loading
+    // And here: https://github.com/expo/expo/issues/27279#issuecomment-1971610698
+    inlineRequires: true,
   },
-  resolver: {
-    assetExts: getDefaultConfig(__dirname).resolver.assetExts.filter(
-      (ext) => ext !== 'svg'
-    ),
-    sourceExts: [
-      ...getDefaultConfig(__dirname).resolver.sourceExts,
-      'svg',
-    ],
-    extraNodeModules: {
-      // This ensures Supabase packages are resolved correctly
-      '@supabase/storage-js': path.resolve(__dirname, 'node_modules/@supabase/storage-js'),
-    },
-    // Define aliases for problematic files
-    resolverMainFields: ['react-native', 'browser', 'main'],
-    blacklistRE: [
-      /node_modules\/.*\/node_modules\/react-native\/.*/,
-    ],
-  },
-  // Override the watchFolders to include node_modules
-  watchFolders: [
-    path.resolve(__dirname, 'node_modules/@supabase/storage-js'),
-  ],
-};
+})
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+// This helps support certain popular third-party libraries
+// such as Firebase that use the extension cjs.
+config.resolver.sourceExts.push("cjs")
+
+module.exports = config

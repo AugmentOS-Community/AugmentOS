@@ -35,8 +35,9 @@ export enum StreamType {
   // Video streams
   VIDEO = 'video',
   PHOTO_REQUEST = 'photo_request',
-  VIDEO_STREAM_REQUEST = 'video_stream_request',
-  
+  PHOTO_RESPONSE = 'photo_response',
+  RTMP_STREAM_STATUS = "rtmp_stream_status",
+
   // Special subscription types
   ALL = 'all',
   WILDCARD = '*',
@@ -95,13 +96,14 @@ export const STREAM_CATEGORIES: Record<StreamType, StreamCategory> = {
   
   [StreamType.VIDEO]: StreamCategory.HARDWARE,
   [StreamType.PHOTO_REQUEST]: StreamCategory.HARDWARE,
-  [StreamType.VIDEO_STREAM_REQUEST]: StreamCategory.HARDWARE,
+  [StreamType.PHOTO_RESPONSE]: StreamCategory.HARDWARE,
+  [StreamType.RTMP_STREAM_STATUS]: StreamCategory.HARDWARE,
   
   [StreamType.ALL]: StreamCategory.SYSTEM,
   [StreamType.WILDCARD]: StreamCategory.SYSTEM,
   
   [StreamType.AUGMENTOS_SETTINGS_UPDATE_REQUEST]: StreamCategory.SYSTEM,
-  [StreamType.CUSTOM_MESSAGE]: StreamCategory.SYSTEM
+  [StreamType.CUSTOM_MESSAGE]: StreamCategory.SYSTEM,
 };
 
 /**
@@ -134,7 +136,7 @@ export interface LanguageStreamInfo {
  * Simple validation for language code format: xx-XX (e.g., en-US)
  */
 export function isValidLanguageCode(code: string): boolean {
-  return /^[a-z]{2}-[A-Z]{2}$/.test(code);
+  return /^[a-z]{2,3}-[A-Z]{2}$/.test(code);
 }
 
 /**
