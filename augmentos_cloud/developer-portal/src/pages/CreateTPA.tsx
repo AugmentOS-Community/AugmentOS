@@ -21,8 +21,9 @@ import PermissionsForm from '../components/forms/PermissionsForm';
 import { Permission } from '@/types/tpa';
 import { useAuth } from '../hooks/useAuth';
 import { useOrganization } from '@/context/OrganizationContext';
+import { TPA } from '@/types/tpa';
 import ImageUpload from '../components/forms/ImageUpload';
-// import { TPA } from '@/types/tpa';
+
 // Import the public email provider list
 // import publicEmailDomains from 'email-providers/all.json';
 
@@ -35,10 +36,11 @@ const CreateTPA: React.FC = () => {
   const { currentOrg } = useOrganization();
 
   // Form state
-  const [formData, setFormData] = useState<Partial<AppI>>({
+  const [formData, setFormData] = useState<Partial<TPA>>({
     packageName: '',
     name: '',
     description: '',
+    onboardingInstructions: '',
     publicUrl: '',
     logoURL: '',
     webviewURL: '',
@@ -67,7 +69,7 @@ const CreateTPA: React.FC = () => {
   // Handle form changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target as any;
-    setFormData((prev: Partial<AppI>) => ({
+    setFormData((prev: Partial<TPA>) => ({
       ...prev,
       [name]: value
     }));
@@ -217,10 +219,11 @@ const CreateTPA: React.FC = () => {
 
     try {
       // Prepare TPA data
-      const tpaData: Partial<AppI> = {
+      const tpaData: Partial<TPA> = {
         packageName: formData.packageName,
         name: formData.name,
         description: formData.description,
+        onboardingInstructions: formData.onboardingInstructions,
         publicUrl: formData.publicUrl,
         logoURL: formData.logoURL,
         webviewURL: formData.webviewURL,
@@ -387,6 +390,26 @@ const CreateTPA: React.FC = () => {
                 )}
                 <p className="text-xs text-gray-500">
                   Provide a clear, concise description of your application's functionality.
+                </p>
+              </div>
+
+              {/* Onboarding Instructions Section */}
+              <div className="space-y-2">
+                <Label htmlFor="onboardingInstructions">
+                  Onboarding Instructions
+                </Label>
+                <Textarea
+                  id="onboardingInstructions"
+                  name="onboardingInstructions"
+                  value={formData.onboardingInstructions || ''}
+                  onChange={handleChange}
+                  placeholder="Describe the onboarding steps for your app (optional)"
+                  rows={3}
+                  maxLength={2000}
+                  style={{ maxHeight: '8em', overflowY: 'auto' }}
+                />
+                <p className="text-xs text-gray-500">
+                  (Optional) Provide onboarding instructions that will be shown to users the first time they launch your app. Maximum 5 lines.
                 </p>
               </div>
 

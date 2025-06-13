@@ -51,6 +51,7 @@ export interface AppResponse extends AppI {
   reviewedBy?: string;
   reviewedAt?: string;
   sharedWithEmails?: string[];
+  onboardingInstructions?: string;
 }
 
 // API key response

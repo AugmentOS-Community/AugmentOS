@@ -41,6 +41,7 @@ import userDataRoutes from './routes/user-data.routes';
 import permissionsRoutes from './routes/permissions.routes';
 import accountRoutes from './routes/account.routes';
 import organizationRoutes from './routes/organization.routes';
+import onboardingRoutes from './routes/onboarding.routes';
 import tpaCommunicationRoutes from './routes/tpa-communication.routes';
 
 import path from 'path';
@@ -172,6 +173,7 @@ app.use(transcriptRoutes);
 app.use(audioRoutes);
 app.use('/api/user-data', userDataRoutes);
 app.use('/api/account', accountRoutes);
+app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/tpa-communication', tpaCommunicationRoutes);
 
 // Health check endpoint
