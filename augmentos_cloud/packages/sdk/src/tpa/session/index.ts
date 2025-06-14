@@ -8,6 +8,7 @@ import { WebSocket } from 'ws';
 import { EventManager, EventData, StreamDataTypes } from './events';
 import { LayoutManager } from './layouts';
 import { SettingsManager } from './settings';
+import { StreamingModule } from './modules/streaming';
 import { ResourceTracker } from '../../utils/resource-tracker';
 import {
   // Message types
@@ -34,7 +35,6 @@ import {
   isDataStream,
   isAppStopped,
   isSettingsUpdate,
-  isPhotoResponse,
   isDashboardModeChanged,
   isDashboardAlwaysOnChanged,
 
@@ -46,12 +46,20 @@ import {
   AudioChunk,
   isAudioChunk,
   createTranscriptionStream,
-  createTranslationStream
+  createTranslationStream,
+  GlassesToCloudMessage,
+  PhotoResponse,
+  VpsCoordinates,
+  PhotoTaken
 } from '../../types';
 import { DashboardAPI } from '../../types/dashboard';
 import { AugmentosSettingsUpdate } from '../../types/messages/cloud-to-tpa';
 import { Logger } from 'pino';
 import { TpaServer } from '../server';
+import EventEmitter from 'events';
+
+// Import the cloud-to-tpa specific type guards
+import { isPhotoResponse, isRtmpStreamStatus } from '../../types/messages/cloud-to-tpa';
 
 /**
  * ⚙️ Configuration options for TPA Session
@@ -83,6 +91,15 @@ export interface TpaSessionConfig {
   userId: string; // user ID for tracking sessions (email of the user).
   tpaServer: TpaServer; // Optional TPA server instance for advanced features
 }
+
+// List of event types that should never be subscribed to as streams
+const TPA_TO_TPA_EVENT_TYPES = [
+  'tpa_message_received',
+  'tpa_user_joined',
+  'tpa_user_left',
+  'tpa_room_updated',
+  'tpa_direct_message_response'
+];
 
 /**
  * 🚀 TPA Session Implementation
@@ -136,6 +153,16 @@ export class TpaSession {
     resolve: (url: string) => void,
     reject: (reason: any) => void
   }>();
+  /** Pending user discovery requests waiting for responses */
+  private pendingUserDiscoveryRequests = new Map<string, {
+    resolve: (userList: any) => void,
+    reject: (reason: any) => void
+  }>();
+  /** Pending direct message requests waiting for responses */
+  private pendingDirectMessages = new Map<string, {
+    resolve: (success: boolean) => void,
+    reject: (reason: any) => void
+  }>();
 
   /** 🎮 Event management interface */
   public readonly events: EventManager;
@@ -145,10 +172,15 @@ export class TpaSession {
   public readonly settings: SettingsManager;
   /** 📊 Dashboard management interface */
   public readonly dashboard: DashboardAPI;
+  /** 📹 RTMP streaming interface */
+  public readonly streaming: StreamingModule;
 
   public readonly tpaServer: TpaServer;
   public readonly logger: Logger;
   public readonly userId: string;
+
+  /** Dedicated emitter for TPA-to-TPA events */
+  private tpaEvents = new EventEmitter();
 
   constructor(private config: TpaSessionConfig) {
     // Set defaults and merge with provided config
@@ -175,7 +207,7 @@ export class TpaSession {
           this.logger.warn(`⚠️ [${this.config.packageName}] Fixed malformed WebSocket URL: ${fixedUrl}`);
         }
       } catch (error) {
-        this.logger.error({ error, config: this.config }, `⚠️ [${this.config.packageName}] Invalid WebSocket URL format: ${this.config.augmentOSWebsocketUrl}`);
+        this.logger.error(error, `⚠️ [${this.config.packageName}] Invalid WebSocket URL format: ${this.config.augmentOSWebsocketUrl}`);
       }
     }
 
@@ -192,7 +224,7 @@ export class TpaSession {
           this.logger.error({ config: this.config }, `⚠️ [${this.config.packageName}] Invalid WebSocket URL protocol: ${url.protocol}. Should be ws: or wss:`);
         }
       } catch (error) {
-        this.logger.error({ error, config: this.config }, `⚠️ [${this.config.packageName}] Invalid WebSocket URL format: ${this.config.augmentOSWebsocketUrl}`);
+        this.logger.error(error, `⚠️ [${this.config.packageName}] Invalid WebSocket URL format: ${this.config.augmentOSWebsocketUrl}`);
       }
     }
 
@@ -232,6 +264,14 @@ export class TpaSession {
     // Import DashboardManager dynamically to avoid circular dependency
     const { DashboardManager } = require('./dashboard');
     this.dashboard = new DashboardManager(this, this.send.bind(this));
+
+    // Initialize streaming module with session reference
+    this.streaming = new StreamingModule(
+      this.config.packageName,
+      this.sessionId || 'unknown-session-id',
+      this.send.bind(this),
+      this // Pass session reference
+    );
   }
 
   /**
@@ -313,6 +353,26 @@ export class TpaSession {
     return this.events.onPhoneNotifications(handler);
   }
 
+  /**
+   * 📡 Listen for VPS coordinates updates
+   * @param handler - Function to handle VPS coordinates
+   * @returns Cleanup function to remove the handler
+   */
+  onVpsCoordinates(handler: (data: VpsCoordinates) => void): () => void {
+    this.subscribe(StreamType.VPS_COORDINATES);
+    return this.events.onVpsCoordinates(handler);
+  }
+
+  /**
+   * 📸 Listen for photo responses
+   * @param handler - Function to handle photo response data
+   * @returns Cleanup function to remove the handler
+   */
+  onPhotoTaken(handler: (data: PhotoTaken) => void): () => void {
+    this.subscribe(StreamType.PHOTO_TAKEN);
+    return this.events.onPhotoTaken(handler);
+  }
+
   // =====================================
   // 📡 Pub/Sub Interface
   // =====================================
@@ -322,6 +382,10 @@ export class TpaSession {
    * @param type - Type of event to subscribe to
    */
   subscribe(type: ExtendedStreamType): void {
+    if (TPA_TO_TPA_EVENT_TYPES.includes(type as string)) {
+      this.logger.warn(`[TpaSession] Attempted to subscribe to TPA-to-TPA event type '${type}', which is not a valid stream. Use the event handler (e.g., onTpaMessage) instead.`);
+      return;
+    }
     this.subscriptions.add(type);
     if (this.ws?.readyState === 1) {
       this.updateSubscriptions();
@@ -333,6 +397,10 @@ export class TpaSession {
    * @param type - Type of event to unsubscribe from
    */
   unsubscribe(type: ExtendedStreamType): void {
+    if (TPA_TO_TPA_EVENT_TYPES.includes(type as string)) {
+      this.logger.warn(`[TpaSession] Attempted to unsubscribe from TPA-to-TPA event type '${type}', which is not a valid stream.`);
+      return;
+    }
     this.subscriptions.delete(type);
     if (this.ws?.readyState === 1) {
       this.updateSubscriptions();
@@ -367,6 +435,11 @@ export class TpaSession {
       this.config.augmentOSWebsocketUrl || '',
       sessionId
     );
+
+    // Update the sessionId in the streaming module
+    if (this.streaming) {
+      Object.defineProperty(this.streaming, 'sessionId', { value: sessionId });
+    }
 
     return new Promise((resolve, reject) => {
       try {
@@ -403,7 +476,7 @@ export class TpaSession {
           try {
             this.sendConnectionInit();
           } catch (error: unknown) {
-            this.logger.error({ error }, 'Error during connection initialization');
+            this.logger.error(error, 'Error during connection initialization');
             const errorMessage = error instanceof Error ? error.message : String(error);
             this.events.emit('error', new Error(`Connection initialization failed: ${errorMessage}`));
             reject(error);
@@ -438,7 +511,7 @@ export class TpaSession {
                 this.handleMessage(audioChunk);
                 return;
               } catch (error: unknown) {
-                this.logger.error({ error }, 'Error processing binary message:');
+                this.logger.error(error, 'Error processing binary message:');
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 this.events.emit('error', new Error(`Failed to process binary message: ${errorMessage}`));
                 return;
@@ -480,7 +553,7 @@ export class TpaSession {
               // Process the validated message
               this.handleMessage(message);
             } catch (error: unknown) {
-              this.logger.error({ error }, 'JSON parsing error');
+              this.logger.error(error, 'JSON parsing error');
               const errorMessage = error instanceof Error ? error.message : String(error);
               this.events.emit('error', new Error(`Failed to parse JSON message: ${errorMessage}`));
             }
@@ -545,13 +618,13 @@ export class TpaSession {
 
         // Connection error handler
         const errorHandler = (error: Error) => {
-          this.logger.error({ error }, 'WebSocket error');
+          this.logger.error(error, 'WebSocket error');
           this.events.emit('error', error);
         };
 
         // Enhanced error handler with detailed logging
         this.ws.on('error', (error: Error) => {
-          this.logger.error({ error, config: this.config }, `⛔️⛔️⛔️ [${this.config.packageName}] WebSocket connection error: ${error.message}`);
+          this.logger.error(error, `⛔️⛔️⛔️ [${this.config.packageName}] WebSocket connection error: ${error.message}`);
 
           // Try to provide more context
           const errMsg = error.message || '';
@@ -601,7 +674,7 @@ export class TpaSession {
         this.resources.track(timeoutCleanup);
 
       } catch (error: unknown) {
-        this.logger.error({ error }, 'Connection setup error');
+        this.logger.error(error, 'Connection setup error');
         const errorMessage = error instanceof Error ? error.message : String(error);
         reject(new Error(`Failed to setup connection: ${errorMessage}`));
       }
@@ -723,7 +796,7 @@ export class TpaSession {
         this.updateSubscriptions();
       }
     } catch (error: unknown) {
-      this.logger.error({ error }, 'Error updating subscriptions from settings');
+      this.logger.error(error, 'Error updating subscriptions from settings');
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.events.emit('error', new Error(`Failed to update subscriptions: ${errorMessage}`));
     }
@@ -785,6 +858,23 @@ export class TpaSession {
    */
   getServerUrl(): string | undefined {
     return this.config.augmentOSWebsocketUrl;
+  }
+
+  getHttpsServerUrl(): string | undefined {
+    if (!this.config.augmentOSWebsocketUrl) {
+      return undefined;
+    }
+    return TpaSession.convertToHttps(this.config.augmentOSWebsocketUrl);
+  }
+
+  private static convertToHttps(rawUrl: string | undefined): string {
+    if (!rawUrl) return '';
+    // Remove ws:// or wss://
+    let url = rawUrl.replace(/^wss?:\/\//, '');
+    // Remove trailing /tpa-ws
+    url = url.replace(/\/tpa-ws$/, '');
+    // Prepend https://
+    return `https://${url}`;
   }
 
   /**
@@ -909,11 +999,20 @@ export class TpaSession {
         }
         else if (isPhotoResponse(message)) {
           // Handle photo response by resolving the pending promise
-          if (this.pendingPhotoRequests.has(message.requestId)) {
-            const { resolve } = this.pendingPhotoRequests.get(message.requestId)!;
-            resolve(message.photoUrl);
-            this.pendingPhotoRequests.delete(message.requestId);
+          if (this.pendingPhotoRequests.has((message as PhotoResponse).requestId)) {
+            const { resolve } = this.pendingPhotoRequests.get((message as PhotoResponse).requestId)!;
+            resolve((message as PhotoResponse).photoUrl);
+            this.pendingPhotoRequests.delete((message as PhotoResponse).requestId);
           }
+        }
+        else if (isRtmpStreamStatus(message)) {
+          // Emit as a standard stream event if subscribed
+          if (this.subscriptions.has(StreamType.RTMP_STREAM_STATUS)) {
+            this.events.emit(StreamType.RTMP_STREAM_STATUS, message);
+          }
+
+          // Update streaming module's internal state
+          this.streaming.updateStreamState(message);
         }
         else if (isSettingsUpdate(message)) {
           // Store previous settings to check for changes
@@ -972,7 +1071,7 @@ export class TpaSession {
               (this.dashboard.content as any).setCurrentMode(mode);
             }
           } catch (error) {
-            this.logger.error({ error }, 'Error handling dashboard mode change');
+            this.logger.error(error, 'Error handling dashboard mode change');
           }
         }
         // Handle always-on dashboard state changes
@@ -986,7 +1085,7 @@ export class TpaSession {
               (this.dashboard.content as any).setAlwaysOnEnabled(enabled);
             }
           } catch (error) {
-            this.logger.error({ error }, 'Error handling dashboard always-on change');
+            this.logger.error(error, 'Error handling dashboard always-on change');
           }
         }
         // Handle custom messages
@@ -994,14 +1093,26 @@ export class TpaSession {
           this.events.emit('custom_message', message);
           return;
         }
-        // Handle 'connection_error' as a specific case if cloud sends this string literal
-        else if ((message as any).type === 'connection_error') {
-          // Treat 'connection_error' (string literal) like TpaConnectionError
-          // This handles cases where the cloud might send the type as a direct string
-          // instead of the enum's 'tpa_connection_error' value.
-          const errorMessage = (message as any).message || 'Unknown connection error (type: connection_error)';
-          this.logger.warn(`Received 'connection_error' type directly. Consider aligning cloud to send 'tpa_connection_error'. Message: ${errorMessage}`);
-          this.events.emit('error', new Error(errorMessage));
+        // Handle TPA-to-TPA communication messages
+        else if ((message as any).type === 'tpa_message_received') {
+          this.tpaEvents.emit('tpa_message_received', message as any);
+        }
+        else if ((message as any).type === 'tpa_user_joined') {
+          this.tpaEvents.emit('tpa_user_joined', message as any);
+        }
+        else if ((message as any).type === 'tpa_user_left') {
+          this.tpaEvents.emit('tpa_user_left', message as any);
+        }
+        else if ((message as any).type === 'tpa_room_updated') {
+          this.tpaEvents.emit('tpa_room_updated', message as any);
+        }
+        else if ((message as any).type === 'tpa_direct_message_response') {
+          const response = message as any;
+          if (response.messageId && this.pendingDirectMessages.has(response.messageId)) {
+            const { resolve } = this.pendingDirectMessages.get(response.messageId)!;
+            resolve(response.success);
+            this.pendingDirectMessages.delete(response.messageId);
+          }
         }
         else if (message.type === 'augmentos_settings_update') {
           const augmentosMsg = message as AugmentosSettingsUpdate;
@@ -1018,9 +1129,46 @@ export class TpaSession {
           this.logger.warn(`Received 'connection_error' type directly. Consider aligning cloud to send 'tpa_connection_error'. Message: ${errorMessage}`);
           this.events.emit('error', new Error(errorMessage));
         }
+        else if (message.type === 'permission_error') {
+          // Handle permission errors from cloud
+          this.logger.warn('Permission error received:', {
+            message: message.message,
+            details: message.details,
+            detailsCount: message.details?.length || 0,
+            rejectedStreams: message.details?.map(d => d.stream) || []
+          });
+
+          // Emit permission error event for application handling
+          this.events.emit('permission_error', {
+            message: message.message,
+            details: message.details,
+            timestamp: message.timestamp
+          });
+
+          // Optionally emit individual permission denied events for each stream
+          message.details?.forEach(detail => {
+            this.events.emit('permission_denied', {
+              stream: detail.stream,
+              requiredPermission: detail.requiredPermission,
+              message: detail.message
+            });
+          });
+        }
         // Handle unrecognized message types gracefully
         else {
-          this.logger.warn(`((())) Unrecognized message type: ${(message as any).type}`);
+          console.log(`Unrecognized message type: ${(message as any).type}. Full message details:`, {
+            messageType: (message as any).type,
+            fullMessage: message,
+            messageKeys: Object.keys(message || {}),
+            messageStringified: JSON.stringify(message, null, 2)
+          });
+          // Log all message object details for debugging
+          this.logger.warn(`Unrecognized message type: ${(message as any).type}. Full message details:`, {
+            messageType: (message as any).type,
+            fullMessage: message,
+            messageKeys: Object.keys(message || {}),
+            messageStringified: JSON.stringify(message, null, 2)
+          });
           this.events.emit('error', new Error(`Unrecognized message type: ${(message as any).type}`));
         }
       } catch (processingError: unknown) {
@@ -1031,7 +1179,7 @@ export class TpaSession {
       }
     } catch (error: unknown) {
       // Final safety net to ensure the TPA doesn't crash on any unexpected errors
-      this.logger.error({ error, message }, 'Unexpected error in message handler');
+      this.logger.error(error, 'Unexpected error in message handler');
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.events.emit('error', new Error(`Unexpected error in message handler: ${errorMessage}`));
     }
@@ -1090,7 +1238,7 @@ export class TpaSession {
       // Emit to subscribers
       this.events.emit(StreamType.AUDIO_CHUNK, audioChunk);
     } catch (error: unknown) {
-      this.logger.error({ error }, 'Error processing binary message');
+      this.logger.error(error, 'Error processing binary message');
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.events.emit('error', new Error(`Error processing binary message: ${errorMessage}`));
     }
@@ -1143,7 +1291,7 @@ export class TpaSession {
 
       return data;
     } catch (error: unknown) {
-      this.logger.error({ error }, `Error sanitizing ${streamType} data`);
+      this.logger.error(error, `Error sanitizing ${streamType} data`);
       // Return a safe empty object if something goes wrong
       return {};
     }
@@ -1224,7 +1372,7 @@ export class TpaSession {
       this.reconnectAttempts = 0;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error }, `❌ [${this.config.packageName}] Reconnection failed for user ${this.userId}`);
+      this.logger.error(error, `❌ [${this.config.packageName}] Reconnection failed for user ${this.userId}`);
       this.events.emit('error', new Error(`Reconnection failed: ${errorMessage}`));
 
       // Check if this was the last attempt
@@ -1289,7 +1437,7 @@ export class TpaSession {
       }
     } catch (error: unknown) {
       // Log the error and emit an event so TPA developers are aware
-      this.logger.error({ error }, 'Message send error');
+      this.logger.error(error , 'Message send error');
 
       // Ensure we always emit an Error object
       if (error instanceof Error) {
@@ -1301,5 +1449,242 @@ export class TpaSession {
       // Re-throw to maintain the original function behavior
       throw error;
     }
+  }
+
+  // =====================================
+  // 👥 TPA-to-TPA Communication Interface
+  // =====================================
+
+  /**
+   * 👥 Discover other users currently using the same TPA
+   * @param includeProfiles - Whether to include user profile information
+   * @returns Promise that resolves with list of active users
+   */
+  async discoverTpaUsers(domain: string, includeProfiles = false): Promise<any> {
+    // Use the domain argument as the base URL if provided
+    if (!domain) {
+      throw new Error('Domain (API base URL) is required for user discovery');
+    }
+    const url = `${domain}/api/tpa-communication/discover-users`;
+    // Use the user's core token for authentication
+    const tpaApiKey = this.config.apiKey; // This may need to be updated if you store the core token elsewhere
+
+    if (!tpaApiKey) {
+      throw new Error('Core token (apiKey) is required for user discovery');
+    }
+    const body = {
+      packageName: this.config.packageName,
+      userId: this.userId,
+      includeUserProfiles: includeProfiles
+    };
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${tpaApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to discover users: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    return await response.json();
+  }
+
+  /**
+   * 🔍 Check if a specific user is currently active
+   * @param userId - User ID to check for
+   * @returns Promise that resolves with boolean indicating if user is active
+   */
+  async isUserActive(userId: string): Promise<boolean> {
+    try {
+      const userList = await this.discoverTpaUsers('', false);
+      return userList.users.some((user: any) => user.userId === userId);
+    } catch (error) {
+      this.logger.error({ error, userId }, 'Error checking if user is active');
+      return false;
+    }
+  }
+
+  /**
+   * 📊 Get user count for this TPA
+   * @returns Promise that resolves with number of active users
+   */
+  async getUserCount(domain: string): Promise<number> {
+    try {
+      const userList = await this.discoverTpaUsers(domain, false);
+      return userList.totalUsers;
+    } catch (error) {
+      this.logger.error({ error }, 'Error getting user count');
+      return 0;
+    }
+  }
+
+  /**
+   * 📢 Send broadcast message to all users with same TPA active
+   * @param payload - Message payload to send
+   * @param roomId - Optional room ID for room-based messaging
+   * @returns Promise that resolves when message is sent
+   */
+  async broadcastToTpaUsers(payload: any, roomId?: string): Promise<void> {
+    try {
+      const messageId = this.generateMessageId();
+      
+      const message = {
+        type: 'tpa_broadcast_message',
+        packageName: this.config.packageName,
+        sessionId: this.sessionId!,
+        payload,
+        messageId,
+        senderUserId: this.userId,
+        timestamp: new Date()
+      };
+      
+      this.send(message as any);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to broadcast message: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * 📤 Send direct message to specific user
+   * @param targetUserId - User ID to send message to
+   * @param payload - Message payload to send
+   * @returns Promise that resolves with success status
+   */
+  async sendDirectMessage(targetUserId: string, payload: any): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      try {
+        const messageId = this.generateMessageId();
+        
+        // Store promise resolver
+        this.pendingDirectMessages.set(messageId, { resolve, reject });
+        
+        const message = {
+          type: 'tpa_direct_message',
+          packageName: this.config.packageName,
+          sessionId: this.sessionId!,
+          targetUserId,
+          payload,
+          messageId,
+          senderUserId: this.userId,
+          timestamp: new Date()
+        };
+        
+        this.send(message as any);
+
+        // Set timeout to avoid hanging promises
+        const timeoutMs = 15000; // 15 seconds
+        this.resources.setTimeout(() => {
+          if (this.pendingDirectMessages.has(messageId)) {
+            this.pendingDirectMessages.get(messageId)!.reject(new Error('Direct message timed out'));
+            this.pendingDirectMessages.delete(messageId);
+          }
+        }, timeoutMs);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        reject(new Error(`Failed to send direct message: ${errorMessage}`));
+      }
+    });
+  }
+
+  /**
+   * 🏠 Join a communication room for group messaging
+   * @param roomId - Room ID to join
+   * @param roomConfig - Optional room configuration
+   * @returns Promise that resolves when room is joined
+   */
+  async joinTpaRoom(roomId: string, roomConfig?: {
+    maxUsers?: number;
+    isPrivate?: boolean;
+    metadata?: any;
+  }): Promise<void> {
+    try {
+      const message = {
+        type: 'tpa_room_join',
+        packageName: this.config.packageName,
+        sessionId: this.sessionId!,
+        roomId,
+        roomConfig,
+        timestamp: new Date()
+      };
+      
+      this.send(message as any);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to join room: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * 🚪 Leave a communication room
+   * @param roomId - Room ID to leave
+   * @returns Promise that resolves when room is left
+   */
+  async leaveTpaRoom(roomId: string): Promise<void> {
+    try {
+      const message = {
+        type: 'tpa_room_leave',
+        packageName: this.config.packageName,
+        sessionId: this.sessionId!,
+        roomId,
+        timestamp: new Date()
+      };
+      
+      this.send(message as any);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to leave room: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * 📨 Listen for messages from other TPA users
+   * @param handler - Function to handle incoming messages
+   * @returns Cleanup function to remove the handler
+   */
+  onTpaMessage(handler: (message: any) => void): () => void {
+    this.tpaEvents.on('tpa_message_received', handler);
+    return () => this.tpaEvents.off('tpa_message_received', handler);
+  }
+
+  /**
+   * 👋 Listen for user join events
+   * @param handler - Function to handle user join events
+   * @returns Cleanup function to remove the handler
+   */
+  onTpaUserJoined(handler: (data: any) => void): () => void {
+    this.tpaEvents.on('tpa_user_joined', handler);
+    return () => this.tpaEvents.off('tpa_user_joined', handler);
+  }
+
+  /**
+   * 🚪 Listen for user leave events
+   * @param handler - Function to handle user leave events
+   * @returns Cleanup function to remove the handler
+   */
+  onTpaUserLeft(handler: (data: any) => void): () => void {
+    this.tpaEvents.on('tpa_user_left', handler);
+    return () => this.tpaEvents.off('tpa_user_left', handler);
+  }
+
+  /**
+   * 🏠 Listen for room update events
+   * @param handler - Function to handle room updates
+   * @returns Cleanup function to remove the handler
+   */
+  onTpaRoomUpdated(handler: (data: any) => void): () => void {
+    this.tpaEvents.on('tpa_room_updated', handler);
+    return () => this.tpaEvents.off('tpa_room_updated', handler);
+  }
+
+  /**
+   * 🔧 Generate unique message ID
+   * @returns Unique message identifier
+   */
+  private generateMessageId(): string {
+    return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   }
 }

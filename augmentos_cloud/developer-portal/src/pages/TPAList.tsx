@@ -21,6 +21,9 @@ const TPAList: React.FC = () => {
 
   // Fetch TPAs from API
   useEffect(() => {
+    // Debounce timer to prevent rapid re-fetches
+    let timeoutId: NodeJS.Timeout;
+
     const fetchTPAs = async () => {
       if (!isAuthenticated) return;
       if (!tokenReady) {
@@ -47,9 +50,16 @@ const TPAList: React.FC = () => {
     };
 
     if (!authLoading && !orgLoading) {
-      fetchTPAs();
+      // Debounce the fetch to prevent rapid re-fetches on focus changes
+      timeoutId = setTimeout(fetchTPAs, 100);
     }
-  }, [isAuthenticated, authLoading, tokenReady, currentOrg, orgLoading]);
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [isAuthenticated, authLoading, tokenReady, currentOrg?.id, orgLoading]);
 
   // Handle TPA deletion
   const handleTpaDeleted = (packageName: string) => {

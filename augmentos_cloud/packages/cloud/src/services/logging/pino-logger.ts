@@ -61,14 +61,14 @@ if (BETTERSTACK_SOURCE_TOKEN) {
 }
 
 // Add PostHog stream for warnings and errors
-streams.push({
-  stream: {
-    write: (line: string) => {
-      pinoPostHogTransport.write(line, () => { });
-    }
-  },
-  level: 'warn', // Only process warnings and errors
-});
+// streams.push({
+//   stream: {
+//     write: (line: string) => {
+//       pinoPostHogTransport.write(line, () => { });
+//     }
+//   },
+//   level: 'warn', // Only process warnings and errors
+// });
 
 // Create multistream
 const multistream = pino.multistream(streams);
@@ -87,24 +87,6 @@ const baseLoggerOptions: pino.LoggerOptions = {
 
 // Create the root logger with multiple streams
 export const logger = pino(baseLoggerOptions, multistream);
-
-/**
- * Track exceptions in PostHog
- * @param error The error object
- * @param context Additional context
- */
-export function trackException(error: Error, context: Record<string, any> = {}) {
-  if (posthog) {
-    const distinctId = context.userId || context.sessionId || 'system';
-
-    posthog.captureException({
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      ...context
-    }, distinctId, context);
-  }
-}
 
 // Flush logger on process exit
 // process.on('beforeExit', async () => {

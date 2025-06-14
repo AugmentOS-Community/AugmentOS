@@ -4,7 +4,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '@augmentos/utils';
-import sessionService from '../services/core/session.service';
+import sessionService from '../services/session/session.service';
 import jwt from 'jsonwebtoken';
 import photoRequestService, { PendingPhotoRequest } from '../services/core/photo-request.service';
 

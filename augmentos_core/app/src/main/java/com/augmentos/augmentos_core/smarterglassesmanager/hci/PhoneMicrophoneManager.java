@@ -19,6 +19,8 @@ import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
+import com.augmentos.augmentos_core.microphone.MicrophoneService;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -96,6 +98,12 @@ public class PhoneMicrophoneManager {
     
     // Handler for running operations on the main thread
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    
+    // FGS management - only needed when using phone microphone hardware
+    private boolean isMicrophoneServiceRunning = false;
+    private boolean isMicrophoneServiceStarting = false;
+    private long lastServiceStateChangeTime = 0;
+    private static final long SERVICE_STATE_CHANGE_DEBOUNCE_MS = 1000; // 1 second minimum between service state changes
     
     /**
      * Creates a new PhoneMicrophoneManager that handles dynamic switching between microphone modes.
@@ -231,6 +239,9 @@ public class PhoneMicrophoneManager {
         // Clean up existing instance
         cleanUpCurrentMic();
         
+        // Start microphone service for phone mic hardware access
+        startMicrophoneService();
+        
         // Create new microphone with SCO enabled
         try {
             Log.d(TAG, "Switching to SCO mode");
@@ -243,6 +254,7 @@ public class PhoneMicrophoneManager {
             scoRetries = 0; // Reset retry counter on success
         } catch (Exception e) {
             Log.e(TAG, "Failed to start SCO mode", e);
+            stopMicrophoneService(); // Stop service if mic creation failed
             attemptFallback();
         }
     }
@@ -268,6 +280,9 @@ public class PhoneMicrophoneManager {
         // Clean up existing instance
         cleanUpCurrentMic();
         
+        // Start microphone service for phone mic hardware access
+        startMicrophoneService();
+        
         try {
             Log.d(TAG, "Switching to normal phone microphone mode");
             // Create new microphone with SCO disabled
@@ -279,6 +294,7 @@ public class PhoneMicrophoneManager {
             notifyStatusChange();
         } catch (Exception e) {
             Log.e(TAG, "Failed to start normal mode", e);
+            stopMicrophoneService(); // Stop service if mic creation failed
             switchToGlassesMic(); // Try glasses mic as a last resort
         }
     }
@@ -303,6 +319,9 @@ public class PhoneMicrophoneManager {
         
         // Clean up existing instance
         cleanUpCurrentMic();
+        
+        // Stop microphone service - no phone mic hardware needed for glasses mic
+        stopMicrophoneService();
         
         try {
             Log.d(TAG, "Switching to glasses onboard microphone");
@@ -335,6 +354,9 @@ public class PhoneMicrophoneManager {
         
         // Stop any active recording
         cleanUpCurrentMic();
+        
+        // Stop microphone service - no mic hardware needed when paused
+        stopMicrophoneService();
         
         // Make sure all audio-related resources are released
         if (audioManager != null) {
@@ -415,6 +437,92 @@ public class PhoneMicrophoneManager {
             Log.d(TAG, "Unregistering our audio client ID: " + clientId);
             
             ourAudioClientIds.remove(Integer.valueOf(clientId));
+        }
+    }
+    
+    /**
+     * Starts the dedicated microphone foreground service when phone mic hardware is needed
+     */
+    private void startMicrophoneService() {
+        long now = System.currentTimeMillis();
+        
+        // Check if service is already running or starting
+        if (isMicrophoneServiceRunning || isMicrophoneServiceStarting) {
+            Log.d(TAG, "MicrophoneService already running/starting, skipping start");
+            return;
+        }
+        
+        // Debounce rapid service state changes
+        if (now - lastServiceStateChangeTime < SERVICE_STATE_CHANGE_DEBOUNCE_MS) {
+            Log.d(TAG, "Service state change too recent, delaying start");
+            mainHandler.postDelayed(this::startMicrophoneService, SERVICE_STATE_CHANGE_DEBOUNCE_MS);
+            return;
+        }
+        
+        try {
+            isMicrophoneServiceStarting = true;
+            lastServiceStateChangeTime = now;
+            
+            Intent intent = new Intent(context, MicrophoneService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent);
+            } else {
+                context.startService(intent);
+            }
+            
+            // Mark as running after a brief delay to allow startForeground() to complete
+            mainHandler.postDelayed(() -> {
+                isMicrophoneServiceRunning = true;
+                isMicrophoneServiceStarting = false;
+                Log.d(TAG, "MicrophoneService successfully started and running");
+            }, 200); // 200ms delay
+            
+            Log.d(TAG, "Started MicrophoneService for phone microphone access");
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting MicrophoneService", e);
+            isMicrophoneServiceStarting = false;
+        }
+    }
+    
+    /**
+     * Stops the dedicated microphone foreground service when phone mic hardware not needed
+     */
+    private void stopMicrophoneService() {
+        long now = System.currentTimeMillis();
+        
+        // Don't stop if not running or if currently starting
+        if (!isMicrophoneServiceRunning && !isMicrophoneServiceStarting) {
+            Log.d(TAG, "MicrophoneService not running, skipping stop");
+            return;
+        }
+        
+        // If service is starting, wait for it to complete before stopping
+        if (isMicrophoneServiceStarting) {
+            Log.d(TAG, "MicrophoneService is starting, delaying stop");
+            mainHandler.postDelayed(this::stopMicrophoneService, 300);
+            return;
+        }
+        
+        // Debounce rapid service state changes
+        if (now - lastServiceStateChangeTime < SERVICE_STATE_CHANGE_DEBOUNCE_MS) {
+            Log.d(TAG, "Service state change too recent, delaying stop");
+            mainHandler.postDelayed(this::stopMicrophoneService, SERVICE_STATE_CHANGE_DEBOUNCE_MS);
+            return;
+        }
+        
+        try {
+            lastServiceStateChangeTime = now;
+            
+            Intent intent = new Intent(context, MicrophoneService.class);
+            context.stopService(intent);
+            isMicrophoneServiceRunning = false;
+            isMicrophoneServiceStarting = false;
+            Log.d(TAG, "Stopped MicrophoneService - no phone microphone access needed");
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping MicrophoneService", e);
+            // Reset flags even on error to prevent stuck state
+            isMicrophoneServiceRunning = false;
+            isMicrophoneServiceStarting = false;
         }
     }
     
@@ -688,6 +796,13 @@ public class PhoneMicrophoneManager {
         Log.d(TAG, "Destroying PhoneMicrophoneManager");
         
         cleanUpCurrentMic();
+        
+        // Stop microphone service and reset all flags
+        stopMicrophoneService();
+        
+        // Force reset service flags to prevent stuck state
+        isMicrophoneServiceRunning = false;
+        isMicrophoneServiceStarting = false;
         
         // Unregister listeners
         if (phoneStateListener != null) {

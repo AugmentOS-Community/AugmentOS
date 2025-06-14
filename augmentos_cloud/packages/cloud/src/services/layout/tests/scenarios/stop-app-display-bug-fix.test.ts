@@ -22,8 +22,8 @@ export async function testNoDisplayRestoreForStoppedApps() {
   console.log('Testing that stopped app displays are not restored after boot');
   
   // Create the display manager and user session
-  const displayManager = new DisplayManager();
   const userSession = new MockUserSession('test-user');
+  const displayManager = new DisplayManager(userSession as any);
   
   // Utility function to create a display request
   function createDisplayRequest(packageName: string, text: string): DisplayRequest {
@@ -43,18 +43,18 @@ export async function testNoDisplayRestoreForStoppedApps() {
     console.log('1. Start App1');
     // Add App1 to active apps and start it
     userSession.addActiveApp(APP1);
-    displayManager.handleAppStart(APP1, userSession);
+    displayManager.handleAppStart(APP1);
     
     // Wait for boot to complete (simulate time passing)
     console.log('2. Simulate boot completion for App1');
-    displayManager.handleAppStop(APP1, userSession); // Stops the boot screen
+    displayManager.handleAppStop(APP1); // Stops the boot screen
     userSession.addActiveApp(APP1); // Re-add the app to active apps
     
     console.log('3. App1 shows a display');
     // App1 sends a display request - force display to bypass throttling
     const app1Display = createDisplayRequest(APP1, 'Display from App1');
     app1Display.forceDisplay = true; // Add this to bypass throttling
-    const result1 = displayManager.handleDisplayEvent(app1Display, userSession);
+    const result1 = displayManager.handleDisplayRequest(app1Display);
     assert.equal(result1, true, 'App1 display request should be accepted');
     
     // Verify App1's display was sent
@@ -64,12 +64,12 @@ export async function testNoDisplayRestoreForStoppedApps() {
     console.log('4. Stop App1');
     // Stop App1
     userSession.removeActiveApp(APP1);
-    displayManager.handleAppStop(APP1, userSession);
+    displayManager.handleAppStop(APP1);
     
     console.log('5. Start App2');
     // Start App2 (which shows a boot screen)
     userSession.addActiveApp(APP2);
-    displayManager.handleAppStart(APP2, userSession);
+    displayManager.handleAppStart(APP2);
     
     // Verify boot screen is showing
     const bootScreenMessage = userSession.getLastSentMessage();
@@ -77,7 +77,7 @@ export async function testNoDisplayRestoreForStoppedApps() {
     
     console.log('6. Wait for App2 boot to complete');
     // Complete boot for App2
-    displayManager.handleAppStop(APP2, userSession);
+    displayManager.handleAppStop(APP2);
     userSession.addActiveApp(APP2); // Re-add the app to active apps
     
     // Check what's showing now

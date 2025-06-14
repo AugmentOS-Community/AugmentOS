@@ -16,21 +16,22 @@ import pino from 'pino';
 /**
  * Session for an application
  */
-export interface AppSessionI {
-  userId: string;
-  packageName: string;
-  state: AppState;
-  subscriptions: string[];
-  translateToLanguages?: Language[];
-  translationConfig?: {
-    preserveFormatting?: boolean;
-    profanityFilter?: boolean;
-    contextLength?: number;
-  };
-  endedAt?: Date;
-  disconnectedAt?: Date;
-  websocket?: WebSocket;
-}
+// This is not actually used anywhere so i commented it out.
+// export interface AppSessionI {
+//   userId: string;
+//   packageName: string;
+//   state: AppState;
+//   subscriptions: string[];
+//   translateToLanguages?: Language[];
+//   translationConfig?: {
+//     preserveFormatting?: boolean;
+//     profanityFilter?: boolean;
+//     contextLength?: number;
+//   };
+//   endedAt?: Date;
+//   disconnectedAt?: Date;
+//   websocket?: WebSocket;
+// }
 
 /**
  * Audio processor configuration
@@ -71,6 +72,7 @@ export interface ActiveDisplay {
 /**
  * User session with glasses client
  */
+// TODO(isaiah): Refactor this to represent only the user session data we send to the glasses., not how we use it on the cloud.
 export interface UserSession {
   sessionId: string;
   userId: string;
@@ -86,8 +88,6 @@ export interface UserSession {
   loadingApps: Set<string>;
   appSubscriptions: Map<string, ExtendedStreamType[]> | Object; // packageName -> subscriptions;
   appConnections: Map<string, WebSocket>; // packageName -> websocket connection for the system app / TPA;
-
-  displayManager: DisplayManagerI;
 
   websocket: WebSocket;
   transcript: TranscriptI
@@ -113,13 +113,14 @@ export interface UserSession {
 /**
  * App session within a user session
  */
-export interface AppSession {
-  packageName: string;
-  userId: string;
-  subscriptions: StreamType[];
-  settings: AppSettings;
-  websocket?: WebSocket;
-  state: AppState;
-  startTime: Date;
-  lastActiveTime: Date;
-}
+// This is not actually used anywhere so i commented it out.
+// export interface AppSession {
+//   packageName: string;
+//   userId: string;
+//   subscriptions: StreamType[];
+//   settings: AppSettings;
+//   websocket?: WebSocket;
+//   state: AppState;
+//   startTime: Date;
+//   lastActiveTime: Date;
+// }

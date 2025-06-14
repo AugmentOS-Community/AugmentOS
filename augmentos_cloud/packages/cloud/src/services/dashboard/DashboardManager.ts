@@ -20,12 +20,12 @@ import {
   ViewType,
   DisplayRequest,
   TpaToCloudMessage,
-  UserSession
+  // UserSession
 } from '@augmentos/sdk';
 import { logger as rootLogger } from '../logging/pino-logger';
 import { systemApps } from '../core/system-apps';
-import { ExtendedUserSession } from '../core/session.service';
 import { Logger } from 'pino';
+import UserSession from '../session/UserSession';
 
 /**
  * Dashboard content from a TPA
@@ -83,7 +83,7 @@ export class DashboardManager {
   private updateInterval: NodeJS.Timeout | null = null;
 
   // Reference to the user session this dashboard belongs to
-  private userSession: ExtendedUserSession;
+  private userSession: UserSession;
 
   // child logger for this manager
   private logger: Logger;// = logger.child({ service: 'DashboardManager', sessionId: this.userSession.sessionId });
@@ -93,7 +93,7 @@ export class DashboardManager {
    * @param userSession The user session this dashboard belongs to
    * @param config Dashboard configuration options
    */
-  constructor(userSession: ExtendedUserSession, config: DashboardConfig = {}) {
+  constructor(userSession: UserSession, config: DashboardConfig = {}) {
     // Store reference to user session
     this.userSession = userSession;
 
@@ -411,7 +411,7 @@ export class DashboardManager {
       }
 
       // Use the DisplayManager to send the display request
-      const sent = this.userSession.displayManager.handleDisplayEvent(displayRequest, this.userSession);
+      const sent = this.userSession.displayManager.handleDisplayRequest(displayRequest);
       if (!sent) {
         this.logger.warn({ displayRequest }, `Display request not sent - DisplayManager is not ready for user: ${this.userSession.userId}`);
         return;
@@ -720,7 +720,8 @@ export class DashboardManager {
   private broadcastToAllTpas(message: any): void {
     try {
       // Use the appConnections map to send to all connected TPAs
-      this.userSession.appConnections.forEach((ws, packageName) => {
+      // this.userSession.appConnections.forEach((ws, packageName) => {
+      this.userSession.appWebsockets.forEach((ws, packageName) => {
         try {
           if (ws && ws.readyState === WebSocket.OPEN) {
             const tpaMessage = {

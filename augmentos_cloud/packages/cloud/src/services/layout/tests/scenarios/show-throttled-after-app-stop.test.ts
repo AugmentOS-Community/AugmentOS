@@ -24,8 +24,8 @@ export async function testShowThrottledAfterAppStop() {
   
   try {
     // Create DisplayManager and user session
-    const displayManager = new DisplayManager();
     const userSession = new MockUserSession('test-user');
+    const displayManager = new DisplayManager(userSession as any);
     
     // Lower the throttle delay for testing (we'll test the immediate show behavior, not the timeout)
     displayManager['THROTTLE_DELAY'] = 1000; // 1 second
@@ -37,7 +37,7 @@ export async function testShowThrottledAfterAppStop() {
     
     console.log('2. App1 shows a display and acquires background lock');
     // Send a display request from App1
-    const app1Request = {
+    const app1Request: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: APP1,
       view: ViewType.MAIN,
@@ -48,7 +48,7 @@ export async function testShowThrottledAfterAppStop() {
       timestamp: new Date(),
       forceDisplay: true
     };
-    displayManager.handleDisplayEvent(app1Request, userSession);
+    displayManager.handleDisplayRequest(app1Request);
     
     // Verify App1's display is current
     // @ts-ignore: We need to access private property for testing
@@ -71,7 +71,7 @@ export async function testShowThrottledAfterAppStop() {
     };
     
     // Directly create an ActiveDisplay for App2
-    const app2ActiveDisplay = {
+    const app2ActiveDisplay: any = {
       displayRequest: app2Request,
       startedAt: new Date(),
       expiresAt: undefined
@@ -100,7 +100,7 @@ export async function testShowThrottledAfterAppStop() {
     console.log('4. Stop App1 (this should trigger App2\'s display to show immediately)');
     // Stop App1 and remove from active sessions
     userSession.removeActiveApp(APP1);
-    displayManager.handleAppStop(APP1, userSession);
+    displayManager.handleAppStop(APP1);
     
     // Verify App2's request is no longer in the throttle queue
     console.assert(!throttledRequests.has(APP2), 
@@ -133,8 +133,8 @@ export async function testMultipleThrottledRequests() {
   
   try {
     // Create DisplayManager and user session
-    const displayManager = new DisplayManager();
     const userSession = new MockUserSession('test-user');
+    const displayManager = new DisplayManager(userSession as any);
     
     console.log('1. Set up environment with three running apps');
     // Add all apps to active sessions
@@ -144,7 +144,7 @@ export async function testMultipleThrottledRequests() {
     
     console.log('2. App1 shows a display and acquires background lock');
     // Send a display request from App1
-    const app1Request = {
+    const app1Request: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: APP1,
       view: ViewType.MAIN,
@@ -152,11 +152,11 @@ export async function testMultipleThrottledRequests() {
       timestamp: new Date(),
       forceDisplay: true
     };
-    displayManager.handleDisplayEvent(app1Request, userSession);
+    displayManager.handleDisplayRequest(app1Request);
     
     console.log('3. Add throttled requests for App2 and App3 (with App2\'s being older)');
     // Manually add App2's request to the throttle queue (older)
-    const app2ActiveDisplay = {
+    const app2ActiveDisplay: any = {
       displayRequest: {
         type: TpaToCloudMessageType.DISPLAY_REQUEST,
         packageName: APP2,
@@ -178,7 +178,7 @@ export async function testMultipleThrottledRequests() {
     await new Promise(resolve => setTimeout(resolve, 50));
     
     // Manually add App3's request to the throttle queue (newer)
-    const app3ActiveDisplay = {
+    const app3ActiveDisplay: any = {
       displayRequest: {
         type: TpaToCloudMessageType.DISPLAY_REQUEST,
         packageName: 'com.example.app3',
@@ -199,7 +199,7 @@ export async function testMultipleThrottledRequests() {
     console.log('4. Stop App1 (App2\'s display should show since it\'s the oldest)');
     // Stop App1 and remove from active sessions
     userSession.removeActiveApp(APP1);
-    displayManager.handleAppStop(APP1, userSession);
+    displayManager.handleAppStop(APP1);
     
     // Verify App2 is now displaying (since it has the oldest throttled request)
     // @ts-ignore: We need to access private property for testing
@@ -228,8 +228,8 @@ export async function testStoppedAppThrottledRequests() {
   
   try {
     // Create DisplayManager and user session
-    const displayManager = new DisplayManager();
     const userSession = new MockUserSession('test-user');
+    const displayManager = new DisplayManager(userSession as any);
     
     console.log('1. Set up environment with three running apps');
     // Add App1 and App2 to active sessions, but not App3
@@ -238,7 +238,7 @@ export async function testStoppedAppThrottledRequests() {
     
     console.log('2. App1 shows a display and acquires background lock');
     // Send a display request from App1
-    const app1Request = {
+    const app1Request: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: APP1,
       view: ViewType.MAIN,
@@ -246,11 +246,11 @@ export async function testStoppedAppThrottledRequests() {
       timestamp: new Date(),
       forceDisplay: true
     };
-    displayManager.handleDisplayEvent(app1Request, userSession);
+    displayManager.handleDisplayRequest(app1Request);
     
     console.log('3. Add throttled requests for App2 and App3 (with App3\'s being older but from a stopped app)');
     // Manually add App3's request to the throttle queue (older but from stopped app)
-    const app3ActiveDisplay = {
+    const app3ActiveDisplay: any = {
       displayRequest: {
         type: TpaToCloudMessageType.DISPLAY_REQUEST,
         packageName: 'com.example.app3',
@@ -272,7 +272,7 @@ export async function testStoppedAppThrottledRequests() {
     await new Promise(resolve => setTimeout(resolve, 50));
     
     // Manually add App2's request to the throttle queue (newer but from running app)
-    const app2ActiveDisplay = {
+    const app2ActiveDisplay: any = {
       displayRequest: {
         type: TpaToCloudMessageType.DISPLAY_REQUEST,
         packageName: APP2,
@@ -293,7 +293,7 @@ export async function testStoppedAppThrottledRequests() {
     console.log('4. Stop App1 (App2\'s display should show since App3 is not running)');
     // Stop App1 and remove from active sessions
     userSession.removeActiveApp(APP1);
-    displayManager.handleAppStop(APP1, userSession);
+    displayManager.handleAppStop(APP1);
     
     // Verify App2 is now displaying (since it's the only running app with a throttled request)
     // @ts-ignore: We need to access private property for testing

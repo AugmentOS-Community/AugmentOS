@@ -1,12 +1,14 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
 buildscript {
     ext {
-        buildToolsVersion = "34.0.0"
-        minSdkVersion = 28
-        compileSdkVersion = 36
-        targetSdkVersion = 34
+        buildToolsVersion = findProperty('android.buildToolsVersion') ?: '35.0.0'
+        minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '28')
+        compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '36')
+        targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '34')
+        kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.25'
+
         ndkVersion = "26.1.10909125"
-        kotlinVersion = "1.9.24"
-        REACT_NATIVE_NODE_MODULES_DIR = "../node_modules/react-native"
     }
     repositories {
         google()
@@ -14,27 +16,26 @@ buildscript {
     }
     dependencies {
         classpath("com.android.tools.build:gradle:8.9.1")
-        classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
-        classpath("com.google.gms:google-services:4.3.14")
-
+        classpath('com.facebook.react:react-native-gradle-plugin')
+        classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
     }
 }
 
 apply plugin: "com.facebook.react.rootproject"
 
-subprojects { subproject ->
-    // Only apply to Android modules (apps/libraries):
-    if (subproject.plugins.hasPlugin('com.android.application') ||
-        subproject.plugins.hasPlugin('com.android.library')) {
-
-        // Just apply dotenv.gradle here
-        subproject.apply from: project(':react-native-config')
-            .projectDir.getPath() + "/dotenv.gradle"
-            
-        // Add jitpack repository for all modules
-        subproject.repositories {
-            maven { url "https://jitpack.io" }
+allprojects {
+    repositories {
+        maven {
+            // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
+            url(new File(['node', '--print', "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim(), '../android'))
         }
+        maven {
+            // Android JSC is installed from npm
+            url(new File(['node', '--print', "require.resolve('jsc-android/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim(), '../dist'))
+        }
+
+        google()
+        mavenCentral()
+        maven { url 'https://www.jitpack.io' }
     }
 }

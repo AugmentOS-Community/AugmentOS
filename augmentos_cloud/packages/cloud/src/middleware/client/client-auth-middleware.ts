@@ -9,9 +9,10 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from 'jsonwebtoken';
 import { logger as rootLogger } from '../../services/logging';
-import { ExtendedUserSession } from "../../services/processing/transcription.service";
+// import { ExtendedUserSession } from "../../services/processing/transcription.service";
 import { User, UserI } from "../../models/user.model";
-import { sessionService } from "../../services/core/session.service";
+import { sessionService } from "../../services/session/session.service";
+import UserSession from "../../services/session/UserSession";
 // Import your user service/model functions
 // import { getUserByEmail } from '../../services/user.service';
 // import { getUserSession, getOptionalUserSession } from '../../services/session.service';
@@ -37,11 +38,11 @@ export interface UserRequest extends AuthRequest {
 }
 
 export interface UserSessionRequest extends UserRequest {
-  userSession: ExtendedUserSession; // Required user session, populated if available, returns 401 if not found.
+  userSession: UserSession; // Required user session, populated if available, returns 401 if not found.
 }
 
 export interface OptionalUserSessionRequest extends UserRequest {
-  userSession?: ExtendedUserSession; // Optional user session, may or may not be present
+  userSession?: UserSession; // Optional user session, may or may not be present
 }
 
 // Internal helper to promisify middleware execution

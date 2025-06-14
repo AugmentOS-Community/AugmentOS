@@ -51,7 +51,7 @@ const Members: React.FC = () => {
   // Load members when organization changes
   useEffect(() => {
     fetchMembers();
-  }, [currentOrg]);
+  }, [currentOrg?.id]);
 
   // Fetch members list
   const fetchMembers = async () => {

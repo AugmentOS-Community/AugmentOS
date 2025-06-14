@@ -5,6 +5,7 @@ import { TpaToCloudMessageType } from '../message-types';
 import { ExtendedStreamType, StreamType } from '../streams';
 import { DisplayRequest } from '../layouts';
 import { DashboardContentUpdate, DashboardModeChange, DashboardSystemUpdate } from '../dashboard';
+import { VideoConfig, AudioConfig, StreamConfig } from '../rtmp-stream';
 
 /**
  * Connection initialization from TPA
@@ -34,26 +35,48 @@ export interface PhotoRequest extends BaseMessage {
   saveToGallery?: boolean;
 }
 
+// Video, Audio and Stream configuration interfaces are imported from '../rtmp-stream'
+
 /**
- * Video stream request from TPA
+ * RTMP stream request from TPA
  */
-export interface VideoStreamRequest extends BaseMessage {
-  type: TpaToCloudMessageType.VIDEO_STREAM_REQUEST;
+export interface RtmpStreamRequest extends BaseMessage {
+  type: TpaToCloudMessageType.RTMP_STREAM_REQUEST;
   packageName: string;
+  rtmpUrl: string;
+  video?: VideoConfig;
+  audio?: AudioConfig;
+  stream?: StreamConfig;
+}
+
+/**
+ * RTMP stream stop request from TPA
+ */
+export interface RtmpStreamStopRequest extends BaseMessage {
+  type: TpaToCloudMessageType.RTMP_STREAM_STOP;
+  packageName: string;
+  streamId?: string;  // Optional stream ID to specify which stream to stop
 }
 
 /**
  * Union type for all messages from TPAs to cloud
  */
-export type TpaToCloudMessage = 
+export type TpaToCloudMessage =
   | TpaConnectionInit
   | TpaSubscriptionUpdate
   | DisplayRequest
   | PhotoRequest
-  | VideoStreamRequest
+  | RtmpStreamRequest
+  | RtmpStreamStopRequest
   | DashboardContentUpdate
   | DashboardModeChange
-  | DashboardSystemUpdate;
+  | DashboardSystemUpdate
+  // New TPA-to-TPA communication messages
+  | TpaBroadcastMessage
+  | TpaDirectMessage
+  | TpaUserDiscovery
+  | TpaRoomJoin
+  | TpaRoomLeave;
 
 /**
  * Type guard to check if a message is a TPA connection init
@@ -83,12 +106,6 @@ export function isPhotoRequest(message: TpaToCloudMessage): message is PhotoRequ
   return message.type === TpaToCloudMessageType.PHOTO_REQUEST;
 }
 
-/**
- * Type guard to check if a message is a TPA video stream request
- */
-export function isVideoStreamRequest(message: TpaToCloudMessage): message is VideoStreamRequest {
-  return message.type === TpaToCloudMessageType.VIDEO_STREAM_REQUEST;
-}
 
 /**
  * Type guard to check if a message is a dashboard content update
@@ -109,4 +126,82 @@ export function isDashboardModeChange(message: TpaToCloudMessage): message is Da
  */
 export function isDashboardSystemUpdate(message: TpaToCloudMessage): message is DashboardSystemUpdate {
   return message.type === TpaToCloudMessageType.DASHBOARD_SYSTEM_UPDATE;
+}
+
+//===========================================================
+// TPA-to-TPA Communication Messages
+//===========================================================
+
+/**
+ * Broadcast message to all users with the same TPA active
+ */
+export interface TpaBroadcastMessage extends BaseMessage {
+  type: TpaToCloudMessageType.TPA_BROADCAST_MESSAGE;
+  packageName: string;
+  sessionId: string;
+  payload: any;
+  messageId: string;
+  senderUserId: string;
+}
+
+/**
+ * Direct message to a specific user with the same TPA active
+ */
+export interface TpaDirectMessage extends BaseMessage {
+  type: TpaToCloudMessageType.TPA_DIRECT_MESSAGE;
+  packageName: string;
+  sessionId: string;
+  targetUserId: string;
+  payload: any;
+  messageId: string;
+  senderUserId: string;
+}
+
+/**
+ * Request to discover other users with the same TPA active
+ */
+export interface TpaUserDiscovery extends BaseMessage {
+  type: TpaToCloudMessageType.TPA_USER_DISCOVERY;
+  packageName: string;
+  sessionId: string;
+  includeUserProfiles?: boolean;
+}
+
+/**
+ * Join a communication room for group messaging
+ */
+export interface TpaRoomJoin extends BaseMessage {
+  type: TpaToCloudMessageType.TPA_ROOM_JOIN;
+  packageName: string;
+  sessionId: string;
+  roomId: string;
+  roomConfig?: {
+    maxUsers?: number;
+    isPrivate?: boolean;
+    metadata?: any;
+  };
+}
+
+/**
+ * Leave a communication room
+ */
+export interface TpaRoomLeave extends BaseMessage {
+  type: TpaToCloudMessageType.TPA_ROOM_LEAVE;
+  packageName: string;
+  sessionId: string;
+  roomId: string;
+}
+
+/**
+ * Type guard to check if a message is an RTMP stream request
+ */
+export function isRtmpStreamRequest(message: TpaToCloudMessage): message is RtmpStreamRequest {
+  return message.type === TpaToCloudMessageType.RTMP_STREAM_REQUEST;
+}
+
+/**
+ * Type guard to check if a message is an RTMP stream stop request
+ */
+export function isRtmpStreamStopRequest(message: TpaToCloudMessage): message is RtmpStreamStopRequest {
+  return message.type === TpaToCloudMessageType.RTMP_STREAM_STOP;
 }

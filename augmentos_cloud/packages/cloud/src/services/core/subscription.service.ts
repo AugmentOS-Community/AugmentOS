@@ -14,7 +14,7 @@ import { StreamType, ExtendedStreamType, isLanguageStream, UserSession, parseLan
 import { logger as rootLogger } from '../logging/pino-logger';
 import { SimplePermissionChecker } from '../permissions/simple-permission-checker';
 import App from '../../models/app.model';
-import { sessionService } from './session.service';
+import { sessionService } from '../session/session.service';
 
 const logger = rootLogger.child({ service: 'subscription.service' });
 
@@ -69,6 +69,12 @@ export class SubscriptionService {
    * @private
    */
   private lastLocationCache = new Map<string, Location>();
+
+  /**
+   * Cache for the last VPS coordinates per session
+   * @private
+   */
+  private lastVpsCoordinatesCache = new Map<string, any>();
 
   /**
    * Caches a calendar event for a session (appends to the list)
@@ -126,6 +132,25 @@ export class SubscriptionService {
    */
   getLastLocation(sessionId: string): Location | undefined {
     return this.lastLocationCache.get(sessionId);
+  }
+
+  /**
+   * Caches the last VPS coordinates for a session
+   * @param sessionId - User session identifier
+   * @param vpsCoordinates - VPS coordinates to cache
+   */
+  cacheVpsCoordinates(sessionId: string, vpsCoordinates: any): void {
+    this.lastVpsCoordinatesCache.set(sessionId, vpsCoordinates);
+    logger.info({ sessionId, vpsCoordinates }, 'Cached VPS coordinates');
+  }
+
+  /**
+   * Gets the last cached VPS coordinates for a session
+   * @param sessionId - User session identifier
+   * @returns The last VPS coordinates or undefined if none exists
+   */
+  getLastVpsCoordinates(sessionId: string): any | undefined {
+    return this.lastVpsCoordinatesCache.get(sessionId);
   }
 
   /**
@@ -220,8 +245,9 @@ export class SubscriptionService {
         // Find the user session to get the app connection
         const userSession = sessionService.getSession(sessionId);
 
-        if (userSession && userSession.appConnections) {
-          const connection = userSession.appConnections.get(packageName);
+        // if (userSession && userSession.appConnections) {
+        if (userSession && userSession.runningApps.has(packageName)) {
+          const connection = userSession.appWebsockets.get(packageName);
 
           if (connection && connection.readyState === 1) {
             // Send a detailed error message to the TPA about the rejected subscriptions

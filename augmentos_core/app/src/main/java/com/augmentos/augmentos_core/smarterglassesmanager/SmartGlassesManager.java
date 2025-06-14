@@ -24,10 +24,8 @@ import com.augmentos.augmentos_core.MainActivity;
 import com.augmentos.augmentos_core.R;
 import com.augmentos.augmentos_core.WindowManagerWithTimeouts;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.BypassVadForDebuggingEvent;
-import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.MicModeChangedEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.NewAsrLanguagesEvent;
 import com.augmentos.augmentos_core.smarterglassesmanager.eventbusmessages.SmartGlassesConnectionEvent;
-import com.augmentos.augmentos_core.smarterglassesmanager.hci.PhoneMicrophoneManager;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.AndroidSGC;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassescommunicators.SmartGlassesFontSize;
 import com.augmentos.augmentos_core.smarterglassesmanager.smartglassesconnection.SmartGlassesRepresentative;
@@ -46,22 +44,7 @@ import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.Vuzix
 import com.augmentos.augmentos_core.smarterglassesmanager.supportedglasses.special.VirtualWearable;
 import com.augmentos.augmentos_core.smarterglassesmanager.texttospeech.TextToSpeechSystem;
 import com.augmentos.augmentos_core.smarterglassesmanager.utils.SmartGlassesConnectionState;
-import com.augmentos.augmentoslib.events.DiarizationOutputEvent;
 import com.augmentos.augmentoslib.events.DisconnectedFromCloudEvent;
-import com.augmentos.augmentoslib.events.SmartRingButtonOutputEvent;
-import com.augmentos.augmentoslib.events.SpeechRecOutputEvent;
-import com.augmentos.augmentoslib.events.BulletPointListViewRequestEvent;
-import com.augmentos.augmentoslib.events.DoubleTextWallViewRequestEvent;
-import com.augmentos.augmentoslib.events.FinalScrollingTextRequestEvent;
-import com.augmentos.augmentoslib.events.HomeScreenEvent;
-import com.augmentos.augmentoslib.events.ReferenceCardImageViewRequestEvent;
-import com.augmentos.augmentoslib.events.ReferenceCardSimpleViewRequestEvent;
-import com.augmentos.augmentoslib.events.RowsCardViewRequestEvent;
-import com.augmentos.augmentoslib.events.SendBitmapViewRequestEvent;
-import com.augmentos.augmentoslib.events.TextLineViewRequestEvent;
-import com.augmentos.augmentoslib.events.TextWallViewRequestEvent;
-import com.augmentos.augmentoslib.events.ScrollingTextViewStartRequestEvent;
-import com.augmentos.augmentoslib.events.ScrollingTextViewStopRequestEvent;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.EventBusException;
@@ -637,15 +620,15 @@ public class SmartGlassesManager extends Service {
         }
     }
 
-    public void updateGlassesDashboardHeight(int height) {
+    public void sendExitCommand() {
         if (smartGlassesRepresentative != null) {
-            smartGlassesRepresentative.updateGlassesDashboardHeight(height);
+            smartGlassesRepresentative.sendExitCommand();
         }
     }
 
-    public void updateGlassesDepth(int depth) {
+    public void updateGlassesDepthHeight(int depth, int height) {
         if (smartGlassesRepresentative != null) {
-            smartGlassesRepresentative.updateGlassesDepth(depth);
+            smartGlassesRepresentative.updateGlassesDepthHeight(depth, height);
         }
     }
 
@@ -870,22 +853,67 @@ public class SmartGlassesManager extends Service {
     }
     
     /**
-     * Request a video stream from the connected smart glasses
+     * Requests the smart glasses to start an RTMP stream
      * 
-     * @return true if request was sent, false if glasses not connected
+     * @param message The complete RTMP stream request message
+     * @return true if the request was sent, false if glasses are not connected
      */
-    public boolean requestVideoStream() {
+    public boolean requestRtmpStream(JSONObject message) {
         if (smartGlassesRepresentative != null && 
             smartGlassesRepresentative.smartGlassesCommunicator != null && 
             smartGlassesRepresentative.getConnectionState() == SmartGlassesConnectionState.CONNECTED) {
             
-            Log.d(TAG, "Requesting video stream from glasses");
+            String rtmpUrl = message.optString("rtmpUrl", "");
+            Log.d(TAG, "Requesting RTMP stream from glasses to URL: " + rtmpUrl);
             
             // Pass the request to the smart glasses communicator
-            smartGlassesRepresentative.smartGlassesCommunicator.requestVideoStream();
+            smartGlassesRepresentative.smartGlassesCommunicator.requestRtmpStreamStart(message);
             return true;
         } else {
-            Log.e(TAG, "Cannot request video stream - glasses not connected");
+            Log.e(TAG, "Cannot request RTMP stream - glasses not connected");
+            return false;
+        }
+    }
+    
+    /**
+     * Requests the smart glasses to stop the current RTMP stream
+     * 
+     * @return true if the request was sent, false if glasses are not connected
+     */
+    public boolean stopRtmpStream() {
+        if (smartGlassesRepresentative != null && 
+            smartGlassesRepresentative.smartGlassesCommunicator != null && 
+            smartGlassesRepresentative.getConnectionState() == SmartGlassesConnectionState.CONNECTED) {
+            
+            Log.d(TAG, "Requesting to stop RTMP stream from glasses");
+            
+            // Pass the request to the smart glasses communicator
+            smartGlassesRepresentative.smartGlassesCommunicator.stopRtmpStream();
+            return true;
+        } else {
+            Log.e(TAG, "Cannot stop RTMP stream - glasses not connected");
+            return false;
+        }
+    }
+    
+    /**
+     * Send a keep alive message for RTMP streaming
+     * @param message The keep alive message to send
+     * @return true if message was sent, false otherwise
+     */
+    public boolean sendRtmpStreamKeepAlive(JSONObject message) {
+        // Check if smart glasses are connected
+        if (smartGlassesRepresentative != null && 
+            smartGlassesRepresentative.smartGlassesCommunicator != null && 
+            smartGlassesRepresentative.getConnectionState() == SmartGlassesConnectionState.CONNECTED) {
+            
+            Log.d(TAG, "Sending RTMP stream keep alive to glasses");
+            
+            // Pass the keep alive to the smart glasses communicator
+            smartGlassesRepresentative.smartGlassesCommunicator.sendRtmpStreamKeepAlive(message);
+            return true;
+        } else {
+            Log.e(TAG, "Cannot send RTMP keep alive - glasses not connected");
             return false;
         }
     }

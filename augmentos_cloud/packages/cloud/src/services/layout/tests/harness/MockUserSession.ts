@@ -4,7 +4,7 @@
  * Provides a mock implementation of UserSession for testing DisplayManager.
  */
 
-import { UserSession } from '@augmentos/sdk';
+import { UserSession } from '../../../session/UserSession';
 import { WebSocket } from 'ws';
 import { TimeMachine } from './TimeMachine';
 import { v4 as uuidv4 } from 'uuid';
@@ -59,13 +59,21 @@ export class MockUserSession implements Partial<UserSession> {
     info: console.log,
     error: console.error,
     warn: console.warn,
-    debug: console.log
+    debug: console.log,
+    child: (data: any) => ({
+      info: console.log,
+      error: console.error,
+      warn: console.warn,
+      debug: console.log,
+      child: (data: any) => this.logger
+    })
   };
   appConnections: Map<string, any> = new Map(); // Using 'any' to bypass type checking
   isTranscribing: boolean = false;
   
   // Mock properties required by UserSession interface
-  installedApps: any[] = [];
+  installedApps: Map<string, any> = new Map();
+  runningApps: Set<string> = new Set();
   appSubscriptions: Map<string, any[]> = new Map();
   displayManager: any = null;
   transcript: any = {};
@@ -91,10 +99,12 @@ export class MockUserSession implements Partial<UserSession> {
     if (!this.activeAppSessions.includes(packageName)) {
       this.activeAppSessions.push(packageName);
     }
+    this.runningApps.add(packageName);
   }
   
   removeActiveApp(packageName: string): void {
     this.activeAppSessions = this.activeAppSessions.filter(app => app !== packageName);
+    this.runningApps.delete(packageName);
   }
   
   addAppConnection(packageName: string): MockWebSocket {

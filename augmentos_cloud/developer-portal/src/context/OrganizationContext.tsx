@@ -165,7 +165,7 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
     if (!authLoading && tokenReady && user) {
       loadOrganizations();
     }
-  }, [user, authLoading, tokenReady]);
+  }, [user?.id, authLoading, tokenReady]);
 
   // Context value that will be provided to consumers
   const contextValue: OrganizationContextType = {

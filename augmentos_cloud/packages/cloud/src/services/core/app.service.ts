@@ -7,11 +7,11 @@
  * to maintain core functionality regardless of database state.
  */
 
-import { AppI, StopWebhookRequest, TpaType, WebhookResponse, AppState, SessionWebhookRequest, ToolCall, PermissionType, WebhookRequestType, AppSetting, AppSettingType } from '@augmentos/sdk';
+import { StopWebhookRequest, TpaType, WebhookResponse, AppState, SessionWebhookRequest, ToolCall, PermissionType, WebhookRequestType, AppSetting, AppSettingType } from '@augmentos/sdk';
 // TODO(isaiah): Consider splitting this into multiple services (appstore.service, developer.service, tools.service)
 import axios, { AxiosError } from 'axios';
 import { systemApps } from './system-apps';
-import App from '../../models/app.model';
+import App, { AppI } from '../../models/app.model';
 import { ToolSchema, ToolParameterSchema } from '@augmentos/sdk';
 import { User } from '../../models/user.model';
 import crypto from 'crypto';
@@ -22,7 +22,30 @@ const logger = rootLogger.child({ service: 'app.service' });
 const AUGMENTOS_AUTH_JWT_SECRET = process.env.AUGMENTOS_AUTH_JWT_SECRET;
 const APPSTORE_ENABLED = true;
 export const PRE_INSTALLED = ["com.augmentos.livecaptions", "cloud.augmentos.notify", "cloud.augmentos.mira"];
+export const PRE_INSTALLED_DEBUG = [
+  "com.mentra.link",
+  "com.mentra.notes",
+  "com.mentra.soundy",
+  "com.mentra.cactusai",
+  "com.mentra.hive",
+
+  "com.augmentos.calendarreminder",
+  "com.augmentos.xstats",
+  "com.augmentos.tictactoe",
+  "com.augmentos.displaytext",
+  "com.augmentos.shazam",
+
+  "cloud.augmentos.aughog",
+  "cloud.augmentos.recorder",
+
+];
 // export const PRE_INSTALLED = ["cloud.augmentos.live-captions-global", "cloud.augmentos.notify", "cloud.augmentos.mira"];
+
+if (process.env.NODE_ENV !== 'production' || process.env.DEBUG_APPS === 'true') {
+  // If we're in debug mode, add the debug apps to the preinstalled list.
+  PRE_INSTALLED.push(...PRE_INSTALLED_DEBUG);
+  logger.info('Debug mode enabled - adding debug apps to preinstalled list:', PRE_INSTALLED_DEBUG);
+}
 
 /**
  * System TPAs that are always available.
@@ -64,7 +87,7 @@ export const SYSTEM_APPS: AppI[] = [
         description: "The dashboard app needs access to everything to provide a seamless experience."
       }
     ],
-  },
+  } as AppI,
 ];
 
 export function isUninstallable(packageName: string) {
@@ -156,47 +179,6 @@ export class AppService {
     return app;
   }
 
-  /**
-   * Triggers a webhook for a TPA.
-   * @param url - Webhook URL
-   * @param payload - Data to send
-   * @throws If webhook fails after retries
-   */
-  async triggerWebhook(url: string, payload: SessionWebhookRequest): Promise<void> {
-    const maxRetries = 2;
-    const baseDelay = 1000; // 1 second
-
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        await axios.post(url, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          timeout: 10000 // Increase timeout to 10 seconds
-        });
-        return;
-      } catch (error: unknown) {
-        if (attempt === maxRetries - 1) {
-          if (axios.isAxiosError(error)) {
-            logger.error(`triggerWebhook failed`, {
-              url,
-              attempt,
-              status: error.response?.status,
-              data: error.response?.data,
-              message: error.message
-            });
-          }
-          throw new Error(`Webhook failed after ${maxRetries} attempts: ${(error as AxiosError).message || 'Unknown error'}`);
-        }
-        // Exponential backoff
-        await new Promise(resolve =>
-          setTimeout(resolve, baseDelay * Math.pow(2, attempt))
-        );
-      }
-    }
-  }
-
-  // TODO(isaiah): Move this to the new AppManager within new UserSession class.
   /**
  * Triggers the stop webhook for a TPA app session.
  * @param url - Stop Webhook URL
