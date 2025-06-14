@@ -54,6 +54,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
 
 /**
  * This is the FULL AsgClientService code that:
@@ -189,6 +191,10 @@ public class AsgClientService extends Service implements NetworkStateListener, B
 
         // DEBUG: Start the debug photo upload timer for VPS
         //startDebugVpsPhotoUploadTimer();
+
+        // Register OTA download complete receiver
+        IntentFilter filter = new IntentFilter("com.augmentos.otaupdater.ACTION_OTA_DOWNLOAD_COMPLETE");
+        registerReceiver(otaDownloadReceiver, filter);
 
         SysControl.disablePackageViaAdb(getApplicationContext(), "com.xy.fakelauncher");
         SysControl.disablePackage(getApplicationContext(), "com.xy.fakelauncher");
@@ -586,6 +592,7 @@ public class AsgClientService extends Service implements NetworkStateListener, B
         // No need to clean up MediaQueueManager as it's stateless and file-based
 
         super.onDestroy();
+        unregisterReceiver(otaDownloadReceiver);
     }
 
     // ---------------------------------------------
@@ -1369,6 +1376,15 @@ public class AsgClientService extends Service implements NetworkStateListener, B
                 case "":
                     Log.d(TAG, "Received data with no type field: " + dataToProcess);
                     break;
+                case "ota_update_response":
+                    boolean accepted = dataToProcess.optBoolean("accepted", false);
+                    if (accepted) {
+                        Log.d(TAG, "Received ota_update_response: accepted, proceeding with OTA installation");
+                        // TODO: Trigger OTA installation here
+                    } else {
+                        Log.d(TAG, "Received ota_update_response: rejected by user");
+                    }
+                    break;
                 case "set_photo_mode": {
                     String mode = dataToProcess.optString("mode", "save_locally");
                     switch (mode) {
@@ -2140,6 +2156,28 @@ public class AsgClientService extends Service implements NetworkStateListener, B
     // Use existing RTMP implementation in the service
     // Our StreamPackLite-based implementation (RTMPStreamingExample) can be used
     // if the existing RTMP implementation needs to be enhanced in the future
+
+    private BroadcastReceiver otaDownloadReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "Received OTA download complete broadcast");
+            if ("com.augmentos.otaupdater.ACTION_OTA_DOWNLOAD_COMPLETE".equals(intent.getAction())) {
+                Log.d(TAG, "Received OTA download complete broadcast");
+                // Send BLE message to phone/controller
+                if (bluetoothManager != null && bluetoothManager.isConnected()) {
+                    try {
+                        org.json.JSONObject otaMsg = new org.json.JSONObject();
+                        otaMsg.put("type", "ota_update_available");
+                        // TODO: Optionally add version or details if available
+                        bluetoothManager.sendData(otaMsg.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        Log.d(TAG, "Sent ota_update_available BLE message to phone/controller");
+                    } catch (org.json.JSONException e) {
+                        Log.e(TAG, "Error creating ota_update_available JSON", e);
+                    }
+                }
+            }
+        }
+    };
 
     // In the method that handles photo capture (e.g., handlePhotoButtonPress or similar):
     private void handlePhotoCaptureWithMode() {
