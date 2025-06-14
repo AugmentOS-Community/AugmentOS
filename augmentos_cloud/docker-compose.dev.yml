@@ -1,4 +1,21 @@
 services:
+  # this new service will run first. it installs dependencies and builds the shared packages
+  # that other services like 'cloud' and 'dashboard-manager' need to run.
+  builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./:/app
+      - node_modules:/app/node_modules
+      - bun_cache:/root/.bun
+    # this command installs everything and then builds the shared packages one by one
+    command: >
+      bash -c "bun install && 
+      cd packages/sdk && bun run build && cd ../.. &&
+      cd packages/utils && bun run build && cd ../.. &&
+      cd packages/agents && bun run build"
+
   # Cloud service
   cloud:
     stop_grace_period: 10s
@@ -28,9 +45,12 @@ services:
       - ./:/app
       - node_modules:/app/node_modules
       - bun_cache:/root/.bun
-    command: bash -c "bun install && cd packages/cloud && bun run dev"
+    command: bash -c "cd packages/cloud && bun run dev"
     networks:
       - augmentos-network-dev
+    depends_on:
+      builder:
+        condition: service_completed_successfully
 
   # Dashboard service
   dashboard-manager:
@@ -56,6 +76,9 @@ services:
     command: bash -c "cd packages/apps/dashboard && bun run dev"
     networks:
       - augmentos-network-dev
+    depends_on:
+      builder:
+        condition: service_completed_successfully
     # depends_on:
       # shared-packages:
       #   condition: service_healthy
