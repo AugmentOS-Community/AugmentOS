@@ -24,21 +24,21 @@ export async function testTransientDisplayNotRestored() {
   
   try {
     // Create DisplayManager and user session
-    const displayManager = new DisplayManager();
     const userSession = new MockUserSession('test-user');
+    const displayManager = new DisplayManager(userSession as any);
     
     console.log('1. Start App1 (simulate Mira TPA)');
     // Add App1 to active sessions and start it
     userSession.addActiveApp(APP1);
-    displayManager.handleAppStart(APP1, userSession);
+    displayManager.handleAppStart(APP1);
     
     console.log('2. Complete App1\'s boot sequence');
     // Wait for boot to complete
-    displayManager.handleAppStop(APP1, userSession);
+    displayManager.handleAppStop(APP1);
     
     console.log('3. App1 sends a display request that gets shown');
     // App1 sends a display request
-    const app1Request = {
+    const app1Request: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: APP1,
       view: ViewType.MAIN,
@@ -50,7 +50,7 @@ export async function testTransientDisplayNotRestored() {
       durationMs: 0, // No explicit duration
       forceDisplay: true
     };
-    displayManager.handleDisplayEvent(app1Request, userSession);
+    displayManager.handleDisplayRequest(app1Request);
     
     // Verify App1's display is showing
     // @ts-ignore: We need to access private property for testing
@@ -75,7 +75,7 @@ export async function testTransientDisplayNotRestored() {
     console.log('5. Start App2');
     // Add App2 to active sessions and start it (triggers boot screen)
     userSession.addActiveApp(APP2);
-    displayManager.handleAppStart(APP2, userSession);
+    displayManager.handleAppStart(APP2);
     
     // Verify boot screen is showing
     // @ts-ignore: We need to access private property for testing
@@ -93,7 +93,7 @@ export async function testTransientDisplayNotRestored() {
     
     console.log('6. Complete App2\'s boot sequence');
     // Complete App2's boot
-    displayManager.handleAppStop(APP2, userSession);
+    displayManager.handleAppStop(APP2);
     
     // Verify App1's display was NOT restored
     // @ts-ignore: We need to access private property for testing

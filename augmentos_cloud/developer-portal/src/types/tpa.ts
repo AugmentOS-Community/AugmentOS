@@ -1,11 +1,18 @@
-import { TpaType, ToolSchema, AppSetting, AppSettingType } from '@augmentos/sdk';
+import { TpaType, ToolSchema, AppSetting } from '@augmentos/sdk';
 
 // Define permission types
 export enum PermissionType {
   MICROPHONE = 'MICROPHONE',
   LOCATION = 'LOCATION',
   CALENDAR = 'CALENDAR',
+
+  // Legacy permission (backward compatibility)
   NOTIFICATIONS = 'NOTIFICATIONS',
+
+  // New granular notification permissions
+  READ_NOTIFICATIONS = 'READ_NOTIFICATIONS',
+  POST_NOTIFICATIONS = 'POST_NOTIFICATIONS',
+
   ALL = 'ALL'
 }
 
@@ -18,8 +25,6 @@ export interface Permission {
 export type Tool = ToolSchema;
 export type Setting = AppSetting;
 
-// Export AppSettingType for use in components
-export { AppSettingType };
 
 export interface TPA {
   id: string;

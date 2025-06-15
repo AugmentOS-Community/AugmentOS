@@ -1,7 +1,7 @@
 import express from 'express';
-import sessionService from '../services/core/session.service';
+import sessionService from '../services/session/session.service';
 import { StreamType } from '@augmentos/sdk';
-import subscriptionService from '../services/core/subscription.service';
+import subscriptionService from '../services/session/subscription.service';
 import { CloudToTpaMessageType } from '@augmentos/sdk';
 
 const router = express.Router();
@@ -23,24 +23,22 @@ router.post('/set-datetime', (req, res) => {
   console.log('User session updated', userSession.userDatetime);
 
   // Relay custom_message to all TPAs subscribed to custom_message
-  if (userSession.appConnections) {
-    const subscribedApps = subscriptionService.getSubscribedApps(userSession, StreamType.CUSTOM_MESSAGE);
+  const subscribedApps = subscriptionService.getSubscribedApps(userSession, StreamType.CUSTOM_MESSAGE);
 
-    console.log('4343 Subscribed apps', subscribedApps);
-    const customMessage = {
-      type: CloudToTpaMessageType.CUSTOM_MESSAGE,
-      action: 'update_datetime',
-      payload: {
-        datetime: datetime,
-        section: 'topLeft'
-      },
-      timestamp: new Date()
-    };
-    for (const packageName of subscribedApps) {
-      const ws = userSession.appConnections.get(packageName);
-      if (ws && ws.readyState === 1) {
-        ws.send(JSON.stringify(customMessage));
-      }
+  console.log('4343 Subscribed apps', subscribedApps);
+  const customMessage = {
+    type: CloudToTpaMessageType.CUSTOM_MESSAGE,
+    action: 'update_datetime',
+    payload: {
+      datetime: datetime,
+      section: 'topLeft'
+    },
+    timestamp: new Date()
+  };
+  for (const packageName of subscribedApps) {
+    const tpaWebsocket = userSession.appWebsockets.get(packageName);
+    if (tpaWebsocket && tpaWebsocket.readyState === 1) {
+      tpaWebsocket.send(JSON.stringify(customMessage));
     }
   }
 

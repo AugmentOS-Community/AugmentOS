@@ -6,21 +6,18 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-// import "./instrument";
-// import "./sentry";
-
 import express from 'express';
 import { Server } from 'http';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
+import pinoHttp from 'pino-http';
 
 // Import services
-// import { healthMonitorService } from './services/core/health-monitor.service'; // TODO(isaiah): Deprecated, replaced by HeartbeatManager. 
-import { photoRequestService } from './services/core/photo-request.service';
+// import { photoRequestService } from './services/core/photo-request.service';
 import { DebugService } from './services/debug/debug-service';
-import { SessionService, initializeSessionService } from './services/core/session.service';
-import { webSocketService } from './services/core/websocket.service';
+import { sessionService } from './services/session/session.service';
+import { websocketService } from './services/websocket/websocket.service';
 
 // Import routes
 import appRoutes from './routes/apps.routes';
@@ -31,7 +28,6 @@ import errorReportRoutes from './routes/error-report.routes';
 import devRoutes from './routes/developer.routes';
 import serverRoutes from './routes/server.routes';
 import adminRoutes from './routes/admin.routes';
-import tpaServerRoutes from './routes/tpa-server.routes';
 import photoRoutes from './routes/photos.routes';
 import galleryRoutes from './routes/gallery.routes';
 import toolsRoutes from './routes/tools.routes';
@@ -41,6 +37,7 @@ import userDataRoutes from './routes/user-data.routes';
 import permissionsRoutes from './routes/permissions.routes';
 import accountRoutes from './routes/account.routes';
 import organizationRoutes from './routes/organization.routes';
+import tpaCommunicationRoutes from './routes/tpa-communication.routes';
 
 import path from 'path';
 
@@ -87,13 +84,13 @@ const server = new Server(app);
 
 // Initialize services in the correct order
 const debugService = new DebugService(server);
-const sessionService = initializeSessionService(debugService);
+// const sessionService = initializeSessionService(debugService);
 
 // Initialize websocket service after session service is ready
-webSocketService.initialize();
+// webSocketService.initialize();
 
 // Export services for use in other modules
-export { sessionService, debugService, webSocketService };
+export { sessionService, debugService, websocketService };
 
 // Middleware setup
 app.use(helmet());
@@ -148,6 +145,30 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
 
+// Add pino-http middleware for request logging
+app.use(pinoHttp({
+  logger: rootLogger,
+  genReqId: (req) => {
+    // Generate correlation ID for each request
+    return `${req.method}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  },
+  customLogLevel: (req, res, err) => {
+    if (res.statusCode >= 400 && res.statusCode < 500) return 'warn';
+    if (res.statusCode >= 500 || err) return 'error';
+    return 'info';
+  },
+  customSuccessMessage: (req, res) => {
+    return `${req.method} ${req.url} - ${res.statusCode}`;
+  },
+  customErrorMessage: (req, res, err) => {
+    return `${req.method} ${req.url} - ${res.statusCode} - ${err.message}`;
+  },
+  // Don't log health check requests to reduce noise
+  autoLogging: {
+    ignore: (req) => req.url === '/health'
+  }
+}));
+
 // Routes
 app.use('/api/apps', appRoutes);
 app.use('/api/auth', authRoutes);
@@ -171,6 +192,7 @@ app.use(transcriptRoutes);
 app.use(audioRoutes);
 app.use('/api/user-data', userDataRoutes);
 app.use('/api/account', accountRoutes);
+app.use('/api/tpa-communication', tpaCommunicationRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -185,7 +207,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Initialize WebSocket service
 // Initialize WebSocket servers
-webSocketService.setupWebSocketServers(server);
+websocketService.setupWebSocketServers(server);
 
 // Start the server
 try {

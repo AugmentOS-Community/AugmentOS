@@ -1,5 +1,5 @@
 // src/hooks/useAuth.tsx
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, useRef, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../utils/supabase';
 import axios from 'axios';
@@ -37,6 +37,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [supabaseToken, setSupabaseToken] = useState<string | null>(null);
   const [coreToken, setCoreToken] = useState<string | null>(null);
   const [tokenReady, setTokenReady] = useState(false);
+
+  // Use refs to track previous values for comparison
+  const prevUserIdRef = useRef<string | undefined>(undefined);
+  const prevTokenRef = useRef<string | null>(null);
 
   // Set up axios authorization with token
   const setupAxiosAuth = (token: string | null) => {
@@ -254,9 +258,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
 
-    // Set up auth state change listener
+        // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // Skip token refresh events and focus/blur events that don't change the session
+        const currentUserId = user?.id;
+        const newUserId = session?.user?.id;
+        const currentToken = supabaseToken;
+        const newToken = session?.access_token;
+
+        // Check if this is a meaningful change
+        const isUserChanged = currentUserId !== newUserId;
+        const isTokenChanged = currentToken !== newToken;
+        const isSignOut = event === 'SIGNED_OUT';
+        const isSignIn = event === 'SIGNED_IN' && !currentUserId && newUserId;
+
+        // Skip updates if nothing meaningful changed
+        if (!isUserChanged && !isTokenChanged && !isSignOut && !isSignIn) {
+          return;
+        }
+
+        // Update refs with new values
+        if (newUserId) prevUserIdRef.current = newUserId;
+        if (newToken) prevTokenRef.current = newToken;
+
         // Auth state changed event;
         setSession(session);
         setUser(session?.user || null);
@@ -298,9 +323,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setCoreToken(null);
           setTokenReady(false);
           localStorage.removeItem('core_token');
-        } else {
-          // For other events, ensure token is ready
-          setTokenReady(true);
+                } else if (event === 'USER_UPDATED' && session?.access_token && isTokenChanged) {
+          // Only exchange token if it actually changed
+          setTokenReady(false);
+          setSupabaseToken(session.access_token);
+          try {
+            await exchangeForCoreToken(session.access_token);
+          } catch (error) {
+            console.error('Could not exchange token on user update');
+            setupAxiosAuth(session.access_token);
+            setTokenReady(true);
+          }
         }
       }
     );
@@ -322,23 +355,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('User authenticated');
       }
     }
-  }, [isAuthenticated, user, session]);
+  }, [isAuthenticated, user?.id, session?.access_token]);
+
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    session,
+    user,
+    isLoading,
+    isAuthenticated,
+    supabaseToken,
+    coreToken,
+    tokenReady,
+    signIn,
+    signUp,
+    signOut,
+    refreshUser
+  }), [session, user, isLoading, isAuthenticated, supabaseToken, coreToken, tokenReady]);
 
   // Provide auth context to children components
   return (
-    <AuthContext.Provider value={{
-      session,
-      user,
-      isLoading,
-      isAuthenticated,
-      supabaseToken,
-      coreToken,
-      tokenReady,
-      signIn,
-      signUp,
-      signOut,
-      refreshUser
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

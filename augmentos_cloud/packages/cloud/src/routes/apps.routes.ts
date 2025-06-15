@@ -1,15 +1,30 @@
 // cloud/src/routes/apps.routes.ts
 import express, { Request, Response, NextFunction } from 'express';
-import webSocketService from '../services/core/websocket.service';
-import sessionService, { ExtendedUserSession } from '../services/core/session.service';
+import { Logger } from 'pino';
+
+// Extend Request type to include pino-http's log property
+declare global {
+  namespace Express {
+    interface Request {
+      log: Logger;
+    }
+  }
+}
+import webSocketService from '../services/websocket/websocket.service';
+import sessionService from '../services/session/session.service';
 import appService from '../services/core/app.service';
 import { User } from '../models/user.model';
 import App, { AppI } from '../models/app.model';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { DeveloperProfile } from '@augmentos/sdk';
+import { DeveloperProfile, TpaType } from '@augmentos/sdk';
 import { logger as rootLogger } from '../services/logging/pino-logger';
+import UserSession from '../services/session/UserSession';
 import { authWithOptionalSession, OptionalUserSessionRequest } from '../middleware/client/client-auth-middleware';
-const logger = rootLogger.child({ service: 'apps.routes' });
+import dotenv from 'dotenv';
+dotenv.config(); // Load environment variables from .env file
+
+const SERVICE_NAME = 'apps.routes';
+const logger = rootLogger.child({ service: SERVICE_NAME });
 
 // Extended app interface for API responses that include developer profile
 interface AppWithDeveloperProfile extends AppI {
@@ -29,11 +44,6 @@ interface EnhancedAppWithDeveloperProfile extends AppWithDeveloperProfile {
   is_foreground?: boolean;
 }
 
-// Interface for Mongoose document with toObject method
-interface MongooseDocument {
-  toObject(): any;
-}
-
 // This is annyoing to change in the env files everywhere for each region so we set it here.
 export const CLOUD_VERSION = "2.1.16"; //process.env.CLOUD_VERSION;
 if (!CLOUD_VERSION) {
@@ -44,6 +54,9 @@ if (!CLOUD_VERSION) {
 const ALLOWED_API_KEY_PACKAGES = ['test.augmentos.mira', 'cloud.augmentos.mira', 'com.augmentos.mira'];
 
 const AUGMENTOS_AUTH_JWT_SECRET = process.env.AUGMENTOS_AUTH_JWT_SECRET || "";
+if (!AUGMENTOS_AUTH_JWT_SECRET) {
+  logger.error('AUGMENTOS_AUTH_JWT_SECRET is not set');
+}
 
 /** 
  * TODO(isaiah): Instead of having a unifiedAuthMiddleware, I would prefer to cleanly separate routes that are called 
@@ -56,32 +69,96 @@ const AUGMENTOS_AUTH_JWT_SECRET = process.env.AUGMENTOS_AUTH_JWT_SECRET || "";
  * (2) core token in Authorization header (for user sessions)
  */
 async function unifiedAuthMiddleware(req: Request, res: Response, next: NextFunction) {
+  // Use req.log from pino-http with middleware context
+  const middlewareLogger = req.log.child({
+    service: SERVICE_NAME,
+    middleware: 'unifiedAuth',
+    route: req.route?.path || req.path,
+    method: req.method
+  });
+
+  const startTime = Date.now();
+
+  // DEBUG: Middleware entry
+  middlewareLogger.debug({
+    hasApiKey: !!req.query.apiKey,
+    hasPackageName: !!req.query.packageName,
+    hasUserId: !!req.query.userId,
+    hasAuthHeader: !!req.headers.authorization,
+    authMethod: req.query.apiKey ? 'apiKey' : req.headers.authorization ? 'bearer' : 'none'
+  }, 'Unified auth middleware called');
+
   // Option 1: API key authentication
   const apiKey = req.query.apiKey as string;
   const packageName = req.query.packageName as string;
   const userId = req.query.userId as string;
 
   if (apiKey && packageName && userId) {
+    middlewareLogger.debug({ packageName, userId }, 'Attempting API key authentication');
+
     if (!ALLOWED_API_KEY_PACKAGES.includes(packageName)) {
+      const duration = Date.now() - startTime;
+      middlewareLogger.warn({
+        packageName,
+        userId,
+        duration,
+        allowedPackages: ALLOWED_API_KEY_PACKAGES
+      }, 'Package name not in allowed list');
+      
       return res.status(403).json({
         success: false,
         message: 'Unauthorized package name'
       });
     }
+
+    const validationStartTime = Date.now();
     const isValid = await appService.validateApiKey(packageName, apiKey);
+    const validationDuration = Date.now() - validationStartTime;
+
+    middlewareLogger.debug({
+      packageName,
+      userId,
+      validationDuration,
+      isValid
+    }, `API key validation completed in ${validationDuration}ms`);
+
     if (isValid) {
       // Only allow if a full session exists
-      const userSessions = sessionService.getSessionsForUser(userId);
-      if (userSessions && userSessions.length > 0) {
-        (req as any).userSession = userSessions[0];
+      const userSession = UserSession.getById(userId);
+      if (userSession) {
+        const duration = Date.now() - startTime;
+        middlewareLogger.info({
+          packageName,
+          userId,
+          duration,
+          authMethod: 'apiKey',
+          sessionId: userSession.sessionId
+        }, `API key auth successful in ${duration}ms`);
+
+        (req as any).userSession = userSession;
         return next();
       } else {
+        const duration = Date.now() - startTime;
+        middlewareLogger.error({
+          packageName,
+          userId,
+          duration
+        }, 'Valid API key but no active session found');
+
         return res.status(401).json({
           success: false,
           message: 'No active session found for user.'
         });
       }
     } else {
+      const duration = Date.now() - startTime;
+      middlewareLogger.error({
+        packageName,
+        userId,
+        duration,
+        validationDuration
+      }, 'Invalid API key provided');
+
       return res.status(401).json({
         success: false,
         message: 'Invalid API key for package.'
@@ -92,19 +169,93 @@ async function unifiedAuthMiddleware(req: Request, res: Response, next: NextFunc
   // Option 2: Core token authentication
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
+    middlewareLogger.debug('Attempting Bearer token authentication');
+
     const token = authHeader.substring(7);
+    const tokenStartTime = Date.now();
+    
     try {
       const session = await getSessionFromToken(token);
+      const tokenDuration = Date.now() - tokenStartTime;
+      
+      // DEBUG: Log detailed session lookup info with race condition detection
+      const userData = jwt.verify(token, AUGMENTOS_AUTH_JWT_SECRET);
+      const tokenUserId = (userData as JwtPayload).email;
+      
+      // Debug JWT contents
+      middlewareLogger.debug({
+        jwtPayload: userData,
+        extractedUserId: tokenUserId,
+        userIdFromSub: (userData as JwtPayload).sub,
+        userIdFromEmail: (userData as JwtPayload).email
+      }, 'JWT verification details');
+      const allSessions = UserSession.getAllSessions();
+      
+      // Check if user had a session recently but it's now missing
+      const userSession = allSessions.find(s => s.userId === tokenUserId);
+      const sessionFoundDirectly = !!UserSession.getById(tokenUserId);
+      
+      middlewareLogger.debug({
+        tokenUserId,
+        sessionFound: !!session,
+        sessionFoundDirectly,
+        sessionInAllSessions: !!userSession,
+        totalActiveSessions: allSessions.length,
+        allSessionUserIds: allSessions.map(s => s.userId),
+        userSessionDetails: userSession ? {
+          websocketState: userSession.websocket?.readyState,
+          disconnectedAt: userSession.disconnectedAt,
+          hasCleanupTimer: !!(userSession as any).cleanupTimerId,
+          startTime: userSession.startTime
+        } : null,
+        tokenDuration,
+        raceConditionSuspected: sessionFoundDirectly !== !!session
+      }, 'Session lookup details with race condition check');
+      
       if (session) {
+        const duration = Date.now() - startTime;
+        middlewareLogger.info({
+          userId: session.userId,
+          sessionId: session.sessionId,
+          duration,
+          tokenDuration,
+          authMethod: 'bearer'
+        }, `Bearer token auth successful in ${duration}ms`);
+
         (req as any).userSession = session;
         return next();
+      } else {
+        const duration = Date.now() - startTime;
+        middlewareLogger.warn({
+          duration,
+          tokenDuration
+        }, 'Valid token but no session found');
       }
     } catch (error) {
+      const tokenDuration = Date.now() - tokenStartTime;
+      const duration = Date.now() - startTime;
+      middlewareLogger.warn({
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message
+        } : error,
+        duration,
+        tokenDuration
+      }, 'Bearer token validation failed');
       // fall through to error below
     }
   }
 
   // If neither auth method worked
+  const duration = Date.now() - startTime;
+  middlewareLogger.error({
+    duration,
+    hasApiKey: !!apiKey,
+    hasAuthHeader: !!authHeader,
+    requestPath: req.path,
+    requestMethod: req.method
+  }, `Authentication failed - no valid auth method found after ${duration}ms`);
+
   return res.status(401).json({
     success: false,
     message: 'Authentication required. Provide either apiKey, packageName, userId or a valid core token with an active session.'
@@ -126,15 +277,8 @@ async function getSessionFromToken(coreToken: string) {
     }
 
     // Find the active session for this user
-    const userSessions = sessionService.getSessionsForUser(userId);
-
-    // Get the most recent active session for this user
-    // We could add more sophisticated logic here if needed (e.g., device ID matching)
-    if (userSessions && userSessions.length > 0) {
-      return userSessions[0]; // Return the first active session
-    }
-
-    return null;
+    const userSession = UserSession.getById(userId) || null;;
+    return userSession;
   } catch (error) {
     logger.error('Error verifying token or finding session:', error);
     return null;
@@ -198,43 +342,6 @@ async function getUserIdFromToken(token: string): Promise<string | null> {
 //   });
 // }
 
-/**
- * Middleware to allow authentication via either core token/session or apiKey+packageName+userId
- */
-// async function apiKeyOrSessionAuthMiddleware(req: Request, res: Response, next: NextFunction) {
-//   // Accept apiKey/packageName/userId from query, body, or headers
-//   const apiKey = req.query.apiKey as string || req.body.apiKey || req.headers['x-api-key'] as string;
-//   const packageName = req.query.packageName as string || req.body.packageName || req.headers['x-package-name'] as string;
-//   const userId = req.query.userId as string || req.body.userId || req.headers['x-user-id'] as string;
-//   const allowedPackages = ['test.augmentos.mira', 'com.augmentos.mira'];
-
-//   if (apiKey && packageName && userId && allowedPackages.includes(packageName)) {
-//     // Validate API key
-//     const valid = await appService.validateApiKey(packageName, apiKey, req.ip);
-//     if (valid) {
-//       const userSessions = sessionService.getSessionsForUser(userId);
-//       if (userSessions && userSessions.length > 0) {
-//         (req as any).userSession = userSessions[0];
-//         (req as any).authMode = 'apiKey';
-//         return next();
-//       } else {
-//         // Optionally: fallback to a minimal session, or return an error
-//         return res.status(401).json({
-//           success: false,
-//           message: 'No active session found for user.'
-//         });
-//       }
-//     } else {
-//       return res.status(401).json({
-//         success: false,
-//         message: 'Invalid API key or package name.'
-//       });
-//     }
-//   }
-
-//   // Fallback to existing dualModeAuthMiddleware
-//   return dualModeAuthMiddleware(req, res, next);
-// }
 
 const router = express.Router();
 
@@ -252,8 +359,15 @@ async function getAllApps(req: Request, res: Response) {
     if (apiKey && packageName && userId) {
       // Already authenticated via middleware
       const apps = await appService.getAllApps(userId);
-      const userSessions = sessionService.getSessionsForUser(userId);
-      const enhancedApps = enhanceAppsWithSessionState(apps, userSessions);
+      const userSession = UserSession.getById(userId);
+      if (!userSession) {
+        return res.status(401).json({
+          success: false,
+          message: 'No active session found for user.'
+        });
+      }
+
+      const enhancedApps = enhanceAppsWithSessionState(apps, userSession);
       return res.json({
         success: true,
         data: enhancedApps
@@ -282,8 +396,9 @@ async function getAllApps(req: Request, res: Response) {
     }
 
     const apps = await appService.getAllApps(tokenUserId);
-    const userSessions = sessionService.getSessionsForUser(tokenUserId);
-    const enhancedApps = enhanceAppsWithSessionState(apps, userSessions);
+    // const userSessions = sessionService.getSessionsForUser(tokenUserId);
+    const userSession: UserSession = (req as any).userSession;
+    const enhancedApps = enhanceAppsWithSessionState(apps, userSession);
     res.json({
       success: true,
       data: enhancedApps
@@ -442,10 +557,117 @@ async function getAppByPackage(req: Request, res: Response) {
  */
 async function startApp(req: Request, res: Response) {
   const { packageName } = req.params;
-  const session = (req as any).userSession;
+  const userSession: UserSession = (req as any).userSession;
+  
+  // Use req.log from pino-http with service context
+  const routeLogger = req.log.child({
+    service: SERVICE_NAME,
+    userId: userSession.userId,
+    packageName,
+    route: 'POST /apps/:packageName/start',
+    sessionId: userSession.sessionId
+  });
+
+  const startTime = Date.now();
+
+  // INFO: Route entry
+  routeLogger.info({
+    sessionState: {
+      websocketConnected: userSession.websocket?.readyState === WebSocket.OPEN,
+      runningAppsCount: userSession.runningApps.size,
+      loadingAppsCount: userSession.loadingApps.size
+    }
+  }, `Starting app ${packageName} for user ${userSession.userId}`);
+
+  // DEBUG: Detailed context
+  routeLogger.debug({
+    detailedSessionState: {
+      runningApps: Array.from(userSession.runningApps),
+      loadingApps: Array.from(userSession.loadingApps),
+      installedAppsCount: userSession.installedApps.size,
+      appWebsocketsCount: userSession.appWebsockets.size
+    }
+  }, 'Route entry context');
+
   try {
-    await webSocketService.startAppSession(session, packageName);
-    const appStateChange = await webSocketService.generateAppStateStatus(session);
+    // WARN: Already running (weird but we handle gracefully)
+    if (userSession.runningApps.has(packageName)) {
+      routeLogger.warn('App already in runningApps before startApp call');
+    }
+    
+    // WARN: Already loading (weird but we handle gracefully)
+    if (userSession.loadingApps.has(packageName)) {
+      routeLogger.warn('App already in loadingApps before startApp call');
+    }
+
+    // DEBUG: AppManager call
+    routeLogger.debug('Calling userSession.appManager.startApp()');
+    const appManagerStartTime = Date.now();
+    
+    const result = await userSession.appManager.startApp(packageName);
+    const appManagerDuration = Date.now() - appManagerStartTime;
+    
+    // DEBUG: AppManager result
+    routeLogger.debug({
+      appManagerResult: result,
+      appManagerDuration,
+      postStartState: {
+        isNowRunning: userSession.runningApps.has(packageName),
+        isStillLoading: userSession.loadingApps.has(packageName),
+        hasWebsocket: userSession.appWebsockets.has(packageName)
+      }
+    }, `AppManager.startApp completed in ${appManagerDuration}ms`);
+
+    // DEBUG: Broadcast call
+    routeLogger.debug('Calling userSession.appManager.broadcastAppState()');
+    const broadcastStartTime = Date.now();
+    
+    const appStateChange = userSession.appManager.broadcastAppState();
+    const broadcastDuration = Date.now() - broadcastStartTime;
+    
+    // DEBUG: Broadcast result
+    routeLogger.debug({
+      broadcastDuration,
+      appStateChangeGenerated: !!appStateChange,
+      appStateChangeSize: appStateChange ? JSON.stringify(appStateChange).length : 0
+    }, `App state broadcast completed in ${broadcastDuration}ms`);
+
+    // ERROR: This shouldn't happen - broadcast should always work
+    if (!appStateChange) {
+      const totalDuration = Date.now() - startTime;
+      routeLogger.error({
+        totalDuration,
+        sessionState: {
+          websocketReady: userSession.websocket?.readyState === WebSocket.OPEN,
+          runningApps: Array.from(userSession.runningApps),
+          loadingApps: Array.from(userSession.loadingApps)
+        }
+      }, 'Broadcast failed to generate app state change - this should not happen');
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Error generating app state change'
+      });
+    }
+
+    const totalDuration = Date.now() - startTime;
+    
+    // INFO: Successful completion
+    routeLogger.info({
+      totalDuration,
+      success: result.success
+    }, `App start completed in ${totalDuration}ms`);
+
+    // DEBUG: Final state details
+    routeLogger.debug({
+      appManagerDuration,
+      broadcastDuration,
+      finalState: {
+        runningApps: Array.from(userSession.runningApps),
+        loadingApps: Array.from(userSession.loadingApps)
+      }
+    }, 'Route completion details');
+
     res.json({
       success: true,
       data: {
@@ -454,11 +676,35 @@ async function startApp(req: Request, res: Response) {
         appState: appStateChange
       }
     });
-    if (session.websocket && session.websocket.readyState === 1) {
-      session.websocket.send(JSON.stringify(appStateChange));
-    }
+
   } catch (error) {
-    logger.error(`Error starting app ${packageName}:`, error);
+    const totalDuration = Date.now() - startTime;
+    
+    // ERROR: Route execution failed
+    routeLogger.error({
+      error: error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      } : error,
+      totalDuration
+    }, `Route failed after ${totalDuration}ms`);
+
+    // DEBUG: Error context for debugging
+    routeLogger.debug({
+      sessionStateOnError: {
+        websocketState: userSession.websocket?.readyState,
+        runningApps: Array.from(userSession.runningApps),
+        loadingApps: Array.from(userSession.loadingApps),
+        appWebsockets: Array.from(userSession.appWebsockets.keys())
+      },
+      requestContext: {
+        method: req.method,
+        url: req.url,
+        userAgent: req.headers['user-agent']
+      }
+    }, 'Error context details');
+
     res.status(500).json({
       success: false,
       message: 'Error starting app'
@@ -471,17 +717,138 @@ async function startApp(req: Request, res: Response) {
  */
 async function stopApp(req: Request, res: Response) {
   const { packageName } = req.params;
-  const session = (req as any).userSession;
+  const userSession: UserSession = (req as any).userSession;
+
+  // Use req.log from pino-http with service context
+  const routeLogger = req.log.child({
+    service: SERVICE_NAME,
+    userId: userSession?.userId,
+    packageName,
+    route: 'POST /apps/:packageName/stop',
+    sessionId: userSession?.sessionId
+  });
+
+  const startTime = Date.now();
+
+  // INFO: Route entry
+  routeLogger.info({
+    isCurrentlyRunning: userSession?.runningApps?.has(packageName),
+    runningAppsCount: userSession?.runningApps?.size || 0
+  }, `Stopping app ${packageName} for user ${userSession?.userId || 'unknown'}`);
+
+  // ERROR: Missing user session (shouldn't happen due to middleware)
+  if (!userSession || !userSession.userId) {
+    routeLogger.error({
+      userSessionExists: !!userSession,
+      userIdExists: !!userSession?.userId
+    }, 'User session validation failed - middleware issue');
+    
+    return res.status(401).json({
+      success: false,
+      message: 'User session is required'
+    });
+  }
+
+  // DEBUG: Session state details
+  routeLogger.debug({
+    sessionState: {
+      websocketConnected: userSession.websocket?.readyState === WebSocket.OPEN,
+      isCurrentlyLoading: userSession.loadingApps.has(packageName),
+      hasWebsocketConnection: userSession.appWebsockets.has(packageName),
+      runningApps: Array.from(userSession.runningApps),
+      loadingApps: Array.from(userSession.loadingApps)
+    }
+  }, 'Stop app route context');
+
   try {
+    // DEBUG: App lookup
+    routeLogger.debug('Looking up app in database');
+    const appLookupStart = Date.now();
+    
     const app = await appService.getApp(packageName);
+    const appLookupDuration = Date.now() - appLookupStart;
+    
+    // DEBUG: App lookup result
+    routeLogger.debug({
+      appLookupDuration,
+      appFound: !!app
+    }, `App lookup completed in ${appLookupDuration}ms`);
+
+    // ERROR: App not found (shouldn't happen for valid requests)
     if (!app) {
+      const totalDuration = Date.now() - startTime;
+      routeLogger.error({
+        totalDuration
+      }, `App ${packageName} not found in database`);
+      
       return res.status(404).json({
         success: false,
         message: 'App not found'
       });
     }
-    await webSocketService.stopAppSession(session, packageName);
-    const appStateChange = await webSocketService.generateAppStateStatus(session);
+
+    // WARN: App not running (weird but we handle gracefully)
+    if (!userSession.runningApps.has(packageName) && !userSession.loadingApps.has(packageName)) {
+      routeLogger.warn('App not in runningApps or loadingApps but stop requested');
+    }
+
+    // DEBUG: AppManager stop call
+    routeLogger.debug('Calling userSession.appManager.stopApp()');
+    const stopStartTime = Date.now();
+    
+    await userSession.appManager.stopApp(packageName);
+    const stopDuration = Date.now() - stopStartTime;
+    
+    // DEBUG: Stop result
+    routeLogger.debug({
+      stopDuration,
+      postStopState: {
+        isStillRunning: userSession.runningApps.has(packageName),
+        isStillLoading: userSession.loadingApps.has(packageName),
+        stillHasWebsocket: userSession.appWebsockets.has(packageName)
+      }
+    }, `AppManager.stopApp completed in ${stopDuration}ms`);
+
+    // DEBUG: Broadcast call
+    routeLogger.debug('Calling userSession.appManager.broadcastAppState()');
+    const broadcastStartTime = Date.now();
+    
+    const appStateChange = userSession.appManager.broadcastAppState();
+    const broadcastDuration = Date.now() - broadcastStartTime;
+    
+    // DEBUG: Broadcast result
+    routeLogger.debug({
+      broadcastDuration,
+      appStateChangeGenerated: !!appStateChange
+    }, `App state broadcast completed in ${broadcastDuration}ms`);
+
+    // ERROR: Broadcast failed (shouldn't happen)
+    if (!appStateChange) {
+      const totalDuration = Date.now() - startTime;
+      routeLogger.error({
+        totalDuration
+      }, 'Failed to generate app state change - this should not happen');
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Error generating app state change'
+      });
+    }
+
+    const totalDuration = Date.now() - startTime;
+    
+    // INFO: Successful completion
+    routeLogger.info({
+      totalDuration
+    }, `App stop completed in ${totalDuration}ms`);
+
+    // DEBUG: Timing breakdown
+    routeLogger.debug({
+      appLookupDuration,
+      stopDuration,
+      broadcastDuration
+    }, 'Route timing breakdown');
+
     res.json({
       success: true,
       data: {
@@ -490,11 +857,29 @@ async function stopApp(req: Request, res: Response) {
         appState: appStateChange
       }
     });
-    if (session.websocket && session.websocket.readyState === 1) {
-      session.websocket.send(JSON.stringify(appStateChange));
-    }
+
   } catch (error) {
-    logger.error(`Error stopping app ${packageName}:`, error);
+    const totalDuration = Date.now() - startTime;
+    
+    // ERROR: Route execution failed
+    routeLogger.error({
+      error: error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      } : error,
+      totalDuration
+    }, `Route failed after ${totalDuration}ms`);
+
+    // DEBUG: Error context
+    routeLogger.debug({
+      sessionStateOnError: {
+        runningApps: Array.from(userSession.runningApps),
+        loadingApps: Array.from(userSession.loadingApps),
+        appWebsockets: Array.from(userSession.appWebsockets.keys())
+      }
+    }, 'Error context details');
+
     res.status(500).json({
       success: false,
       message: 'Error stopping app'
@@ -521,7 +906,7 @@ async function installApp(req: Request, res: Response) {
       });
     }
 
-   if (!user) {
+    if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
@@ -555,8 +940,9 @@ async function installApp(req: Request, res: Response) {
 
     // If there's an active userSession, update the session with the new app.
     try {
+      // sessionService.triggerAppStateChange(email);
       if (userSession) {
-        sessionService.triggerAppStateChange(email);
+        userSession.appManager.broadcastAppState();
       }
     } catch (error) {
       logger.warn({ error, email, packageName }, 'Error sending app state notification');
@@ -620,7 +1006,9 @@ async function uninstallApp(req: Request, res: Response) {
     // Attempt to stop the app session before uninstalling.
     try {
       if (userSession) {
-        await webSocketService.stopAppSession(userSession, packageName);
+        // TODO(isaiah): Ensure this automatically triggers appstate change sent to client.
+        await userSession.appManager.stopApp(packageName);
+        await userSession.appManager.broadcastAppState();
       }
       else {
         logger.warn({ email, packageName }, 'Unable to ensure app is stopped before uninstalling, no active session');
@@ -628,17 +1016,6 @@ async function uninstallApp(req: Request, res: Response) {
     } catch (error) {
       logger.warn('Error stopping app during uninstall:', error);
     }
-
-    // Send app state change notification if there's an active session.
-    try {
-      if (userSession) {
-        sessionService.triggerAppStateChange(email);
-      }
-    } catch (error) {
-      logger.warn({ error, email }, 'Error updating client AppStateChange after uninstall');
-      // Non-critical error, uninstallation succeeded, but updating client state failed.
-    }
-
   } catch (error) {
     logger.error({ error, userId: request.email, packageName }, 'Error uninstalling app');
     res.status(500).json({
@@ -845,12 +1222,6 @@ router.get('/installed', authWithOptionalSession, getInstalledApps);
 router.post('/install/:packageName', authWithOptionalSession, installApp);
 router.post('/uninstall/:packageName', authWithOptionalSession, uninstallApp);
 
-// Keep backward compatibility for now (can be removed later)
-// router.post('/install/:packageName/:email', installApp);
-// router.post('/uninstall/:packageName/:email', uninstallApp);
-// router.get('/install/:packageName/:email', installApp);
-// router.get('/uninstall/:packageName/:email', uninstallApp);
-
 router.get('/version', async (req, res) => {
   res.json({ version: CLOUD_VERSION });
 });
@@ -867,28 +1238,21 @@ router.post('/:packageName/stop', unifiedAuthMiddleware, stopApp);
  * Enhances a list of apps (SDK AppI or local AppI) with running/foreground state.
  * Accepts AppI[] from either @augmentos/sdk or local model.
  */
-function enhanceAppsWithSessionState(apps: any[], userSessions: any[]): EnhancedAppI[] {
+function enhanceAppsWithSessionState(apps: AppI[], userSession: UserSession): EnhancedAppI[] {
   const plainApps = apps.map(app => {
     return (app as any).toObject?.() || app;
   });
+
   return plainApps.map(app => {
     const enhancedApp: EnhancedAppI = {
       ...app,
       is_running: false,
       is_foreground: false
     };
-    if (userSessions && userSessions.length > 0) {
-      const isRunning = userSessions.some(session =>
-        session.activeAppSessions && session.activeAppSessions.includes(app.packageName)
-      );
-      enhancedApp.is_running = isRunning;
-      if (isRunning) {
-        const isForeground = userSessions.some(session =>
-          (session as any).foregroundAppPackageName === app.packageName ||
-          (session as any).foregroundApp === app.packageName
-        );
-        enhancedApp.is_foreground = isForeground;
-      }
+
+    enhancedApp.is_running = userSession.runningApps.has(app.packageName);
+    if (enhancedApp.is_running) {
+      enhancedApp.is_foreground = app.tpaType === TpaType.STANDARD;;
     }
     return enhancedApp;
   });

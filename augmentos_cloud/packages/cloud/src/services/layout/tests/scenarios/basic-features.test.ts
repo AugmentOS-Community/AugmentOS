@@ -22,12 +22,12 @@ const APP2 = 'com.example.app2';
  * Verifies that requests during boot phase are queued, not rejected
  */
 export async function testBootQueueing() {
-  // Create the display manager and user session
-  const displayManager = new DisplayManager();
+  // Create the user session and display manager
   const userSession = new MockUserSession('test-user');
+  const displayManager = new DisplayManager(userSession as any);
   
   console.log('1. Trigger app start (which shows boot screen)');
-  displayManager.handleAppStart(APP1, userSession);
+  displayManager.handleAppStart(APP1);
   
   // Verify boot screen is showing 
   assert.equal(
@@ -50,7 +50,7 @@ export async function testBootQueueing() {
   };
   
   // Send the request during boot phase
-  const result = displayManager.handleDisplayEvent(displayRequest, userSession);
+  const result = displayManager.handleDisplayRequest(displayRequest);
   
   // Should return true (accepted) not false (rejected)
   assert.equal(result, true, 'Display request during boot should be accepted (queued)');
@@ -84,7 +84,7 @@ export async function testBootQueueing() {
   });
   
   // Manually simulate boot completion 
-  displayManager.handleAppStop(APP1, userSession);
+  displayManager.handleAppStop(APP1);
   
   // After boot completion, the queued request should be sent
   const lastMessage = userSession.getLastSentMessage();
@@ -104,9 +104,9 @@ export async function testBootQueueing() {
  * but eventually shown in the correct order
  */
 export async function testPerAppThrottling() {
-  // Create the display manager and user session
-  const displayManager = new DisplayManager();
+  // Create the user session and display manager
   const userSession = new MockUserSession('test-user');
+  const displayManager = new DisplayManager(userSession as any);
   
   // Ensure no boot screen is active
   assert.equal(
@@ -131,7 +131,7 @@ export async function testPerAppThrottling() {
     timestamp: new Date()
   };
   
-  displayManager.handleDisplayEvent(displayRequest1, userSession);
+  displayManager.handleDisplayRequest(displayRequest1);
   
   // Verify first display is showing
   const lastMessage1 = userSession.getLastSentMessage();
@@ -156,7 +156,7 @@ export async function testPerAppThrottling() {
   };
   
   // This should be throttled but accepted
-  const result = displayManager.handleDisplayEvent(displayRequest2, userSession);
+  const result = displayManager.handleDisplayRequest(displayRequest2);
   assert.equal(result, true, 'Throttled display request should be accepted');
   
   // First display should still be showing
@@ -183,7 +183,7 @@ export async function testPerAppThrottling() {
     timestamp: new Date()
   };
   
-  displayManager.handleDisplayEvent(displayRequest3, userSession);
+  displayManager.handleDisplayRequest(displayRequest3);
   
   // In real code with TimeMachine, we would advance time past the throttle window here
   // For manual testing, we need to manually simulate the throttle timeout behavior

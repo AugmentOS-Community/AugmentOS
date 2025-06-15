@@ -1,14 +1,14 @@
-import { NativeModules, Platform } from 'react-native';
+import { Alert, NativeModules, Platform } from 'react-native';
 import showAlert from './AlertUtils';
 
-// Access NotificationAccess at runtime to respect mocks
+const { NotificationAccess } = NativeModules;
 
 export async function checkNotificationAccessSpecialPermission() {
   if (Platform.OS !== 'android') {
     return false;
   }
 
-  return await NativeModules.NotificationAccess.hasNotificationAccess();
+  return await NotificationAccess.hasNotificationAccess();
 }
 
 export async function checkAndRequestNotificationAccessSpecialPermission() {
@@ -17,9 +17,9 @@ export async function checkAndRequestNotificationAccessSpecialPermission() {
   }
 
   try {
-    const hasAccess = await NativeModules.NotificationAccess.hasNotificationAccess();
+    const hasAccess = await NotificationAccess.hasNotificationAccess();
     if (!hasAccess) {
-      showAlert(
+      await showAlert(
         'Enable Notification Access',
         'AugmentOS needs permission to read your phone notifications to display them on your smart glasses.\n\n' +
         'On the next screen:\n' +
@@ -34,7 +34,7 @@ export async function checkAndRequestNotificationAccessSpecialPermission() {
           {
             text: 'Go to Settings',
             onPress: () => {
-              NativeModules.NotificationAccess.requestNotificationAccess()
+              NotificationAccess.requestNotificationAccess()
                 .then(() => {
                   console.log("Notification access settings opened successfully");
                 })

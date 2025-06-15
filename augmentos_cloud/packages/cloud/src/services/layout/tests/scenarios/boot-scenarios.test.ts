@@ -9,7 +9,7 @@ import { strict as assert } from 'assert';
 import DisplayManager from '../../DisplayManager6.1';
 import { MockUserSession } from '../harness/MockUserSession';
 import { systemApps } from '../../../core/system-apps';
-import { TpaToCloudMessageType, ViewType, LayoutType } from '@augmentos/sdk';
+import { TpaToCloudMessageType, ViewType, LayoutType, DisplayRequest } from '@augmentos/sdk';
 import { testShowThrottledAfterAppStop } from './show-throttled-after-app-stop.test';
 
 // Mock app package names
@@ -32,12 +32,12 @@ export async function testBootQueueAndProcess() {
   // Use our direct test approach instead
   try {
     // Create DisplayManager and user session directly
-    const displayManager = new DisplayManager();
     const userSession = new MockUserSession('test-user');
+    const displayManager = new DisplayManager(userSession as any);
     
     console.log('1. Start an app (triggers boot screen)');
     // Start the app (triggers boot screen)
-    displayManager.handleAppStart(APP1, userSession);
+    displayManager.handleAppStart(APP1);
     
     // Verify boot screen is sent to websocket
     const bootScreenMessage = userSession.getLastSentMessage();
@@ -50,7 +50,7 @@ export async function testBootQueueAndProcess() {
     
     console.log('2. Send a display request during boot (should be queued)');
     // Send a display request during boot
-    const displayRequest = {
+    const displayRequest: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: APP1,
       view: ViewType.MAIN,
@@ -63,7 +63,7 @@ export async function testBootQueueAndProcess() {
     };
     
     // This should queue the request, not show it
-    const result = displayManager.handleDisplayEvent(displayRequest, userSession);
+    const result = displayManager.handleDisplayRequest(displayRequest);
     console.assert(result === true, 'Display request should be accepted');
     console.log('✓ Display request accepted');
     
@@ -83,7 +83,7 @@ export async function testBootQueueAndProcess() {
     
     console.log('3. Complete boot');
     // Complete the boot process - handle app stop to end boot phase
-    displayManager.handleAppStop(APP1, userSession);
+    displayManager.handleAppStop(APP1);
     // Re-add app to active sessions
     userSession.addActiveApp(APP1);
     
@@ -109,15 +109,15 @@ export async function testPreBootDisplayPreservation() {
   // Test that pre-boot display is preserved and restored if nothing else is queued
   try {
     // Create DisplayManager and user session directly
-    const displayManager = new DisplayManager();
     const userSession = new MockUserSession('test-user');
+    const displayManager = new DisplayManager(userSession as any);
     
     console.log('1. Show App1 display');
     // Add App1 to active apps
     userSession.addActiveApp(APP1);
     
     // App1 shows a display
-    const app1Request = {
+    const app1Request: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: APP1,
       view: ViewType.MAIN,
@@ -125,7 +125,7 @@ export async function testPreBootDisplayPreservation() {
       timestamp: new Date(),
       forceDisplay: true
     };
-    displayManager.handleDisplayEvent(app1Request, userSession);
+    displayManager.handleDisplayRequest(app1Request);
     
     // Verify App1's display is current
     // @ts-ignore: We need to access private property for testing
@@ -136,7 +136,7 @@ export async function testPreBootDisplayPreservation() {
     
     console.log('2. Start App2 (which will save App1\'s display)');
     // Start App2, which triggers boot screen and should save App1's display
-    displayManager.handleAppStart(APP2, userSession);
+    displayManager.handleAppStart(APP2);
     userSession.addActiveApp(APP2);
     
     // Verify display is saved
@@ -154,7 +154,7 @@ export async function testPreBootDisplayPreservation() {
     
     console.log('3. Complete boot for App2');
     // Complete boot for App2 without sending any display requests
-    displayManager.handleAppStop(APP2, userSession);
+    displayManager.handleAppStop(APP2);
     
     // Check if App1's display was restored
     // @ts-ignore: We need to access private property for testing
@@ -197,14 +197,14 @@ export async function testMultipleAppBoot() {
   
   try {
     // Create DisplayManager and user session directly
-    const displayManager = new DisplayManager();
     const userSession = new MockUserSession('test-user');
+    const displayManager = new DisplayManager(userSession as any);
     
     console.log('1. Start multiple apps');
     // Start the apps
-    displayManager.handleAppStart(APP1, userSession);
-    displayManager.handleAppStart(APP2, userSession);
-    displayManager.handleAppStart(CAPTIONS_APP, userSession);
+    displayManager.handleAppStart(APP1);
+    displayManager.handleAppStart(APP2);
+    displayManager.handleAppStart(CAPTIONS_APP);
     userSession.addActiveApp(APP1);
     userSession.addActiveApp(APP2);
     userSession.addActiveApp(CAPTIONS_APP);
@@ -212,7 +212,7 @@ export async function testMultipleAppBoot() {
     console.log('2. Send display requests for each app');
     
     // Send display requests (they should be queued)
-    const app1Request = {
+    const app1Request: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: APP1,
       view: ViewType.MAIN,
@@ -220,9 +220,9 @@ export async function testMultipleAppBoot() {
       timestamp: new Date(),
       forceDisplay: true
     };
-    displayManager.handleDisplayEvent(app1Request, userSession);
+    displayManager.handleDisplayRequest(app1Request);
     
-    const app2Request = {
+    const app2Request: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: APP2,
       view: ViewType.MAIN,
@@ -230,9 +230,9 @@ export async function testMultipleAppBoot() {
       timestamp: new Date(),
       forceDisplay: true
     };
-    displayManager.handleDisplayEvent(app2Request, userSession);
+    displayManager.handleDisplayRequest(app2Request);
     
-    const captionsRequest = {
+    const captionsRequest: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: CAPTIONS_APP,
       view: ViewType.MAIN,
@@ -240,7 +240,7 @@ export async function testMultipleAppBoot() {
       timestamp: new Date(),
       forceDisplay: true
     };
-    displayManager.handleDisplayEvent(captionsRequest, userSession);
+    displayManager.handleDisplayRequest(captionsRequest);
     
     // @ts-ignore: We need to access private property for testing
     const bootQueue = displayManager['bootDisplayQueue'];
@@ -251,9 +251,9 @@ export async function testMultipleAppBoot() {
     
     // Complete boot for all apps
     console.log('3. Complete boot for all apps');
-    displayManager.handleAppStop(APP1, userSession);
-    displayManager.handleAppStop(APP2, userSession);
-    displayManager.handleAppStop(CAPTIONS_APP, userSession);
+    displayManager.handleAppStop(APP1);
+    displayManager.handleAppStop(APP2);
+    displayManager.handleAppStop(CAPTIONS_APP);
     
     // Check if CAPTIONS_APP has priority when processing the boot queue
     // Either by being sent first or by being the current display
@@ -298,19 +298,19 @@ export async function testAppStopDuringBoot() {
   // Test that stopping an app during boot removes its display request from queue
   try {
     // Create DisplayManager and user session directly
-    const displayManager = new DisplayManager();
     const userSession = new MockUserSession('test-user');
+    const displayManager = new DisplayManager(userSession as any);
     
     console.log('1. Start App1 and App2');
     // Start both apps
-    displayManager.handleAppStart(APP1, userSession);
-    displayManager.handleAppStart(APP2, userSession);
+    displayManager.handleAppStart(APP1);
+    displayManager.handleAppStart(APP2);
     userSession.addActiveApp(APP1);
     userSession.addActiveApp(APP2);
     
     console.log('2. Send display requests for both apps');
     // Send display requests (they should be queued)
-    const app1Request = {
+    const app1Request: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: APP1,
       view: ViewType.MAIN,
@@ -318,9 +318,9 @@ export async function testAppStopDuringBoot() {
       timestamp: new Date(),
       forceDisplay: true
     };
-    displayManager.handleDisplayEvent(app1Request, userSession);
+    displayManager.handleDisplayRequest(app1Request);
     
-    const app2Request = {
+    const app2Request: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: APP2,
       view: ViewType.MAIN,
@@ -328,7 +328,7 @@ export async function testAppStopDuringBoot() {
       timestamp: new Date(),
       forceDisplay: true
     };
-    displayManager.handleDisplayEvent(app2Request, userSession);
+    displayManager.handleDisplayRequest(app2Request);
     
     // @ts-ignore: We need to access private property for testing
     const bootQueue = displayManager['bootDisplayQueue'];
@@ -339,7 +339,7 @@ export async function testAppStopDuringBoot() {
     console.log('3. Stop App1 during boot');
     // Stop App1 during boot
     userSession.removeActiveApp(APP1);
-    displayManager.handleAppStop(APP1, userSession);
+    displayManager.handleAppStop(APP1);
     
     // Verify App1 is removed from boot queue but App2 remains
     console.assert(!bootQueue.has(APP1), 'App1 should be removed from boot queue');
@@ -348,7 +348,7 @@ export async function testAppStopDuringBoot() {
     
     console.log('4. Complete boot for App2');
     // Complete boot for App2
-    displayManager.handleAppStop(APP2, userSession);
+    displayManager.handleAppStop(APP2);
     
     // Check if App2's display was shown
     let app2WasShown = false;
@@ -391,19 +391,19 @@ export async function testNoDisplayRestoreForStoppedApps() {
   // Test that displays from stopped apps are not restored after boot
   try {
     // Create DisplayManager and user session directly
-    const displayManager = new DisplayManager();
     const userSession = new MockUserSession('test-user');
+    const displayManager = new DisplayManager(userSession as any);
     
     console.log('1. Start and display App1');
     // Add App1 to active apps and start it
     userSession.addActiveApp(APP1);
-    displayManager.handleAppStart(APP1, userSession);
+    displayManager.handleAppStart(APP1);
     
     // Complete boot
-    displayManager.handleAppStop(APP1, userSession);
+    displayManager.handleAppStop(APP1);
     
     // App1 shows a display
-    const app1Request = {
+    const app1Request: DisplayRequest = {
       type: TpaToCloudMessageType.DISPLAY_REQUEST,
       packageName: APP1,
       view: ViewType.MAIN,
@@ -411,7 +411,7 @@ export async function testNoDisplayRestoreForStoppedApps() {
       timestamp: new Date(),
       forceDisplay: true
     };
-    displayManager.handleDisplayEvent(app1Request, userSession);
+    displayManager.handleDisplayRequest(app1Request);
     
     // Verify App1's display is current
     // @ts-ignore: We need to access private property for testing
@@ -423,12 +423,12 @@ export async function testNoDisplayRestoreForStoppedApps() {
     console.log('2. Stop App1');
     // Stop App1
     userSession.removeActiveApp(APP1);
-    displayManager.handleAppStop(APP1, userSession);
+    displayManager.handleAppStop(APP1);
     
     console.log('3. Start App2');
     // Start App2
     userSession.addActiveApp(APP2);
-    displayManager.handleAppStart(APP2, userSession);
+    displayManager.handleAppStart(APP2);
     
     // Verify boot screen is showing
     const bootScreenMessage = userSession.getLastSentMessage();
@@ -445,7 +445,7 @@ export async function testNoDisplayRestoreForStoppedApps() {
     
     console.log('4. Complete boot for App2');
     // Complete boot for App2
-    displayManager.handleAppStop(APP2, userSession);
+    displayManager.handleAppStop(APP2);
     
     // Check that App1's display was NOT restored
     // @ts-ignore: We need to access private property for testing

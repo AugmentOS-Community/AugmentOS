@@ -6,8 +6,9 @@
  */
 import { TpaToCloudMessage } from '@augmentos/sdk';
 import { logger } from '@augmentos/utils';
-import { ExtendedUserSession } from '../core/session.service';
+// import { ExtendedUserSession } from '../session/session.service';
 import { DashboardManager } from './DashboardManager';
+import UserSession from '../session/UserSession';
 
 // Export DashboardManager for session creation
 export { DashboardManager };
@@ -20,7 +21,7 @@ export { DashboardManager };
  * @param userSession User session that received the message
  * @returns True if the message was handled, false otherwise
  */
-export function handleTpaMessage(message: TpaToCloudMessage, userSession: ExtendedUserSession): boolean {
+export function handleTpaMessage(message: TpaToCloudMessage, userSession: UserSession): boolean {
   try {
     if (!userSession.dashboardManager) {
       logger.error(`Dashboard manager not found for session ${userSession.sessionId}`);
@@ -42,7 +43,7 @@ export function handleTpaMessage(message: TpaToCloudMessage, userSession: Extend
  * @param packageName TPA package name
  * @param userSession User session that had the TPA disconnected
  */
-export function handleTpaDisconnected(packageName: string, userSession: ExtendedUserSession): void {
+export function handleTpaDisconnected(packageName: string, userSession: UserSession): void {
   try {
     if (!userSession.dashboardManager) {
       logger.error(`Dashboard manager not found for session ${userSession.sessionId}`);

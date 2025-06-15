@@ -30,6 +30,8 @@ struct ViewState {
   var micManager: OnboardMicrophoneManager!
   var serverComms: ServerComms!
   
+  private var lastStatusObj: [String: Any] = [:]
+
   private var cancellables = Set<AnyCancellable>()
   private var cachedThirdPartyAppList: [ThirdPartyCloudApp] = []
   //  private var cachedWhatToStream = [String]()
@@ -59,6 +61,9 @@ struct ViewState {
     ViewState(topText: " ", bottomText: " ", layoutType: "text_wall", text: "", eventStr: ""),
     ViewState(topText: " ", bottomText: " ", layoutType: "text_wall", text: "$TIME12$ $DATE$ $GBATT$ $CONNECTION_STATUS", eventStr: ""),
   ]
+  
+  private var sendStateWorkItem: DispatchWorkItem?
+  private let sendStateQueue = DispatchQueue(label: "sendStateQueue", qos: .userInitiated)
   
   
   // mic:
@@ -127,6 +132,7 @@ struct ViewState {
       guard level >= 0 else { return }
       self.batteryLevel = level
       self.serverComms.sendBatteryStatus(level: self.batteryLevel, charging: false);
+      handleRequestStatus()
     }.store(in: &cancellables)
     
     // listen to headUp events:
@@ -134,6 +140,27 @@ struct ViewState {
         guard let self = self else { return }
         self.sendCurrentState(value)
     }.store(in: &cancellables)
+    
+    // listen to case events:
+    g1Manager!.$caseOpen.sink { [weak self] (value: Bool) in
+        guard let self = self else { return }
+      handleRequestStatus()
+    }.store(in: &cancellables)
+    
+    g1Manager!.$caseRemoved.sink { [weak self] (value: Bool) in
+        guard let self = self else { return }
+      handleRequestStatus()
+    }.store(in: &cancellables)
+    
+    g1Manager!.$caseCharging.sink { [weak self] (value: Bool) in
+        guard let self = self else { return }
+      handleRequestStatus()
+    }.store(in: &cancellables)
+    
+//    g1Manager!.$caseBatteryLevel.sink { [weak self] (value: Bool) in
+//        guard let self = self else { return }
+//      handleRequestStatus()
+//    }.store(in: &cancellables)
     
     
     // Subscribe to WebSocket status changes
@@ -430,6 +457,23 @@ struct ViewState {
   }
   
   public func sendCurrentState(_ isDashboard: Bool) -> Void {
+      // Cancel any pending delayed execution
+      sendStateWorkItem?.cancel()
+      
+      // Execute immediately
+      executeSendCurrentState(isDashboard)
+      
+      // Schedule a delayed execution that will fire in 1 second if not cancelled
+      let workItem = DispatchWorkItem { [weak self] in
+          self?.executeSendCurrentState(isDashboard)
+      }
+      
+      sendStateWorkItem = workItem
+      sendStateQueue.asyncAfter(deadline: .now() + 1.0, execute: workItem)
+  }
+
+  
+  public func executeSendCurrentState(_ isDashboard: Bool) -> Void {
     Task {
       var currentViewState: ViewState!;
       if (isDashboard) {
@@ -725,14 +769,15 @@ struct ViewState {
       case stopApp = "stop_app"
       case updateGlassesHeadUpAngle = "update_glasses_head_up_angle"
       case updateGlassesBrightness = "update_glasses_brightness"
-      case updateGlassesDashboardHeight = "update_glasses_dashboard_height"
       case updateGlassesDepth = "update_glasses_depth"
+      case updateGlassesHeight = "update_glasses_height"
       case enableSensing = "enable_sensing"
       case enableAlwaysOnStatusBar = "enable_always_on_status_bar"
       case bypassVad = "bypass_vad_for_debugging"
       case bypassAudioEncoding = "bypass_audio_encoding_for_debugging"
       case setServerUrl = "set_server_url"
       case setMetricSystemEnabled = "set_metric_system_enabled"
+      case toggleUpdatingScreen = "toggle_updating_screen"
       case showDashboard = "show_dashboard"
       case unknown
     }
@@ -878,9 +923,9 @@ struct ViewState {
           saveSettings()
           handleRequestStatus()// to update the UI
           break
-        case .updateGlassesDashboardHeight:
+        case .updateGlassesHeight:
           guard let params = params, let value = params["height"] as? Int else {
-            print("update_glasses_brightness invalid params")
+            print("update_glasses_height invalid params")
             break
           }
           self.dashboardHeight = value
@@ -959,6 +1004,17 @@ struct ViewState {
           self.metricSystemEnabled = enabled
           saveSettings()
           handleRequestStatus()
+          serverComms.sendCoreStatus(status: self.lastStatusObj)
+          break
+        case .toggleUpdatingScreen:
+          guard let params = params, let enabled = params["enabled"] as? Bool else {
+            print("toggle_updating_screen invalid params")
+            break
+          }
+          if enabled {
+            self.g1Manager?.RN_exit()
+            // TODO: more / prevent additional messages from being sent
+          }
           break
         case .unknown:
           print("Unknown command type: \(commandString)")
@@ -1000,6 +1056,7 @@ struct ViewState {
   }
   
   private func handleRequestStatus() {
+    
     // construct the status object:
 
     let isGlassesConnected = self.g1Manager?.g1Ready ?? false
@@ -1019,7 +1076,11 @@ struct ViewState {
     if isGlassesConnected {
       connectedGlasses = [
         "model_name": self.defaultWearable,
-        "battery_life": self.batteryLevel,
+        "battery_level": self.batteryLevel,
+        "case_removed": self.g1Manager?.caseRemoved ?? true,
+        "case_open": self.g1Manager?.caseOpen ?? true,
+        "case_charging": self.g1Manager?.caseCharging ?? false,
+        "case_battery_level": self.g1Manager?.caseBatteryLevel ?? -1,
       ]
       self.somethingConnected = true
     }
@@ -1082,6 +1143,9 @@ struct ViewState {
       "core_info": coreInfo,
       "auth": authObj
     ]
+
+    self.lastStatusObj = statusObj
+
     let wrapperObj: [String: Any] = ["status": statusObj]
     
     // print("wrapperStatusObj \(wrapperObj)")
@@ -1170,8 +1234,8 @@ struct ViewState {
       try? await Task.sleep(nanoseconds: 400_000_000)
       self.g1Manager?.RN_setBrightness(brightness, autoMode: autoBrightness)
       try? await Task.sleep(nanoseconds: 400_000_000)
-      self.g1Manager?.RN_setDashboardPosition(self.dashboardHeight, self.dashboardDepth)
-     try? await Task.sleep(nanoseconds: 400_000_000)
+      // self.g1Manager?.RN_setDashboardPosition(self.dashboardHeight, self.dashboardDepth)
+      // try? await Task.sleep(nanoseconds: 400_000_000)
 //      playStartupSequence()
       sendText("// AUGMENTOS CONNECTED")
       try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second

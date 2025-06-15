@@ -97,8 +97,8 @@ For more information, visit the [AugmentOS-Cloud-Example-App repository](https:/
 
 ## Next Steps
 
-- Explore the [Build From Scratch](getting-started) guide for a more detailed walkthrough
+- Explore the [Build From Scratch](/getting-started) guide for a more detailed walkthrough
 - For a more in-depth example with app settings support, see the [Extended Example](https://github.com/AugmentOS-Community/AugmentOS-Extended-Example-App)
-- Learn about [Core Concepts](core-concepts) to understand how AugmentOS apps work
-- Read about [Permissions](permissions) to access device capabilities like microphone and location
+- Learn about [Core Concepts](/core-concepts) to understand how AugmentOS apps work
+- Read about [Permissions](/permissions) to access device capabilities like microphone and location
 - Join our [Discord community](https://discord.gg/5ukNvkEAqT) for help and support

@@ -1,6 +1,6 @@
 //backend/src/routes/apps.ts
 import express from 'express';
-import sessionService from '../services/core/session.service';
+import sessionService from '../services/session/session.service';
 import { TranscriptSegment } from '@augmentos/sdk';
 const router = express.Router();
 

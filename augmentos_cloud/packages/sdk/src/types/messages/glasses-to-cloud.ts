@@ -113,6 +113,23 @@ export interface LocationUpdate extends BaseMessage {
   lng: number;
 }
 
+/**
+ * VPS coordinates update from glasses
+ */
+export interface VpsCoordinates extends BaseMessage {
+  type: GlassesToCloudMessageType.VPS_COORDINATES | StreamType.VPS_COORDINATES;
+  deviceModel: string;
+  requestId: string;
+  x: number;
+  y: number;
+  z: number;
+  qx: number;
+  qy: number;
+  qz: number;
+  qw: number;
+  confidence: number;
+}
+
 export interface CalendarEvent extends BaseMessage {
   type: GlassesToCloudMessageType.CALENDAR_EVENT | StreamType.CALENDAR_EVENT;
   eventId: string;
@@ -178,17 +195,46 @@ export interface PhotoResponse extends BaseMessage {
   savedToGallery: boolean;  // Whether the photo was saved to gallery
 }
 
-export interface VideoStreamResponse extends BaseMessage {
-  type: GlassesToCloudMessageType.VIDEO_STREAM_RESPONSE;
-  requestId: string;  // Unique ID for the video stream request
-  videoUrl: string;  // URL of the video stream
-  savedToGallery: boolean;  // Whether the video was saved to gallery
+/**
+ * RTMP stream status update from glasses
+ */
+export interface RtmpStreamStatus extends BaseMessage {
+  type: GlassesToCloudMessageType.RTMP_STREAM_STATUS;
+  streamId?: string;  // Unique identifier for the stream
+  status: "initializing" | "connecting" | "reconnecting" | "streaming" | "error" | "stopped" | "active" | "stopping" | "disconnected" | "timeout";
+  errorDetails?: string;
+  appId?: string;  // ID of the app that requested the stream
+  stats?: {
+    bitrate: number;
+    fps: number;
+    droppedFrames: number;
+    duration: number;
+  };
+}
+
+/**
+ * Keep-alive acknowledgment from glasses
+ */
+export interface KeepAliveAck extends BaseMessage {
+  type: GlassesToCloudMessageType.KEEP_ALIVE_ACK;
+  streamId: string;  // ID of the stream being kept alive
+  ackId: string;     // Acknowledgment ID that was sent by cloud
+}
+
+/**
+ * Photo taken event from glasses
+ */
+export interface PhotoTaken extends BaseMessage {
+  type: GlassesToCloudMessageType.PHOTO_TAKEN;
+  photoData: ArrayBuffer;
+  mimeType: string;
+  timestamp: Date;
 }
 
 /**
  * Union type for all messages from glasses to cloud
  */
-export type GlassesToCloudMessage = 
+export type GlassesToCloudMessage =
   | ConnectionInit
   | RequestSettings
   | StartApp
@@ -201,15 +247,17 @@ export type GlassesToCloudMessage =
   | PhoneBatteryUpdate
   | GlassesConnectionState
   | LocationUpdate
+  | VpsCoordinates
   | CalendarEvent
   | Vad
   | PhoneNotification
   | NotificationDismissed
   | AugmentosSettingsUpdateRequest
   | CoreStatusUpdate
-
+  | RtmpStreamStatus
+  | KeepAliveAck
   | PhotoResponse
-  | VideoStreamResponse
+  | PhotoTaken;
 
 //===========================================================
 // Type guards
@@ -278,4 +326,20 @@ export function isPhoneNotification(message: GlassesToCloudMessage): message is 
 
 export function isNotificationDismissed(message: GlassesToCloudMessage): message is NotificationDismissed {
   return message.type === GlassesToCloudMessageType.NOTIFICATION_DISMISSED;
+}
+
+export function isRtmpStreamStatus(message: GlassesToCloudMessage): message is RtmpStreamStatus {
+  return message.type === GlassesToCloudMessageType.RTMP_STREAM_STATUS;
+}
+
+export function isPhotoResponse(message: GlassesToCloudMessage): message is PhotoResponse {
+  return message.type === GlassesToCloudMessageType.PHOTO_RESPONSE;
+}
+
+export function isKeepAliveAck(message: GlassesToCloudMessage): message is KeepAliveAck {
+  return message.type === GlassesToCloudMessageType.KEEP_ALIVE_ACK;
+}
+
+export function isPhotoTaken(message: GlassesToCloudMessage): message is PhotoTaken {
+  return message.type === GlassesToCloudMessageType.PHOTO_TAKEN;
 }

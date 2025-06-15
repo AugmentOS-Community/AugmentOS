@@ -93,6 +93,8 @@ enum GlassesError: Error {
   @Published public var rightBatteryLevel: Int = -1
   @Published public var caseCharging = false
   @Published public var caseOpen = false
+  @Published public var caseRemoved = true
+  
   public var isDisconnecting = false
   private var reconnectionTimer: Timer?
   private var reconnectionAttempts: Int = 0
@@ -456,7 +458,7 @@ enum GlassesError: Error {
     
     while attempts < maxAttempts && !result {
       if (attempts > 0) {
-        print("trying again to send to left: \(attempts)")
+        print("trying again to send to:\(s): \(attempts)")
       }
       let data = Data(chunks[0])
       print("SEND (\(s)) \(data.hexEncodedString())")
@@ -469,13 +471,13 @@ enum GlassesError: Error {
       for i in 0..<chunks.count-1 {
         let chunk = chunks[i]
         await sendCommandToSide(chunk, side: side)
-        try? await Task.sleep(nanoseconds: 50 * 1_000_000)// 50ms
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)// 100ms
       }
       
       let lastChunk = chunks.last!
       await sendCommandToSide(lastChunk, side: side)
       
-      result = waitForSemaphore(semaphore: semaphore, timeout: 0.1)
+      result = waitForSemaphore(semaphore: semaphore, timeout: 0.3)
       
       attempts += 1
       if !result && (attempts >= maxAttempts) {
@@ -584,7 +586,7 @@ enum GlassesError: Error {
     
     let side = peripheral == leftPeripheral ? "left" : "right"
     let s = peripheral == leftPeripheral ? "L" : "R"
-    print("RECV (\(s)) \(data.hexEncodedString())")
+//    print("RECV (\(s)) \(data.hexEncodedString())")
     
     switch Commands(rawValue: command) {
     case .BLE_REQ_INIT:
@@ -689,11 +691,19 @@ enum GlassesError: Error {
         print("STOP RECORDING")
       case .TRIGGER_CHANGE_PAGE:
         print("TRIGGER_CHANGE_PAGE")
+      case .CASE_REMOVED:
+        print("REMOVED FROM CASE")
+        self.caseRemoved = true
+      case .CASE_REMOVED2:
+        print("REMOVED FROM CASE2")
+        self.caseRemoved = true
       case .CASE_OPEN:
         self.caseOpen = true
+        self.caseRemoved = false
         print("CASE OPEN");
       case .CASE_CLOSED:
         self.caseOpen = false
+        self.caseRemoved = false
         print("CASE CLOSED");
       case .CASE_CHARGING_STATUS:
         guard data.count >= 3 else { break }
@@ -843,6 +853,12 @@ extension ERG1Manager {
     let initData = Data([Commands.BLE_REQ_INIT.rawValue, 0x01])
     let initDataArray = initData.map { UInt8($0) }
     queueChunks([initDataArray])
+  }
+
+  func RN_exit() {
+    let exitData = Data([Commands.BLE_EXIT_ALL_FUNCTIONS.rawValue])
+    let exitDataArray = exitData.map { UInt8($0) }
+    queueChunks([exitDataArray])
   }
   
   // don't call semaphore signals here as it's handled elswhere:

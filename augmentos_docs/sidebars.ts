@@ -96,7 +96,6 @@ const sidebars: SidebarsConfig = {
           ],
         },
         'reference/utilities',
-        'reference/webview-auth',
       ],
     },
     {

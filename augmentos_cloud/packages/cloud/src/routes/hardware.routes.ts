@@ -5,8 +5,8 @@
 import express, { Request, Response } from 'express';
 import { logger } from '@augmentos/utils';
 import { validateGlassesAuth } from '../middleware/glasses-auth.middleware';
-import sessionService from '../services/core/session.service';
-import subscriptionService from '../services/core/subscription.service';
+import sessionService from '../services/session/session.service';
+import subscriptionService from '../services/session/subscription.service';
 import { StreamType } from '@augmentos/sdk';
 import photoRequestService from '../services/core/photo-request.service';
 

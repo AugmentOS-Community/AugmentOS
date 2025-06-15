@@ -15,7 +15,7 @@ export async function main() {
   const userSession = new MockUserSession('test-user');
   
   // Create a display manager
-  const displayManager = new DisplayManager();
+  const displayManager = new DisplayManager(userSession as any);
   
   // Create a simple display request
   const displayRequest: DisplayRequest = {
@@ -31,7 +31,7 @@ export async function main() {
   
   // Send the display request
   console.log('Sending display request...');
-  const result = displayManager.handleDisplayEvent(displayRequest, userSession);
+  const result = displayManager.handleDisplayRequest(displayRequest);
   console.log('Display request result:', result);
   
   // Check the messages sent to the WebSocket

@@ -1,7 +1,7 @@
 "on":
     push:
         branches:
-            - isaiah/logging
+            - isaiah/big-refactor-dev
 name: 🚀 [debug] Porter.run Deploy
 jobs:
     porter-deploy:
