@@ -64,7 +64,7 @@ public class CameraNeo extends LifecycleService {
     private static final String TAG = "CameraNeo";
     private static final String CHANNEL_ID = "CameraNeoServiceChannel";
     private static final int NOTIFICATION_ID = 1;
-    
+
     // Camera variables
     private CameraDevice cameraDevice = null;
     private CaptureRequest.Builder captureRequestBuilder;
@@ -76,13 +76,13 @@ public class CameraNeo extends LifecycleService {
     private Size jpegSize;
     private String cameraId;
     private boolean isK900Device = false;
-    
+
     // Screen wake is now handled by WakeLockManager
-    
+
     // Target photo resolution (4:3 landscape orientation)
     private static final int TARGET_WIDTH = 1440;
     private static final int TARGET_HEIGHT = 1080;
-    
+
     // Callback and execution handling
     private final Executor executor = Executors.newSingleThreadExecutor();
 
@@ -93,7 +93,7 @@ public class CameraNeo extends LifecycleService {
     public static final String ACTION_STOP_VIDEO_RECORDING = "com.augmentos.camera.ACTION_STOP_VIDEO_RECORDING";
     public static final String EXTRA_VIDEO_FILE_PATH = "com.augmentos.camera.EXTRA_VIDEO_FILE_PATH";
     public static final String EXTRA_VIDEO_ID = "com.augmentos.camera.EXTRA_VIDEO_ID";
-    
+
     // Callback interface for photo capture
     public interface PhotoCaptureCallback {
         void onPhotoCaptured(String filePath);
@@ -341,7 +341,7 @@ public class CameraNeo extends LifecycleService {
                         break;
                     }
                 }
-                
+
                 // If no back camera found, use the first available camera
                 if (this.cameraId == null && cameraIds.length > 0) {
                     this.cameraId = cameraIds[0];
@@ -431,21 +431,21 @@ public class CameraNeo extends LifecycleService {
                         stopSelf();
                         return;
                     }
-                    
+
                     ByteBuffer buffer = image.getPlanes()[0].getBuffer();
                     byte[] bytes = new byte[buffer.remaining()];
                     buffer.get(bytes);
-                    
+
                     // Save the image data to the file
                     boolean success = saveImageDataToFile(bytes, filePath);
-                    
+
                     if (success) {
                         lastPhotoPath = filePath;
                         notifyPhotoCaptured(filePath);
                     } else {
                         notifyPhotoError("Failed to save image");
                     }
-                    
+
                     // Clean up resources
                     closeCamera();
                     stopSelf();
@@ -542,18 +542,18 @@ public class CameraNeo extends LifecycleService {
     private boolean saveImageDataToFile(byte[] data, String filePath) {
         try {
             File file = new File(filePath);
-            
+
             // Ensure parent directory exists
             File parentDir = file.getParentFile();
             if (parentDir != null && !parentDir.exists()) {
                 parentDir.mkdirs();
             }
-            
+
             // Write image data to file
             try (FileOutputStream output = new FileOutputStream(file)) {
                 output.write(data);
             }
-            
+
             Log.d(TAG, "Saved image to: " + filePath);
             return true;
         } catch (Exception e) {
@@ -561,7 +561,7 @@ public class CameraNeo extends LifecycleService {
             return false;
         }
     }
-    
+
     /**
      * Camera state callback for Camera2 API
      */
@@ -662,13 +662,27 @@ public class CameraNeo extends LifecycleService {
             }
             captureRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
             if (isK900Device) {
-                captureRequestBuilder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, 0);
-                captureRequestBuilder.set(CaptureRequest.CONTROL_AE_REGIONS, new MeteringRectangle[]{
-                        new MeteringRectangle(0, 0, 4208, 3120, MeteringRectangle.METERING_WEIGHT_MAX)
-                });
-                captureRequestBuilder.set(CaptureRequest.NOISE_REDUCTION_MODE, CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY);
-                captureRequestBuilder.set(CaptureRequest.EDGE_MODE, CaptureRequest.EDGE_MODE_HIGH_QUALITY);
-                captureRequestBuilder.set(CaptureRequest.JPEG_QUALITY, (byte) 95);
+                // captureRequestBuilder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, 0);
+                // captureRequestBuilder.set(CaptureRequest.CONTROL_AE_REGIONS, new MeteringRectangle[]{
+                //         new MeteringRectangle(0, 0, 4208, 3120, MeteringRectangle.METERING_WEIGHT_MAX)
+                // });
+                // captureRequestBuilder.set(CaptureRequest.NOISE_REDUCTION_MODE, CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY);
+                // captureRequestBuilder.set(CaptureRequest.EDGE_MODE, CaptureRequest.EDGE_MODE_HIGH_QUALITY);
+                // captureRequestBuilder.set(CaptureRequest.JPEG_QUALITY, (byte) 95);
+
+                // Turn off auto exposure
+                // AUTO mode with AE (auto-exposure) enabled
+                captureRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
+                captureRequestBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, 12500000L); // 50ms
+                captureRequestBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, 600);
+                captureRequestBuilder.set(CaptureRequest.JPEG_ORIENTATION, 270);
+
+                // Let ISO and shutter be managed by AE
+                // DO NOT set SENSOR_SENSITIVITY or SENSOR_EXPOSURE_TIME manually here
+                // Set JPEG orientation
+                captureRequestBuilder.set(CaptureRequest.JPEG_ORIENTATION, 270);
+
+
             } else {
                 captureRequestBuilder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, 1);
                 captureRequestBuilder.set(CaptureRequest.NOISE_REDUCTION_MODE, CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY);
@@ -832,13 +846,13 @@ public class CameraNeo extends LifecycleService {
             executor.execute(() -> sPhotoCallback.onPhotoCaptured(filePath));
         }
     }
-    
+
     private void notifyPhotoError(String errorMessage) {
         if (sPhotoCallback != null) {
             executor.execute(() -> sPhotoCallback.onPhotoError(errorMessage));
         }
     }
-    
+
     /**
      * Start background thread
      */
@@ -847,7 +861,7 @@ public class CameraNeo extends LifecycleService {
         backgroundThread.start();
         backgroundHandler = new Handler(backgroundThread.getLooper());
     }
-    
+
     /**
      * Stop background thread
      */
@@ -863,7 +877,7 @@ public class CameraNeo extends LifecycleService {
             }
         }
     }
-    
+
     /**
      * Close camera resources
      */
@@ -897,7 +911,7 @@ public class CameraNeo extends LifecycleService {
             cameraOpenCloseLock.release();
         }
     }
-    
+
     /**
      * Release wake locks to avoid battery drain
      */

@@ -39,6 +39,6 @@ public class BootReceiver extends BroadcastReceiver {
     }
 
     private void checkOldApkFile(Context context) {
-        new OtaHelper().checkOlderApkFile(context);
+        new OtaHelper(context).checkOlderApkFile(context);
     }
 }

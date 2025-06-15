@@ -4,7 +4,7 @@ public class Constants {
     public static final String TAG = "OTAUpdater";
 
     // URLs
-    public static final String VERSION_JSON_URL = "http://10.175.187.247:8000/version.json";//change with real server ip address
+    public static final String VERSION_JSON_URL = "https://dev.augmentos.org/version.json"; // TODO: change with real server ip address
 
     // File paths
     public static final String OTA_FOLDER = "/storage/emulated/0/asg";
@@ -14,9 +14,9 @@ public class Constants {
 
     // Intent actions
     public static final String ACTION_INSTALL_OTA = "com.augmentos.asg_client.ACTION_INSTALL_OTA";
+    public static final String ACTION_HEARTBEAT = "com.augmentos.otaupdater.ACTION_HEARTBEAT";
 
     // WorkManager
     public static final String WORK_NAME_OTA_CHECK = "ota_check";
-
-
+    public static final String WORK_NAME_OTA_HEARTBEAT = "ota_heartbeat";
 }

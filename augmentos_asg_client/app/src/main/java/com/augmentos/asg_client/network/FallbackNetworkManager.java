@@ -234,6 +234,7 @@ public class FallbackNetworkManager extends BaseNetworkManager {
     
     @Override
     public void connectToWifi(String ssid, String password) {
+        // Log.d(TAG, "FallbackNetworkManager: Attempting to connect to WiFi: " + ssid);
         // If this is a K900 device, try to use K900-specific approach
         if (isK900Device) {
             try {

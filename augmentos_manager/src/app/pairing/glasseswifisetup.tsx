@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { Screen } from '@/components/ignite';
+import React, { useCallback } from 'react';
+import { View, Text, BackHandler } from 'react-native';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
+import { Screen, Header } from '@/components/ignite';
 import { useAppTheme } from '@/utils/useAppTheme';
 import { ThemedStyle } from '@/theme';
 import { ViewStyle, TextStyle } from 'react-native';
@@ -13,6 +13,19 @@ export default function GlassesWifiSetupScreen() {
   const { theme, themed } = useAppTheme();
   const { status } = useStatus();
   
+  const handleGoBack = useCallback(() => {
+    router.push('/(tabs)/glasses');
+    return true; // Prevent default back behavior
+  }, []);
+
+  // Handle Android back button
+  useFocusEffect(
+    useCallback(() => {
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', handleGoBack);
+      return () => backHandler.remove();
+    }, [handleGoBack])
+  );
+
   // Get current WiFi status from glasses
   const currentWifi = status.glasses_info?.glasses_wifi_ssid;
   const isWifiConnected = status.glasses_info?.glasses_wifi_connected;
@@ -33,14 +46,15 @@ export default function GlassesWifiSetupScreen() {
 
   return (
     <Screen
-      preset="scroll"
+      preset="fixed"
       contentContainerStyle={themed($container)}
-      safeAreaEdges={["top"]}
     >
+      <Header 
+        title="WiFi Setup"
+        leftIcon="caretLeft"
+        onLeftPress={handleGoBack}
+      />
       <View style={themed($content)}>
-        <Text style={themed($title)}>
-          WiFi Setup
-        </Text>
         
         <Text style={themed($subtitle)}>
           Your {deviceModel} glasses need WiFi to connect to the internet.

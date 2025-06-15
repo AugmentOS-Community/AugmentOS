@@ -20,6 +20,7 @@ export default function WifiConnectingScreen() {
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'success' | 'failed'>('connecting');
   const [errorMessage, setErrorMessage] = useState('');
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const failureGracePeriodRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Start connection attempt
@@ -32,8 +33,14 @@ export default function WifiConnectingScreen() {
         clearTimeout(connectionTimeoutRef.current);
         connectionTimeoutRef.current = null;
       }
-      
+
       if (data.connected && data.ssid === ssid) {
+        // Clear any failure grace period if it exists
+        if (failureGracePeriodRef.current) {
+          clearTimeout(failureGracePeriodRef.current);
+          failureGracePeriodRef.current = null;
+        }
+        
         setConnectionStatus('success');
         GlobalEventEmitter.emit('SHOW_BANNER', { 
           message: `Successfully connected to ${data.ssid}`, 
@@ -45,8 +52,12 @@ export default function WifiConnectingScreen() {
           router.navigate('/');
         }, 1500);
       } else if (!data.connected && connectionStatus === 'connecting') {
-        setConnectionStatus('failed');
-        setErrorMessage('Failed to connect to the network. Please check your password and try again.');
+        // Set up 5-second grace period before showing failure
+        failureGracePeriodRef.current = setTimeout(() => {
+          setConnectionStatus('failed');
+          setErrorMessage('Failed to connect to the network. Please check your password and try again.');
+          failureGracePeriodRef.current = null;
+        }, 5000);
       }
     };
     
@@ -57,12 +68,17 @@ export default function WifiConnectingScreen() {
         clearTimeout(connectionTimeoutRef.current);
         connectionTimeoutRef.current = null;
       }
+      if (failureGracePeriodRef.current) {
+        clearTimeout(failureGracePeriodRef.current);
+        failureGracePeriodRef.current = null;
+      }
       GlobalEventEmitter.removeListener('GLASSES_WIFI_STATUS_CHANGE', handleWifiStatusChange);
     };
-  }, [ssid, connectionStatus]);
+  }, [ssid]);
 
   const attemptConnection = async () => {
     try {
+      console.log("Attempting to send wifi credentials to Core", ssid, password)
       await coreCommunicator.sendWifiCredentials(ssid, password);
       
       // Set timeout for connection attempt (20 seconds)

@@ -5,6 +5,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.wifi.WifiManager;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -166,34 +169,99 @@ public class K900NetworkManager extends BaseNetworkManager {
     
     @Override
     public void connectToWifi(String ssid, String password) {
-        // For K900, we can try to use the standard WiFi APIs first
-        // If that fails, we'll need to investigate K900-specific approaches
+        Log.d(TAG, "K900 WiFi Connection: Attempting to connect to WiFi: " + ssid);
         if (ssid == null || ssid.isEmpty()) {
             Log.e(TAG, "Cannot connect to WiFi with empty SSID");
             return;
         }
-        
+
         try {
             // First ensure WiFi is enabled
             if (!wifiManager.isWifiEnabled()) {
                 wifiManager.setWifiEnabled(true);
             }
-            
-            // Try to use the standard WifiNetworkSuggestion API for Android 10+
-            // For K900, this might need to be replaced with a custom approach
-            // This is a placeholder and may need to be adjusted based on testing
+
+            // For K900, try to use K900-specific broadcast
+            Intent intent = new Intent(K900_BROADCAST_ACTION);
+            intent.setPackage(K900_SYSTEM_UI_PACKAGE);
+            intent.putExtra("cmd", "connectwifi");
+            intent.putExtra("ssid", ssid);
+            intent.putExtra("pwd", password);
+            context.sendBroadcast(intent);
+
+            Log.d(TAG, "Sent K900-specific WiFi connection broadcast");
+
             notificationManager.showDebugNotification(
-                    "WiFi Connection", 
+                    "K900 WiFi Connection",
                     "Attempting to connect to: " + ssid);
-            
-            // In a real implementation, you'd use either WifiNetworkSuggestion or
-            // a K900-specific API to connect to the network
+
+            // Poll connection status
+            new Thread(() -> {
+                Log.d(TAG, "Starting WiFi connection polling thread");
+                try {
+                    for (int i = 0; i < 15; i++) { // Try for up to 30 seconds
+                        Log.d(TAG, "Polling WiFi connection status, attempt " + (i + 1));
+                        Log.d(TAG, "@313421 Current WiFi state: " + (isConnectedToWifi() ? "CONNECTED" : "DISCONNECTED"));
+                        Thread.sleep(2000);
+                        if (isConnectedToWifi()) {
+                            Log.d(TAG, "WiFi is connected after polling");
+                            String currentSsid = getCurrentWifiSsid();
+                            Log.d(TAG, "WiFi connected successfully. Current SSID: " + currentSsid);
+                            
+                            // Verify we're connected to the intended network
+                            if (currentSsid.equals(ssid)) {
+                                Log.d(TAG, "Successfully connected to intended network: " + ssid);
+                                new Handler(Looper.getMainLooper()).post(() -> {
+                                    notifyWifiStateChanged(true);
+                                    notificationManager.showWifiStateNotification(true);
+                                });
+                                return;
+                            } else {
+                                Log.w(TAG, "Connected to different network than intended. Expected: " + ssid + ", Got: " + currentSsid);
+                                // Continue polling in case we connect to the right network
+                            }
+                        } else {
+                            Log.d(TAG, "WiFi is not connected yet");
+                        }
+                    }
+
+                    // If we get here, fall back to manual approach
+                    String currentSsid = getCurrentWifiSsid();
+                    Log.d(TAG, "WiFi connection attempt timed out. Current SSID (if any): " + currentSsid);
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        notificationManager.showDebugNotification(
+                                "WiFi Connection Failed",
+                                "Unable to connect automatically. Please connect to " +
+                                        ssid + " manually.");
+                        promptConnectToWifi(ssid, password);
+                    });
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "WiFi connection polling interrupted", e);
+                }
+            }).start();
+
         } catch (Exception e) {
             Log.e(TAG, "Error connecting to WiFi", e);
             notificationManager.showDebugNotification(
-                    "WiFi Error", 
+                    "WiFi Error",
                     "Error connecting to WiFi: " + e.getMessage());
         }
+    }
+
+    /**
+     * Prompt the user to connect to a specific WiFi network
+     */
+    private void promptConnectToWifi(String ssid, String password) {
+        // We can't connect to WiFi automatically without system permissions
+        // Prompt the user to connect manually
+        notificationManager.showDebugNotification(
+                "Manual WiFi Connection Required",
+                "Please connect to WiFi network: " + ssid + " manually using the WiFi settings.");
+
+        // Open the WiFi settings
+        Intent intent = new Intent(Settings.ACTION_WIFI_SETTINGS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
     }
     
     /**

@@ -770,7 +770,29 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
             );
         }
     }
-    
+
+    /**
+     * Send a dedicated WiFi status change event to the AugmentOS manager
+     * @param isConnected Whether the glasses are connected to WiFi
+     * @param ssid The SSID of the connected network (if connected)
+     */
+    private void sendWifiStatusChangeEvent(boolean isConnected, String ssid) {
+        try {
+            JSONObject wifiStatusEvent = new JSONObject();
+            JSONObject wifiStatus = new JSONObject();
+            wifiStatus.put("connected", isConnected);
+            wifiStatus.put("ssid", ssid != null ? ssid : "");
+            wifiStatusEvent.put("glasses_wifi_status_change", wifiStatus);
+
+            if (blePeripheral != null) {
+                blePeripheral.sendDataToAugmentOsManager(wifiStatusEvent.toString());
+                Log.d(TAG, "Sent WiFi status change event: connected=" + isConnected + ", ssid=" + ssid);
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Error creating WiFi status change event JSON", e);
+        }
+    }
+
     @Subscribe
     public void onGlassesNeedWifiCredentialsEvent(GlassesWifiStatusChange event) {
         glassesWifiConnected = event.isWifiConnected;
@@ -779,8 +801,12 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
         Log.d(TAG, "Received GlassesNeedWifiCredentialsEvent: device=" + event.deviceModel +
               ", wifiConnected=" + event.isWifiConnected +
               ", SSID=" + event.currentSsid);
+
         
-        // Send status update to the manager
+        // Send the dedicated WiFi status change event
+        sendWifiStatusChangeEvent(glassesWifiConnected, glassesWifiSsid);
+        
+        // Also update the general status
         sendStatusToAugmentOsManager();
     }
     
@@ -1766,29 +1792,16 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
     @Override
     public void disconnectWearable(String wearableId) {
         Log.d("AugmentOsService", "Disconnecting from wearable: " + wearableId);
+
         // Reset WiFi status
         glassesWifiConnected = false;
         glassesWifiSsid = "";
         
         // Reset state AND completely stop the service to get a clean state
         if (smartGlassesManager != null) {
-            try {
-                // First reset state to ensure proper event handling
-                smartGlassesManager.resetState();
-                
-                // Then stop and unbind from the service completely
-                stopSmartGlassesManager();
-                
-                // Set to null to ensure we don't try to use it
-                smartGlassesManager = null;
-                smartGlassesManagerBound = false;
-                
-                Log.d(TAG, "Successfully stopped SmartGlassesManager service for clean reconnect");
-            } catch (Exception e) {
-                Log.e(TAG, "Error stopping SmartGlassesManager: " + e.getMessage());
-            }
+            smartGlassesManager.resetState();
         }
-        
+
         sendStatusToAugmentOsManager();
     }
 
@@ -1810,7 +1823,7 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
         glassesWifiConnected = false;
         glassesWifiSsid = "";
         
-
+        
         // Reset instead of stopping
         if (smartGlassesManager != null) {
             smartGlassesManager.resetState();
@@ -2033,7 +2046,7 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
     
     @Override
     public void setGlassesWifiCredentials(String ssid, String password) {
-        Log.d(TAG, "Setting WiFi credentials for glasses, SSID: " + ssid);
+        Log.d(TAG, "@#@$@ Setting WiFi credentials for glasses, SSID: " + ssid);
         
         if (smartGlassesManager == null || smartGlassesManager.getConnectedSmartGlasses() == null) {
             blePeripheral.sendNotifyManager("No glasses connected to set WiFi credentials", "error");

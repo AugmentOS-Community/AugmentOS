@@ -20,7 +20,7 @@ public class OtaCommandReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         Log.d(TAG, "onreceive intent" + intent.getAction());
         if (Constants.ACTION_INSTALL_OTA.equals(intent.getAction())) {
-            new OtaHelper().installApk(context);
+            new OtaHelper(context).installApk(context);
         }
     }
 }

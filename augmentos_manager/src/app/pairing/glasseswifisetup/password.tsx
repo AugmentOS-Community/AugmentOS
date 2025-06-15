@@ -20,6 +20,8 @@ export default function WifiPasswordScreen() {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleConnect = () => {
+    // console.log("3231 handleConnect called");
+
     if (!ssid) {
       GlobalEventEmitter.emit('SHOW_BANNER', { 
         message: 'Please enter a network name', 

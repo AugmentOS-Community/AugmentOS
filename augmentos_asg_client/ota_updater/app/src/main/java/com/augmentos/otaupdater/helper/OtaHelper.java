@@ -7,8 +7,16 @@ import static com.augmentos.otaupdater.helper.Constants.OTA_FOLDER;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
+import android.net.Network;
+import android.net.NetworkRequest;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -31,10 +39,136 @@ import java.util.stream.Collectors;
 
 public class OtaHelper {
     private static final String TAG = Constants.TAG;
+    private static ConnectivityManager.NetworkCallback networkCallback;
+    private static ConnectivityManager connectivityManager;
+    private static volatile boolean isCheckingVersion = false;
+    private static final Object versionCheckLock = new Object();
+    private Handler handler;
+    private Context context;
+
+    public OtaHelper(Context context) {
+        this.context = context.getApplicationContext(); // Use application context to avoid memory leaks
+        handler = new Handler(Looper.getMainLooper());
+        // Schedule initial check after 15 seconds
+        handler.postDelayed(() -> {
+            Log.d(TAG, "Performing initial OTA check after 15 seconds");
+            startVersionCheck(this.context);
+        }, 15000);
+    }
+
+    public void cleanup() {
+        if (handler != null) {
+            handler.removeCallbacksAndMessages(null);
+        }
+        unregisterNetworkCallback();
+        context = null;
+    }
+
+    public void registerNetworkCallback(Context context) {
+        Log.d(TAG, "Registering network callback");
+        connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        if (connectivityManager == null) {
+            Log.e(TAG, "ConnectivityManager not available");
+            return;
+        }
+
+        if (networkCallback != null) {
+            Log.d(TAG, "Network callback already registered");
+            return;
+        }
+
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                super.onAvailable(network);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+                    if (capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                        Log.d(TAG, "WiFi network became available, triggering version check");
+                        startVersionCheck(context);
+                    }
+                }
+            }
+        };
+
+        NetworkRequest.Builder builder = new NetworkRequest.Builder();
+        builder.addTransportType(NetworkCapabilities.TRANSPORT_WIFI);
+
+        try {
+            connectivityManager.registerNetworkCallback(builder.build(), networkCallback);
+            Log.d(TAG, "Successfully registered network callback");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to register network callback", e);
+        }
+    }
+
+    public void unregisterNetworkCallback() {
+        if (connectivityManager != null && networkCallback != null) {
+            try {
+                connectivityManager.unregisterNetworkCallback(networkCallback);
+                networkCallback = null;
+                Log.d(TAG, "Network callback unregistered");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to unregister network callback", e);
+            }
+        }
+    }
+
+    private boolean isNetworkAvailable(Context context) {
+        Log.d(TAG, "Checking WiFi connectivity status...");
+        ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
+                if (capabilities != null) {
+                    boolean hasWifi = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
+                    Log.d(TAG, "SDK >= 23: WiFi status: " + (hasWifi ? "Connected" : "Disconnected"));
+                    return hasWifi;
+                } else {
+                    Log.e(TAG, "SDK >= 23: No network capabilities found");
+                }
+            } else {
+                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+                if (activeNetworkInfo != null) {
+                    boolean isConnected = activeNetworkInfo.isConnected();
+                    boolean isWifi = activeNetworkInfo.getType() == ConnectivityManager.TYPE_WIFI;
+                    Log.d(TAG, "SDK < 23: Network status - Connected: " + isConnected + ", WiFi: " + isWifi);
+                    return isConnected && isWifi;
+                } else {
+                    Log.e(TAG, "SDK < 23: No active network info found");
+                }
+            }
+        } else {
+            Log.e(TAG, "ConnectivityManager not available");
+        }
+        Log.e(TAG, "No WiFi connection detected");
+        return false;
+    }
+
     public void startVersionCheck(Context context) {
         Log.d(TAG, "Check OTA update method init");
 
+        if (!isNetworkAvailable(context)) {
+            Log.e(TAG, "No WiFi connection available. Skipping OTA check.");
+            return;
+        }
+
+        // Check if version check is already in progress
+        if (isCheckingVersion) {
+            Log.d(TAG, "Version check already in progress, skipping this request");
+            return;
+        }
+
         new Thread(() -> {
+            // Use synchronized block to ensure thread safety
+            synchronized (versionCheckLock) {
+                if (isCheckingVersion) {
+                    Log.d(TAG, "Another thread started version check, skipping");
+                    return;
+                }
+                isCheckingVersion = true;
+            }
             try {
                 // 1. Get installed asg_client version
                 long currentVersion;
@@ -56,28 +190,37 @@ public class OtaHelper {
                 int serverVersion = json.getInt("versionCode");
                 String apkUrl = json.getString("apkUrl");
 
+//                long metaDataVer = getMetadataVersion();
 
-                long metaDataVer = getMetadataVersion();
+                // Check if APK exists and is older than 3 hours
+                File apkFile = new File(Constants.APK_FULL_PATH);
+                if (apkFile.exists()) {
+                    Log.d(TAG, "Existing APK found. Deleting and forcing new download.");
+                    boolean deleted = apkFile.delete();
+                    Log.d(TAG, "Old APK deleted: " + deleted);
+                }
 
-                if (serverVersion > currentVersion && metaDataVer < serverVersion) {
+                Log.d(TAG, "Ver server: " + serverVersion + "\ncurrentVer: " + currentVersion);
+//                Log.d(TAG, "Metadata version: " + metaDataVer);
+
+                if (serverVersion > currentVersion) {
                     Log.d(TAG, "new version found.");
-                    downloadApk(apkUrl, json, context);
-                } else {
-                    if(serverVersion <= currentVersion){
-                        Log.d(TAG, "Already up to date.");
-                    }else{
-                        Log.d(TAG, "APK file is ready waiting for the installation command.");
+                    boolean downloadOk = downloadApk(apkUrl, json, context);
+                    if (downloadOk) {
+                        installApk(context);
                     }
                 }
-                Log.d(TAG, "Ver server: " + serverVersion + "\ncurrentVer:"+currentVersion);
-
             } catch (Exception e) {
                 Log.e(TAG, "Exception during OTA check", e);
+            } finally {
+                // Always reset the flag when done
+                isCheckingVersion = false;
+                Log.d(TAG, "Version check completed, ready for next check");
             }
         }).start();
     }
 
-    public void downloadApk(String urlStr, JSONObject json, Context context) {
+    public boolean downloadApk(String urlStr, JSONObject json, Context context) {
         try {
             File asgDir = new File(OTA_FOLDER);
 
@@ -111,16 +254,23 @@ public class OtaHelper {
             in.close();
 
             Log.d(TAG, "APK downloaded to: " + apkFile.getAbsolutePath());
-            if(verifyApkFile(apkFile.getAbsolutePath(), json)){
+            // Immediately check hash after download
+            boolean hashOk = verifyApkFile(apkFile.getAbsolutePath(), json);
+            Log.d(TAG, "SHA256 verification result: " + hashOk);
+            if (hashOk) {
                 createMetaDataJson(json, context);
-            }else{
+                return true;
+            } else {
+                Log.e(TAG, "Downloaded APK hash does not match expected value! Deleting APK.");
                 if (apkFile.exists()) {
                     boolean deleted = apkFile.delete();
                     Log.d(TAG, "SHA256 mismatch – APK deleted: " + deleted);
                 }
+                return false;
             }
         } catch (Exception e) {
             Log.e(TAG, "OTA failed", e);
+            return false;
         }
     }
 
@@ -144,6 +294,9 @@ public class OtaHelper {
             }
             String calculatedHash = sb.toString();
 
+            Log.d(TAG, "Expected SHA256: " + expectedHash);
+            Log.d(TAG, "Calculated SHA256: " + calculatedHash);
+
             boolean match = calculatedHash.equalsIgnoreCase(expectedHash);
             Log.d(TAG, "SHA256 check " + (match ? "passed" : "failed"));
             return match;
@@ -152,6 +305,7 @@ public class OtaHelper {
             return false;
         }
     }
+
     private void createMetaDataJson(JSONObject json, Context context) {
         long currentVersionCode;
         try {
@@ -172,16 +326,40 @@ public class OtaHelper {
             Log.e(TAG, "Failed to write metadata.json", e);
         }
     }
-    public void installApk(Context context){
-        checkOlderApkFile(context);
-        Log.d(TAG, "start Installation process, sending install broadcast...");
-        Intent intent = new Intent("com.xy.xsetting.action");
-        intent.setPackage("com.android.systemui");
-        intent.putExtra("cmd", "install");
-        intent.putExtra("pkpath", Constants.APK_FULL_PATH); // path to APK
-        intent.putExtra("recv_pkname", context.getPackageName()); // target package name
-        intent.putExtra("startapp", true); // auto-start after install
-        context.sendBroadcast(intent);
+
+    public void installApk(Context context) {
+        try {
+            checkOlderApkFile(context);
+            Log.d(TAG, "Starting installation process for APK at: " + Constants.APK_FULL_PATH);
+            
+            Intent intent = new Intent("com.xy.xsetting.action");
+            intent.setPackage("com.android.systemui");
+            intent.putExtra("cmd", "install");
+            intent.putExtra("pkpath", Constants.APK_FULL_PATH);
+            intent.putExtra("recv_pkname", context.getPackageName());
+            intent.putExtra("startapp", true);
+            
+            // Verify APK exists before sending broadcast
+            File apkFile = new File(Constants.APK_FULL_PATH);
+            if (!apkFile.exists()) {
+                Log.e(TAG, "Installation failed: APK file not found at " + Constants.APK_FULL_PATH);
+                return;
+            }
+            
+            // Verify APK is readable
+            if (!apkFile.canRead()) {
+                Log.e(TAG, "Installation failed: Cannot read APK file at " + Constants.APK_FULL_PATH);
+                return;
+            }
+            
+            Log.d(TAG, "Sending install broadcast to system UI...");
+            context.sendBroadcast(intent);
+            Log.i(TAG, "Install broadcast sent successfully. System will handle installation.");
+        } catch (SecurityException e) {
+            Log.e(TAG, "Security exception while sending install broadcast", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to send install broadcast", e);
+        }
     }
 
     public void checkOlderApkFile(Context context) {
@@ -215,10 +393,10 @@ public class OtaHelper {
         }
     }
 
-    private int getMetadataVersion(){
+    private int getMetadataVersion() {
         int localJsonVersion = 0;
         File metaDataJson = new File(OTA_FOLDER, METADATA_JSON);
-        if(metaDataJson.exists()){
+        if (metaDataJson.exists()) {
             FileInputStream fis = null;
             try {
                 fis = new FileInputStream(metaDataJson);
@@ -229,7 +407,6 @@ public class OtaHelper {
                 String jsonStr = new String(data, StandardCharsets.UTF_8);
                 JSONObject json = new JSONObject(jsonStr);
                 localJsonVersion = json.optInt("versionCode", 0);
-
             } catch (IOException | JSONException e) {
                 e.printStackTrace();
             }
@@ -238,5 +415,4 @@ public class OtaHelper {
         Log.d(TAG, "metadata version:"+localJsonVersion);
         return localJsonVersion;
     }
-
 }

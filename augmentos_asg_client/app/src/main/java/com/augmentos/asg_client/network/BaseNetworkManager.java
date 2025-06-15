@@ -50,7 +50,7 @@ public abstract class BaseNetworkManager implements INetworkManager {
      * Notify all listeners that the WiFi state has changed
      * @param isConnected true if connected to WiFi, false otherwise
      */
-    protected void notifyWifiStateChanged(boolean isConnected) {
+    public void notifyWifiStateChanged(boolean isConnected) {
         // Important! Check the actual WiFi state - this prevents reversed state reporting
         boolean actuallyConnected = isConnectedToWifi();
         
@@ -65,6 +65,7 @@ public abstract class BaseNetworkManager implements INetworkManager {
         Log.d(TAG, "WiFi state changed: " + (isConnected ? "CONNECTED" : "DISCONNECTED"));
         for (NetworkStateListener listener : listeners) {
             try {
+                // Log.d(TAG, "Notifying listener: " + listener.getClass().getSimpleName());
                 listener.onWifiStateChanged(isConnected);
             } catch (Exception e) {
                 Log.e(TAG, "Error notifying listener", e);

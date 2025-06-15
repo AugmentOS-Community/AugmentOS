@@ -235,11 +235,12 @@ public class SystemNetworkManager extends BaseNetworkManager {
     
     @Override
     public void connectToWifi(String ssid, String password) {
+        // Log.d(TAG, "System Network Manager: Attempting to connect to WiFi: " + ssid);
         if (ssid == null || ssid.isEmpty()) {
             Log.e(TAG, "Cannot connect to WiFi with empty SSID");
             return;
         }
-        
+
         try {
             // First ensure WiFi is enabled
             if (!wifiManager.isWifiEnabled()) {

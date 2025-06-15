@@ -138,6 +138,14 @@ package="com.augmentos.asg_client">
           android:resource="@xml/file_provider" />
     </provider>
 
+    <receiver
+        android:name=".receiver.OtaHeartbeatReceiver"
+        android:exported="true">
+        <intent-filter>
+            <action android:name="com.augmentos.otaupdater.ACTION_HEARTBEAT" />
+        </intent-filter>
+    </receiver>
+
   </application>
 
   <queries>

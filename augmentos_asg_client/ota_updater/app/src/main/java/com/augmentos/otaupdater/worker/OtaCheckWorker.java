@@ -21,7 +21,7 @@ public class OtaCheckWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        OtaHelper helper = new OtaHelper();
+        OtaHelper helper = new OtaHelper(getApplicationContext());
         helper.startVersionCheck(getApplicationContext());
         return Result.success();
     }

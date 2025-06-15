@@ -1204,6 +1204,7 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
                 boolean wifiConnected = json.optBoolean("connected", false);
                 String ssid = json.optString("ssid", "");
 
+                Log.d(TAG, "## Received WiFi status: connected=" + wifiConnected + ", SSID=" + ssid);
                 EventBus.getDefault().post(new GlassesWifiStatusChange(
                         smartGlassesDevice.deviceModelName,
                         wifiConnected,
@@ -1564,12 +1565,13 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
     public void connectToSmartGlasses() {
         Log.d(TAG, "Connecting to Mentra Live glasses");
         connectionEvent(SmartGlassesConnectionState.CONNECTING);
-        
+
         if (isConnected) {
+            Log.d(TAG, "#@32 Already connected to Mentra Live glasses");
             connectionEvent(SmartGlassesConnectionState.CONNECTED);
             return;
         }
-        
+
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Bluetooth not available");
             connectionEvent(SmartGlassesConnectionState.DISCONNECTED);
@@ -2085,7 +2087,7 @@ public class MentraLiveSGC extends SmartGlassesCommunicator {
      */
     @Override
     public void sendWifiCredentials(String ssid, String password) {
-        Log.d(TAG, "Sending WiFi credentials to glasses - SSID: " + ssid);
+        Log.d(TAG, "432432 Sending WiFi credentials to glasses - SSID: " + ssid);
         
         // Validate inputs
         if (ssid == null || ssid.isEmpty()) {

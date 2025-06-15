@@ -278,6 +278,12 @@ export class CoreCommunicator extends EventEmitter {
     try {
       if ("status" in data) {
         this.emit("statusUpdateReceived", data)
+      } else if ("glasses_wifi_status_change" in data) {
+        // console.log("Received glasses_wifi_status_change event from Core", data.glasses_wifi_status_change)
+        GlobalEventEmitter.emit("GLASSES_WIFI_STATUS_CHANGE", {
+          connected: data.glasses_wifi_status_change.connected,
+          ssid: data.glasses_wifi_status_change.ssid
+        })
       } else if ("glasses_display_event" in data) {
         GlobalEventEmitter.emit("GLASSES_DISPLAY_EVENT", data.glasses_display_event)
       } else if ("ping" in data) {
@@ -662,6 +668,7 @@ export class CoreCommunicator extends EventEmitter {
   }
 
   async sendWifiCredentials(ssid: string, password: string) {
+    console.log("Sending wifi credentials to Core", ssid, password)
     return await this.sendData({
       command: "send_wifi_credentials",
       params: {

@@ -179,6 +179,7 @@ public class AugmentOsManagerMessageParser {
                 case "send_wifi_credentials":
                     String ssid = commandObject.getJSONObject("params").getString("ssid");
                     String password = commandObject.getJSONObject("params").getString("password");
+                    // Log.d(TAG, "@#@ GOT A COMMAND TO SEND WIFI CREDENTIALS, SSID: " + ssid + ", PASSWORD: " + password);
                     callback.setGlassesWifiCredentials(ssid, password);
                     break;
                     
