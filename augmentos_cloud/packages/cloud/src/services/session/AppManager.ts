@@ -2,7 +2,7 @@
  * @fileoverview AppManager manages app lifecycle and TPA connections within a user session.
  * It encapsulates all app-related functionality that was previously
  * scattered throughout the session and WebSocket services.
- * 
+ *
  * This follows the pattern used by other managers like MicrophoneManager and DisplayManager.
  */
 
@@ -355,7 +355,7 @@ export class AppManager {
     startTime: number
   ): Promise<void> {
     try {
-      // Trigger TPA webhook 
+      // Trigger TPA webhook
       const { packageName, name, publicUrl } = app;
       this.logger.debug({ packageName, name, publicUrl }, `Triggering TPA webhook for ${packageName} for user ${this.userSession.userId}`);
 
@@ -530,7 +530,7 @@ export class AppManager {
 
   /**
    * Stop an app by package name
-   * 
+   *
    * @param packageName Package name of the app to stop
    */
   async stopApp(packageName: string, restart?: boolean): Promise<void> {
@@ -618,7 +618,7 @@ export class AppManager {
 
   /**
    * Check if an app is currently running
-   * 
+   *
    * @param packageName Package name to check
    * @returns Whether the app is running
    */
@@ -628,7 +628,7 @@ export class AppManager {
 
   /**
    * Handle TPA initialization
-   * 
+   *
    * @param ws WebSocket connection
    * @param initMessage TPA initialization message
    */
@@ -714,12 +714,13 @@ export class AppManager {
       // Get user's AugmentOS system settings with fallback to defaults
       const userAugmentosSettings = user.augmentosSettings || DEFAULT_AUGMENTOS_SETTINGS;
 
-      // Send connection acknowledgment
+      // Send connection acknowledgment with capabilities
       const ackMessage = {
         type: CloudToTpaMessageType.CONNECTION_ACK,
         sessionId: sessionId,
         settings: userSettings,
         augmentosSettings: userAugmentosSettings,
+        capabilities: this.userSession.capabilities || undefined,
         timestamp: new Date()
       };
 
@@ -901,7 +902,7 @@ export class AppManager {
 
   /**
    * Handle app connection close
-   * 
+   *
    * @param packageName Package name
    * @param code Close code
    * @param reason Close reason
