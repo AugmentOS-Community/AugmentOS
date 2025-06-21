@@ -14,6 +14,7 @@ export enum StreamType {
   PHONE_BATTERY_UPDATE = 'phone_battery_update',
   GLASSES_CONNECTION_STATE = 'glasses_connection_state',
   LOCATION_UPDATE = 'location_update',
+  LOCATION_STREAM = 'location_stream',
   VPS_COORDINATES = 'vps_coordinates',
   
   // Audio streams
@@ -49,6 +50,11 @@ export enum StreamType {
   PHOTO_TAKEN = 'photo_taken',
 }
 
+export interface LocationStreamRequest {
+  stream: 'location_stream';
+  rate: 'standard' | 'high' | 'realtime' | 'tenMeters' | 'hundredMeters' | 'kilometer' | 'threeKilometers' | 'reduced';
+}
+
 /**
  * Extended StreamType to support language-specific streams
  * This allows us to treat language-specific strings as StreamType values
@@ -82,6 +88,7 @@ export const STREAM_CATEGORIES: Record<StreamType, StreamCategory> = {
   [StreamType.PHONE_BATTERY_UPDATE]: StreamCategory.HARDWARE,
   [StreamType.GLASSES_CONNECTION_STATE]: StreamCategory.HARDWARE,
   [StreamType.LOCATION_UPDATE]: StreamCategory.HARDWARE,
+  [StreamType.LOCATION_STREAM]: StreamCategory.HARDWARE,
   [StreamType.VPS_COORDINATES]: StreamCategory.HARDWARE,
   
   [StreamType.TRANSCRIPTION]: StreamCategory.AUDIO,
