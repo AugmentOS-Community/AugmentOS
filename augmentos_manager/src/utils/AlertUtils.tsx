@@ -141,8 +141,6 @@ export function ModalProvider({children}: {children: React.ReactNode}) {
             style={{
               width: "100%",
               maxWidth: 400,
-              borderRadius: 16,
-              overflow: "hidden",
             }}>
             <BasicDialog
               title={title}

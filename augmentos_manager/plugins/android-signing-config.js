@@ -15,9 +15,9 @@ def hermesEnabled = false  // Set Hermes to false
 /**
  * Release-Store credentials.
  */
-def releaseStorePassword = project.hasProperty("AUGMENTOS_UPLOAD_STORE_PASSWORD") ? project.property("AUGMENTOS_UPLOAD_STORE_PASSWORD") : ""
-def releaseKeyPassword = project.hasProperty("AUGMENTOS_UPLOAD_KEY_PASSWORD") ? project.property("AUGMENTOS_UPLOAD_KEY_PASSWORD") : ""
-def releaseKeyAlias = project.hasProperty("AUGMENTOS_UPLOAD_KEY_ALIAS") ? project.property("AUGMENTOS_UPLOAD_KEY_ALIAS") : "upload"
+def releaseStorePassword = project.hasProperty("MENTRAOS_UPLOAD_STORE_PASSWORD") ? project.property("MENTRAOS_UPLOAD_STORE_PASSWORD") : ""
+def releaseKeyPassword = project.hasProperty("MENTRAOS_UPLOAD_KEY_PASSWORD") ? project.property("MENTRAOS_UPLOAD_KEY_PASSWORD") : ""
+def releaseKeyAlias = project.hasProperty("MENTRAOS_UPLOAD_KEY_ALIAS") ? project.property("MENTRAOS_UPLOAD_KEY_ALIAS") : "upload"
 `
 
       buildGradle = buildGradle.replace(

@@ -73,7 +73,7 @@ const GrantPermissionsScreen: React.FC = () => {
       // Request notification permissions with explanation
       Alert.alert(
         "Notification Access",
-        "AugmentOS would like to access your notifications to forward them to your smart glasses. This enhances your experience by showing phone notifications on your glasses.",
+        "MentraOS would like to access your notifications to forward them to your smart glasses. This enhances your experience by showing phone notifications on your glasses.",
         [
           {
             text: "Grant Access",
@@ -99,7 +99,7 @@ const GrantPermissionsScreen: React.FC = () => {
     // After notification permission flow, request optional calendar permission
     Alert.alert(
       "Calendar Access",
-      "AugmentOS would like to access your calendar to display events on your smart glasses. This permission is optional.",
+      "MentraOS would like to access your calendar to display events on your smart glasses. This permission is optional.",
       [
         {
           text: "Grant Access",
@@ -143,7 +143,7 @@ const GrantPermissionsScreen: React.FC = () => {
           <Text style={[styles.title, theme.isDark ? styles.lightText : styles.darkText]}>Permissions Required</Text>
 
           <Text style={[styles.description, theme.isDark ? styles.lightSubtext : styles.darkSubtext]}>
-            AugmentOS needs permissions to function properly. Please grant access to continue using all features.
+            MentraOS needs permissions to function properly. Please grant access to continue using all features.
           </Text>
           <Button
             disabled={false}

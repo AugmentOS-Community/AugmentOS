@@ -36,7 +36,14 @@ const TextSettingNoSave: React.FC<TextSettingNoSaveProps> = ({label, value, onCh
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, {
+      backgroundColor: theme.colors.background,
+      borderWidth: theme.spacing.xxxs,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.md,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+    }]}>
       <Text style={[styles.label, {color: theme.colors.text}]}>{label}</Text>
 
       <Pressable
@@ -68,7 +75,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   container: {
-    marginVertical: 10,
     width: "100%",
   },
   label: {

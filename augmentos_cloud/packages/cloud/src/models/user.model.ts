@@ -12,6 +12,7 @@ interface Location {
 interface InstalledApp {
   packageName: string;
   installedDate: Date;
+  lastActiveAt?: Date;
 }
 
 // Extend Document for TypeScript support
@@ -35,6 +36,7 @@ export interface UserI extends Document {
   installedApps?: Array<{
     packageName: string;
     installedDate: Date;
+    lastActiveAt?: Date;
   }>;
 
   /**
@@ -61,6 +63,12 @@ export interface UserI extends Document {
     logo?: string;
   };
 
+  /**
+   * Maps TPA package names to onboarding completion status for this user.
+   * Example: { "org.example.myapp": true, "org.other.app": false }
+   */
+  onboardingStatus?: Record<string, boolean>;
+
   setLocation(location: Location): Promise<void>;
   addRunningApp(appName: string): Promise<void>;
   removeRunningApp(appName: string): Promise<void>;
@@ -76,11 +84,13 @@ export interface UserI extends Document {
 
   updateAugmentosSettings(settings: Partial<UserI['augmentosSettings']>): Promise<void>;
   getAugmentosSettings(): UserI['augmentosSettings'];
+  updateAppLastActive(packageName: string): Promise<void>;
 }
 
 const InstalledAppSchema = new Schema({
   packageName: { type: String, required: true },
-  installedDate: { type: Date, default: Date.now }
+  installedDate: { type: Date, default: Date.now },
+  lastActiveAt: { type: Date }
 });
 
 // --- New Schema for Lightweight Updates ---
@@ -223,7 +233,13 @@ const UserSchema = new Schema<UserI>({
       },
       message: 'Installed apps must be unique'
     }
-  }
+  },
+
+  onboardingStatus: {
+    type: Map,
+    of: Boolean,
+    default: {},
+  },
 }, {
   timestamps: true,
   optimisticConcurrency: true,
@@ -296,10 +312,44 @@ UserSchema.methods.addRunningApp = async function (this: UserI, appName: string)
 };
 
 UserSchema.methods.removeRunningApp = async function (this: UserI, appName: string): Promise<void> {
-  if (this.runningApps.includes(appName)) {
-    this.runningApps = this.runningApps.filter(app => app !== appName);
-    await this.save();
+  const maxRetries = 3;
+  let lastError: any;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Re-fetch the user document to get the latest version
+      const freshUser = await (this.constructor as any).findOne({ _id: this._id });
+      if (!freshUser) {
+        throw new Error(`User ${this.email} not found during removeRunningApp`);
+      }
+
+      if (freshUser.runningApps.includes(appName)) {
+        freshUser.runningApps = freshUser.runningApps.filter((app: string) => app !== appName);
+        await freshUser.save();
+        return;
+      }
+      // App not in running apps, nothing to do
+      return;
+    } catch (error: any) {
+      lastError = error;
+      
+      // If it's a version conflict, retry
+      if (error.name === 'VersionError') {
+        logger.warn(`Version conflict in removeRunningApp for user ${this.email}, app ${appName}, attempt ${attempt + 1}/${maxRetries}`);
+        if (attempt < maxRetries - 1) {
+          // Wait a bit before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 50));
+          continue;
+        }
+      }
+      
+      // For other errors or max retries reached, throw
+      throw error;
+    }
   }
+  
+  // If we get here, all retries failed
+  throw lastError;
 };
 
 // UserSchema.methods.updateAppSettings = async function (
@@ -414,6 +464,80 @@ UserSchema.methods.getAugmentosSettings = function(
   return this.augmentosSettings;
 };
 
+// Update last active timestamp for an app
+UserSchema.methods.updateAppLastActive = async function(
+  this: UserI,
+  packageName: string
+): Promise<void> {
+  const maxRetries = 3;
+  let lastError: any;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Re-fetch the user document to get the latest version
+      const freshUser = await (this.constructor as any).findOne({ _id: this._id });
+      if (!freshUser) {
+        throw new Error(`User ${this.email} not found during updateAppLastActive`);
+      }
+
+      if (!freshUser.installedApps) {
+        freshUser.installedApps = [];
+      }
+
+      let app = freshUser.installedApps.find((app: any) => app.packageName === packageName);
+      
+      if (app) {
+        // App exists in list, update timestamp
+        app.lastActiveAt = new Date();
+        await freshUser.save();
+        return;
+      } else {
+        // Check if this is a pre-installed app that's missing from user's list
+        try {
+          const { getPreInstalledForThisServer } = require('../services/core/app.service');
+          const serverPreInstalled = getPreInstalledForThisServer();
+          
+          if (serverPreInstalled.includes(packageName)) {
+            // Auto-add missing pre-installed app with current timestamp
+            freshUser.installedApps.push({
+              packageName,
+              installedDate: new Date(),
+              lastActiveAt: new Date()
+            });
+            await freshUser.save();
+            logger.info(`Auto-added missing pre-installed app ${packageName} for user ${freshUser.email}`);
+            return;
+          }
+          // If not pre-installed, silently ignore (app might be starting before installation completes)
+          return;
+        } catch (error) {
+          logger.error('Error checking pre-installed apps in updateAppLastActive:', error);
+          // Don't fail the operation if checking pre-installed apps fails
+          return;
+        }
+      }
+    } catch (error: any) {
+      lastError = error;
+      
+      // If it's a version conflict, retry
+      if (error.name === 'VersionError') {
+        logger.warn(`Version conflict in updateAppLastActive for user ${this.email}, app ${packageName}, attempt ${attempt + 1}/${maxRetries}`);
+        if (attempt < maxRetries - 1) {
+          // Wait a bit before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 50));
+          continue;
+        }
+      }
+      
+      // For other errors or max retries reached, throw
+      throw error;
+    }
+  }
+  
+  // If we get here, all retries failed
+  throw lastError;
+};
+
 // --- Middleware ---
 UserSchema.pre('save', function(next) {
   if (this.email) {
@@ -433,8 +557,11 @@ UserSchema.statics.findByEmail = async function(email: string): Promise<UserI | 
 UserSchema.statics.findOrCreateUser = async function (email: string): Promise<UserI> {
   email = email.toLowerCase();
   let user = await this.findOne({ email });
+  let isNewUser = false;
+  
   if (!user) {
     user = await this.create({ email });
+    isNewUser = true;
 
     // Create personal organization for new user if they don't have one
     // Import OrganizationService to avoid circular dependency
@@ -448,6 +575,39 @@ UserSchema.statics.findOrCreateUser = async function (email: string): Promise<Us
       await user.save();
     }
   }
+
+  // Auto-install pre-installed apps for new users OR existing users missing them
+  try {
+    const { getPreInstalledForThisServer } = require('../services/core/app.service');
+    const serverPreInstalled = getPreInstalledForThisServer();
+    
+    const missingPreInstalled = serverPreInstalled.filter((pkg: string) => 
+      !user.installedApps?.some((app: any) => app.packageName === pkg)
+    );
+
+    if (missingPreInstalled.length > 0) {
+      if (!user.installedApps) user.installedApps = [];
+      
+      for (const packageName of missingPreInstalled) {
+        user.installedApps.push({
+          packageName,
+          installedDate: new Date(),
+          // Don't set lastActiveAt initially
+        });
+      }
+      await user.save();
+      
+      if (isNewUser) {
+        logger.info(`Auto-installed ${missingPreInstalled.length} pre-installed apps for new user: ${email}`);
+      } else {
+        logger.info(`Auto-installed ${missingPreInstalled.length} missing pre-installed apps for existing user: ${email}`);
+      }
+    }
+  } catch (error) {
+    logger.error('Error auto-installing pre-installed apps:', error);
+    // Don't fail user creation if app installation fails
+  }
+
   return user;
 };
 

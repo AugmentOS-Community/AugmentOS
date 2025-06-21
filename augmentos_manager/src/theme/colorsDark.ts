@@ -15,7 +15,7 @@ const palette = {
   primary400: "#565E8C",
   primary300: "#4240D1",
   // primary200: "#C76542",
-  primary200: "navy",
+  primary200: "#6274EE",
   primary100: "#A54F31",
 
   secondary500: "#DCDDE9",
@@ -109,6 +109,9 @@ const palette = {
   tabBarGradientStart: "#090A14", // Dark blue for dark theme tab bar start
   tabBarGradientEnd: "#080D33", // Darker blue for dark theme tab bar end
 
+  altTabBarGradientStart: "#030514",
+  altTabBarGradientEnd: "#1D1D45",
+
   // Button gradient colors (same for both themes)
   buttonGradientStart: "#4340D3", // Purple-blue for button gradient start
   buttonGradientEnd: "#06114D", // Dark blue for button gradient end
@@ -132,6 +135,7 @@ export const colors = {
   transparent: "rgba(0, 0, 0, 0)",
   text: palette.neutral800,
   textDim: palette.neutral600,
+  textAlt: palette.neutral200,
   background: palette.neutral200,
   border: palette.neutral400,
   tint: palette.primary500,
@@ -145,7 +149,7 @@ export const colors = {
   loginGradientEnd: palette.neutral200, // Same dark background
 
   // Semantic color mappings for common UI elements
-  buttonPrimary: palette.blue500,
+  buttonPrimary: palette.primary500,
   buttonSecondary: palette.blue500,
   buttonDisabled: palette.lightGray,
   buttonDanger: palette.angry500,
@@ -159,10 +163,11 @@ export const colors = {
   warning: palette.warning500,
 
   // Switch/toggle colors
-  switchTrackOff: "#9E9E9E", // Darker gray for OFF track
-  switchTrackOn: "#5A57FF", // Brighter purple-blue for switch track when on
+  switchTrackOff: "#565E8C", // Purple-gray track for OFF state
+  switchTrackOn: "#7674FB", // Purple track for ON state
   switchThumb: palette.neutral100,
-  switchThumbOff: "#E0E0E0", // More noticeable gray handle for OFF state
+  switchThumbOn: "#FFFFFF", // White thumb for ON state
+  switchThumbOff: "#D5D8F5", // Light purple thumb for OFF state
 
   // Gallery specific colors
   galleryBackground: palette.darkGalleryBg,
@@ -184,6 +189,12 @@ export const colors = {
   // Tab bar gradients
   tabBarBackground1: palette.tabBarGradientStart,
   tabBarBackground2: palette.tabBarGradientEnd,
+  
+  // Tab bar solid background (for native tabs)
+  tabBarBackground: palette.neutral200,
+
+  altTabBarBackground1: palette.altTabBarGradientStart,
+  altTabBarBackground2: palette.altTabBarGradientEnd,
 
   // Fullscreen and modal backgrounds
   fullscreenBackground: palette.neutral900, // Black for fullscreen camera
@@ -219,6 +230,7 @@ export const colors = {
   // Warning background
   warningBackground: palette.warningBackground,
   warningBackgroundDestructive: "rgba(254, 152, 235, 0.4)", // Pink warning background with 40% opacity
+  warningBorderDestructive: "rgba(254, 152, 235, 0.16)", // Faded pink border (40% of background opacity)
 
   // Input border highlight
   inputBorderHighlight: palette.inputBorderHighlight,
@@ -231,4 +243,9 @@ export const colors = {
 
   // Checkmark color
   checkmark: "#7B79FF", // Brighter purple-blue for checkmarks in dark theme
+
+  // Slider colors
+  sliderThumb: "#FFFFFF", // White handle for dark theme
+  sliderTrackActive: "#7674FB", // Purple track for active/filled portion (matches switch ON)
+  sliderTrackInactive: "#565E8C", // Purple-gray for inactive portion (matches switch OFF)
 } as const

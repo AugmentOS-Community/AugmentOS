@@ -9,6 +9,7 @@ import {
   Image,
   ViewStyle,
   BackHandler,
+  ImageStyle,
 } from "react-native"
 import {useFocusEffect} from "@react-navigation/native"
 import Icon from "react-native-vector-icons/FontAwesome"
@@ -22,6 +23,7 @@ import {Screen} from "@/components/ignite/Screen"
 import {Header} from "@/components/ignite"
 import {ThemedStyle} from "@/theme"
 import {useNavigationHistory} from "@/contexts/NavigationHistoryContext"
+import Svg, {Defs, Ellipse, LinearGradient, RadialGradient, Rect, Stop} from "react-native-svg"
 
 export default function SelectGlassesModelScreen() {
   const {status} = useStatus()
@@ -84,6 +86,29 @@ export default function SelectGlassesModelScreen() {
     router.push({pathname: "/pairing/prep", params: {glassesModelName: glassesModelName}})
   }
 
+  const radialGradient = (size: number, rotation: number) => {
+    const strokeWidth = theme.spacing.xxxs;
+    const halfStroke = strokeWidth / 2;
+    return (
+      <Svg width={size} height={size}>
+        <Defs>
+          <RadialGradient
+            id="grad"
+            cx="0.0762"
+            cy="0.9529"
+            rx="1.0228"
+            ry="0.9978"
+            gradientUnits="objectBoundingBox"
+            gradientTransform={`rotate(${rotation} 10 10)`}>
+            <Stop offset="0" stopColor={theme.isDark ? theme.colors.palette.primary500 : theme.colors.palette.primary300} />
+            <Stop offset="1" stopColor={theme.isDark ? theme.colors.palette.primary200 : theme.colors.palette.primary100} />
+          </RadialGradient>
+        </Defs>
+        <Rect x={halfStroke} y={halfStroke} width={size - strokeWidth} height={size - strokeWidth} rx={theme.borderRadius.md - 2} ry={theme.borderRadius.md - 2} fill="url(#grad)" stroke={theme.colors.border} strokeWidth={strokeWidth} />
+      </Svg>
+    )
+  }
+
   return (
     <Screen preset="fixed" style={{paddingHorizontal: theme.spacing.md}} safeAreaEdges={["bottom"]}>
       <Header
@@ -126,7 +151,10 @@ export default function SelectGlassesModelScreen() {
             onPress={() => {
               triggerGlassesPairingGuide(glasses.modelName)
             }}>
-            <Image source={getGlassesImage(glasses.modelName)} style={styles.glassesImage} />
+            <View style={{position: "relative", marginLeft: -theme.spacing.xxxs, marginTop: -theme.spacing.xxxs, marginBottom: -theme.spacing.xxxs}}>
+              {radialGradient(100 + theme.spacing.xxxs * 2, Math.round(Math.random() * 360))}
+              <Image source={getGlassesImage(glasses.modelName)} style={themed($glassesImage)} />
+            </View>
             <View style={styles.settingTextContainer}>
               <Text
                 style={[
@@ -157,19 +185,20 @@ export default function SelectGlassesModelScreen() {
   )
 }
 
-const $settingItem: ThemedStyle<ViewStyle> = ({colors}) => ({
+const $settingItem: ThemedStyle<ViewStyle> = ({colors, spacing, borderRadius}) => ({
   flexDirection: "row",
   alignItems: "center",
   justifyContent: "space-between",
-  // Increased padding to give it a "bigger" look
-  paddingVertical: 25,
-  paddingHorizontal: 15,
+  paddingRight: spacing.lg,
 
   // Larger margin to separate each card
   marginVertical: 8,
 
   // Rounded corners
-  borderRadius: 10,
+  borderRadius: borderRadius.md,
+
+  borderWidth: spacing.xxxs,
+  borderColor: colors.border,
 
   // More subtle shadow for iOS
   shadowColor: "#000",
@@ -181,6 +210,15 @@ const $settingItem: ThemedStyle<ViewStyle> = ({colors}) => ({
   elevation: 2,
 
   backgroundColor: colors.background,
+})
+
+const $glassesImage: ThemedStyle<ImageStyle> = ({colors, spacing}) => ({
+  width: 100,
+  height: 100,
+  resizeMode: "contain",
+  marginRight: 10,
+  position: "absolute",
+  padding: spacing.sm,
 })
 
 const styles = StyleSheet.create({
@@ -236,7 +274,8 @@ const styles = StyleSheet.create({
   },
   settingTextContainer: {
     flex: 1,
-    paddingHorizontal: 10,
+    paddingLeft: 20,
+    paddingRight: 10,
   },
   label: {
     fontSize: 18, // bigger text size
@@ -258,14 +297,5 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "600",
     // color moved to dynamic styling
-  },
-  /**
-   * BIGGER, SEXIER IMAGES
-   */
-  glassesImage: {
-    width: 80, // bigger width
-    height: 50, // bigger height
-    resizeMode: "contain",
-    marginRight: 10,
   },
 })

@@ -1,5 +1,5 @@
-export const AUGMENTOS_MANAGER_PACKAGE_NAME = "com.augmentos.augmentos"
-export const AUGMENTOS_CORE_PACKAGE_NAME = "com.augmentos.augmentos_core"
+export const MENTRAOS_MANAGER_PACKAGE_NAME = "com.mentra.mentra"
+export const MENTRAOS_CORE_PACKAGE_NAME = "com.augmentos.augmentos_core"
 
 export const MOCK_CONNECTION: boolean = false
 export const INTENSE_LOGGING: boolean = false

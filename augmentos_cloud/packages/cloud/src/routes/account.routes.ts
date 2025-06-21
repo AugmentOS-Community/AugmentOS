@@ -1,10 +1,15 @@
 import { Router, Request, Response } from 'express';
-import { logger } from '@augmentos/utils';
 import { validateCoreToken } from '../middleware/supabaseMiddleware';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
+import { User } from '../models/user.model';
+import { GalleryPhoto } from '../models/gallery-photo.model';
+import sessionService from '../services/session/session.service';
+import { emailService } from '../services/email/resend.service';
+import { logger } from '../services/logging/pino-logger';
+import UserSession from '../services/session/UserSession';
 
 const router = Router();
 
@@ -48,6 +53,66 @@ interface ExportRequest {
 
 const deletionRequests = new Map<string, DeletionRequest>();
 const exportRequests = new Map<string, ExportRequest>();
+
+/**
+ * Performs comprehensive cleanup of all user data across the system
+ */
+async function performCompleteUserDataCleanup(userEmail: string, supabaseUserId: string): Promise<void> {
+  logger.info({ userEmail, supabaseUserId }, 'Starting comprehensive user data cleanup');
+
+  try {
+    // 1. Terminate all active sessions
+    try {
+      const activeSession = UserSession.getById(userEmail);
+      activeSession?.dispose();
+      logger.info({ userEmail }, 'Active session terminated during cleanup');
+
+    } catch (error) {
+      logger.warn({ error, userEmail }, 'Error terminating active sessions during cleanup');
+    }
+
+    // 2. Delete gallery photos and associated files
+    try {
+      const deleteResult = await GalleryPhoto.deleteMany({ userEmail });
+      logger.info({ userEmail, deleteResult }, 'Cleaning up gallery photos');
+      // TODO(isaiah): Rn these aren't saved on server or in cloud, so if we add cloud storage, we should delete the files as well.
+
+      // Delete all gallery photo records
+      await GalleryPhoto.deleteMany({ userEmail });
+      logger.info({ userEmail }, 'Gallery photos cleaned up');
+    } catch (error) {
+      logger.error({ error, userEmail }, 'Error cleaning up gallery photos');
+    }
+
+    // 3. Delete user document from MongoDB
+    try {
+      const user = await User.findByEmail(userEmail);
+      if (user) {
+        await User.deleteOne({ email: userEmail });
+        logger.info({ userEmail }, 'User document deleted from MongoDB');
+      }
+    } catch (error) {
+      logger.error({ error, userEmail }, 'Error deleting user from MongoDB');
+    }
+
+    // 4. Clean up any organization memberships
+    try {
+      const Organization = require('../models/organization.model').Organization;
+      await Organization.updateMany(
+        { 'members.userId': userEmail },
+        { $pull: { members: { userId: userEmail } } }
+      );
+      logger.info({ userEmail }, 'Organization memberships cleaned up');
+    } catch (error) {
+      logger.warn({ error, userEmail }, 'Error cleaning up organization memberships');
+    }
+
+    logger.info({ userEmail, supabaseUserId }, 'Comprehensive user data cleanup completed successfully');
+  } catch (error) {
+    logger.error({ error, userEmail, supabaseUserId }, 'Error during comprehensive user data cleanup');
+    // Don't throw - we want to complete the deletion even if some cleanup fails
+  }
+}
 
 // Directory for storing exports
 const EXPORTS_DIR = path.join(process.cwd(), 'exports');
@@ -283,9 +348,19 @@ router.post('/request-deletion', validateCoreToken, async (req: Request, res: Re
 
     deletionRequests.set(requestId, deletionRequest);
 
-    // In a real implementation, send an email with the verification code
-    // For now, we'll just log it
-    logger.info(`Verification code for account deletion: ${verificationCode}`);
+    // Send verification email
+    try {
+      const emailResult = await emailService.sendAccountDeletionVerification(userEmail, verificationCode);
+      if (emailResult.error) {
+        logger.error({ error: emailResult.error, userEmail }, 'Failed to send deletion verification email');
+        // Still continue - user can retry if email fails
+      } else {
+        logger.info({ emailId: emailResult.id, userEmail }, 'Deletion verification email sent successfully');
+      }
+    } catch (emailError) {
+      logger.error({ error: emailError, userEmail }, 'Error sending deletion verification email');
+      // Continue - don't fail the request if email fails
+    }
 
     res.json({
       requestId,
@@ -348,7 +423,8 @@ router.delete('/confirm-deletion', validateCoreToken, async (req: Request, res: 
     // Remove the deletion request
     deletionRequests.delete(requestId);
 
-    // In a real implementation, clean up any additional user data in other systems
+    // ✅ Comprehensive data cleanup
+    await performCompleteUserDataCleanup(userEmail, deletionRequest.userId);
 
     res.json({
       message: 'Account deleted successfully'

@@ -245,6 +245,9 @@ export class AppManager {
       };
     }
 
+    // Update last active timestamp when app starts or stops
+    this.updateAppLastActive(packageName);
+
     // Create Promise for tracking this connection attempt
     return new Promise<AppStartResult>((resolve, reject) => {
       const startTime = Date.now();
@@ -311,6 +314,35 @@ export class AppManager {
       // Continue with webhook trigger
       this.triggerAppWebhookInternal(app, resolve, reject, startTime);
     });
+
+
+  }
+
+  private async updateAppLastActive(packageName: string): Promise<void> {
+    // Update the last active timestamp for the app in the user's record
+    try {
+      const user = await User.findByEmail(this.userSession.userId);
+      if (user) {
+        await user.updateAppLastActive(packageName);
+        return;
+      }
+      this.logger.error({ userId: this.userSession.userId, packageName, service: 'AppManager' },
+        `User ${this.userSession.userId} not found while updating last active for app ${packageName}`);
+      return;
+
+    } catch (error) {
+      // Log the error but don't crash the application
+      this.logger.error({ 
+        userId: this.userSession.userId, 
+        packageName, 
+        service: 'AppManager', 
+        error: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : 'Unknown'
+      }, `Error updating last active for app ${packageName} - continuing without crash`);
+      
+      // Don't throw the error - this is a non-critical operation
+      return;
+    }
   }
 
   /**
@@ -578,6 +610,7 @@ export class AppManager {
       // Clean up dashboard content for stopped app
       this.userSession.dashboardManager.cleanupAppContent(packageName);
 
+      this.updateAppLastActive(packageName);
     } catch (error) {
       this.logger.error(`Error stopping app ${packageName}:`, error);
     }

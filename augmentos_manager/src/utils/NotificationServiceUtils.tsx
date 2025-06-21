@@ -21,9 +21,9 @@ export async function checkAndRequestNotificationAccessSpecialPermission() {
     if (!hasAccess) {
       await showAlert(
         "Enable Notification Access",
-        "AugmentOS needs permission to read your phone notifications to display them on your smart glasses.\n\n" +
+        "MentraOS needs permission to read your phone notifications to display them on your smart glasses.\n\n" +
           "On the next screen:\n" +
-          '1. Find "AugmentOS Manager" in the list\n' +
+          '1. Find "MentraOS Manager" in the list\n' +
           "2. Toggle the switch to ON\n" +
           "3. Tap ALLOW when prompted",
         [

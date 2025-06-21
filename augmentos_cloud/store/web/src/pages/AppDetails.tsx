@@ -237,24 +237,36 @@ const AppDetails: React.FC = () => {
                     <div className="mt-4 flex flex-col gap-2">
                       {isAuthenticated ? (
                         app.isInstalled ? (
-                          <Button
-                            variant="destructive"
-                            onClick={handleUninstall}
-                            disabled={installingApp}
-                            className="w-full md:w-48 bg-[#E24A24] hover:bg-[#E24A24]/90"
-                          >
-                            {installingApp ? (
-                              <>
-                                <div className="animate-spin h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full mr-2"></div>
-                                Uninstalling...
-                              </>
-                            ) : (
-                              <>
-                                <X className="h-4 w-4 mr-1" />
-                                Uninstall
-                              </>
-                            )}
-                          </Button>
+                          // Only show uninstall button if app is uninstallable (default to true if not specified)
+                          app.uninstallable !== false ? (
+                            <Button
+                              variant="destructive"
+                              onClick={handleUninstall}
+                              disabled={installingApp}
+                              className="w-full md:w-48 bg-[#E24A24] hover:bg-[#E24A24]/90"
+                            >
+                              {installingApp ? (
+                                <>
+                                  <div className="animate-spin h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full mr-2"></div>
+                                  Uninstalling...
+                                </>
+                              ) : (
+                                <>
+                                  <X className="h-4 w-4 mr-1" />
+                                  Uninstall
+                                </>
+                              )}
+                            </Button>
+                          ) : (
+                            // Show a disabled "Pre-installed" button for non-uninstallable apps
+                            <Button
+                              variant="outline"
+                              disabled
+                              className="w-full md:w-48 cursor-not-allowed opacity-60"
+                            >
+                              Pre-installed
+                            </Button>
+                          )
                         ) : (
                           <Button
                             onClick={handleInstall}

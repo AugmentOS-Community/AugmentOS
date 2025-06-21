@@ -157,16 +157,18 @@ export class LayoutManager {
    * - Notifications
    * 
    * @param text - Text content to display
-   * @param options - Optional parameters (view, duration)
+   * @param options - Optional parameters (view, duration, priority)
+   *   - priority: If true, this display will not be overridden by other requests (default: false)
    * 
    * @example
    * ```typescript
    * layouts.showTextWall('Connected to server');
+   * layouts.showTextWall('Onboarding!', { priority: true });
    * ```
    */
   showTextWall(
     text: string, 
-    options?: { view?: ViewType; durationMs?: number }
+    options?: { view?: ViewType; durationMs?: number}
   ) {
     try {
       // Validate input before processing

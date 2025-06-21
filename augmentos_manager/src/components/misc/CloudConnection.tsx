@@ -9,7 +9,7 @@ export default function CloudConnection() {
   const {status} = useStatus()
 
   useEffect(() => {
-    // console.log("AugmentOS Status Updated:", JSON.stringify(status, null, 2))
+    // console.log("MentraOS Status Updated:", JSON.stringify(status, null, 2))
   }, [status])
 
   /**

@@ -104,8 +104,8 @@ const $xIcon: ThemedStyle<ViewStyle> = () => ({
   zIndex: 2,
 })
 
-const $tempWindow: ThemedStyle<ViewStyle> = ({colors}) => ({
-  borderRadius: 16,
+const $tempWindow: ThemedStyle<ViewStyle> = ({colors, spacing, borderRadius}) => ({
+  borderRadius: borderRadius.md,
   // backgroundColor: colors.background + "E6",
   backgroundColor: colors.background,
   // flex: 1,
@@ -115,6 +115,8 @@ const $tempWindow: ThemedStyle<ViewStyle> = ({colors}) => ({
   paddingHorizontal: 30,
   paddingVertical: 16,
   gap: 41,
+  borderWidth: spacing.xxxs,
+  borderColor: colors.border,
 })
 
 export default TempActivateAppWindow

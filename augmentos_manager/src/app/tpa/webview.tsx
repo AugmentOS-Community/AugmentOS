@@ -61,7 +61,7 @@ export default function AppWebView() {
 
   function determineCloudUrl(): string | undefined {
     const cloudHostName =
-      process.env.CLOUD_PUBLIC_HOST_NAME || process.env.CLOUD_HOST_NAME || process.env.AUGMENTOS_HOST
+      process.env.CLOUD_PUBLIC_HOST_NAME || process.env.CLOUD_HOST_NAME || process.env.MENTRAOS_HOST
     if (
       cloudHostName &&
       cloudHostName.trim() !== "prod.augmentos.cloud" &&

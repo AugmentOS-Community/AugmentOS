@@ -8,7 +8,7 @@
 #import <Foundation/Foundation.h>
 #import <React/RCTEventEmitter.h>
 #import "./AOSModule.h"
-#import "AugmentOS-Swift.h"
+#import "MentraOS-Swift.h"
 
 @interface AOSModule ()
 @property (nonatomic, strong) AOSManager *aosManager;

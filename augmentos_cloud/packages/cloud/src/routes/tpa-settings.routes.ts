@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import axios from 'axios';
 // import { systemApps } from '../services/core/system-apps';
 import { User } from '../models/user.model';
+import Organization from '../models/organization.model';
 
 export const AUGMENTOS_AUTH_JWT_SECRET = process.env.AUGMENTOS_AUTH_JWT_SECRET || "";
 import appService, { isUninstallable, SYSTEM_DASHBOARD_PACKAGE_NAME } from '../services/core/app.service';
@@ -140,6 +141,25 @@ router.get('/:tpaName', async (req, res) => {
 
     logger.debug({ cleanSettings }, `Merged and cleaned settings for user: ${userId} from TPA ${tpaName}`);
 
+    // Get organization information
+    let _organization = null;
+    if (_tpa.organizationId) {
+      try {
+        const organization = await Organization.findById(_tpa.organizationId);
+        if (organization && organization.profile) {
+          _organization = {
+            name: organization.name,
+            website: organization.profile.website,
+            contactEmail: organization.profile.contactEmail,
+            description: organization.profile.description,
+            logo: organization.profile.logo
+          };
+        }
+      } catch (error) {
+        logger.warn({ error, organizationId: _tpa.organizationId }, 'Failed to fetch organization info for TPA');
+      }
+    }
+
     const uninstallable = isUninstallable(tpaName);
     return res.json({
       success: true,
@@ -151,6 +171,7 @@ router.get('/:tpaName', async (req, res) => {
       version: tpaConfig.version,
       settings: cleanSettings,
       permissions,
+      organization: _organization,
     });
   } catch (error) {
     rootLogger.error('Error processing TPA settings request:', error);

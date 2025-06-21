@@ -48,6 +48,14 @@ if (process.env.NODE_ENV !== 'production' || process.env.DEBUG_APPS === 'true') 
 }
 
 /**
+ * Returns the list of apps that should be auto-installed for users on this server instance.
+ * This matches the environment - core apps only in production, core + debug in development.
+ */
+export function getPreInstalledForThisServer(): string[] {
+  return [...PRE_INSTALLED]; // Return copy of current server's pre-installed apps
+}
+
+/**
  * System TPAs that are always available.
  * These are core applications provided by the platform.
  * @Param developerId - leaving this undefined indicates a system app.

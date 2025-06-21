@@ -37,6 +37,7 @@ export interface AppI {
   developerId?: string; // Developer's email address
   isInstalled?: boolean;
   installedDate?: string;
+  uninstallable?: boolean; // Whether the app can be uninstalled
 
   // Organization information
   organizationId?: string; // Reference to organization

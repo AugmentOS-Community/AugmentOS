@@ -1,6 +1,5 @@
 import React, {useRef, useState, useCallback, useEffect} from "react"
 import {View, StyleSheet, ActivityIndicator, BackHandler} from "react-native"
-import {SafeAreaView} from "react-native-safe-area-context"
 import {WebView} from "react-native-webview"
 import Config from "react-native-config"
 import InternetConnectionFallbackComponent from "@/components/misc/InternetConnectionFallbackComponent"
@@ -10,7 +9,7 @@ import {useAppStatus} from "@/contexts/AppStatusProvider"
 import {useAppStoreWebviewPrefetch} from "@/contexts/AppStoreWebviewPrefetchProvider"
 import {useAppTheme} from "@/utils/useAppTheme"
 import {useLocalSearchParams} from "expo-router"
-import {Text} from "@/components/ignite"
+import {Text, Screen, Header} from "@/components/ignite"
 
 // Define package name for the store webview
 const STORE_PACKAGE_NAME = "org.augmentos.store"
@@ -79,25 +78,41 @@ export default function AppStoreWeb() {
   // Show loading state while getting the URL
   if (!appStoreUrl) {
     return (
-      <View style={[styles.loadingOverlay, {backgroundColor: theme.colors.background}]}>
-        <ActivityIndicator size="large" color={theme2.primaryColor} />
-        <Text text="Preparing App Store..." style={[styles.loadingText, {color: theme2.textColor}]} />
-      </View>
+      <Screen 
+        preset="fixed" 
+        style={{paddingHorizontal: 0}}
+        gradientColors={[theme.colors.tabBarGradientStart, theme.colors.tabBarGradientEnd]}
+      >
+        <View style={{paddingHorizontal: theme.spacing.lg}}>
+          <Header leftTx="store:title" />
+        </View>
+        <View style={[styles.loadingContainer, {backgroundColor: theme.colors.background, paddingHorizontal: theme.spacing.lg}]}>
+          <ActivityIndicator size="large" color={theme2.primaryColor} />
+          <Text text="Preparing App Store..." style={[styles.loadingText, {color: theme2.textColor}]} />
+        </View>
+      </Screen>
     )
   }
 
   // If the prefetched WebView is ready, show it in the correct style
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <Screen 
+      preset="fixed" 
+      style={{paddingHorizontal: 0}}
+      gradientColors={[theme.colors.tabBarGradientStart, theme.colors.tabBarGradientEnd]}
+    >
+      <View style={{paddingHorizontal: theme.spacing.lg}}>
+        <Header leftTx="store:title" />
+      </View>
       {hasError ? (
         <InternetConnectionFallbackComponent retry={() => setHasError(false)} />
       ) : (
-        <View style={styles.webViewContainer}>
+        <View style={[styles.webViewContainer, {backgroundColor: theme.colors.background}]}>
           {/* Show the prefetched WebView, but now visible and full size */}
           <WebView
             ref={prefetchedWebviewRef}
             source={{uri: appStoreUrl}}
-            style={styles.webView}
+            style={[styles.webView, {backgroundColor: theme.colors.background}]}
             onLoadStart={() => setWebviewLoading(true)}
             onLoadEnd={() => setWebviewLoading(false)}
             onError={handleError}
@@ -106,6 +121,8 @@ export default function AppStoreWeb() {
             domStorageEnabled={true}
             startInLoadingState={true}
             scalesPageToFit={false}
+            bounces={false}
+            scrollEnabled={true}
             injectedJavaScript={`
               const meta = document.createElement('meta');
               meta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
@@ -122,13 +139,15 @@ export default function AppStoreWeb() {
           />
         </View>
       )}
-    </SafeAreaView>
+    </Screen>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
+  loadingContainer: {
     flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingOverlay: {
     alignItems: "center",

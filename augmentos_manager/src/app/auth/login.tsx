@@ -200,7 +200,7 @@ export default function LoginScreen() {
     })
 
     // Add this to see if linking is working at all
-    Linking.canOpenURL("com.augmentos://auth/callback").then(supported => {
+    Linking.canOpenURL("com.mentra://auth/callback").then(supported => {
       console.log("Can open URL:", supported)
     }).catch(error => {
       console.error("Error checking URL support:", error)
@@ -249,7 +249,7 @@ export default function LoginScreen() {
         provider: "google",
         options: {
           // Must match the deep link scheme/host/path in your AndroidManifest.xml
-          redirectTo: "com.augmentos://auth/callback",
+          redirectTo: "com.mentra://auth/callback",
           skipBrowserRedirect: true,
           queryParams: {
             prompt: "select_account",
@@ -313,7 +313,7 @@ export default function LoginScreen() {
         provider: "apple",
         options: {
           // Match the deep link scheme/host/path in your AndroidManifest.xml
-          redirectTo: "com.augmentos://auth/callback",
+          redirectTo: "com.mentra://auth/callback",
         },
       })
 
@@ -364,7 +364,7 @@ export default function LoginScreen() {
         email,
         password,
         options: {
-          emailRedirectTo: "com.augmentos://auth/callback",
+          emailRedirectTo: "com.mentra://auth/callback",
         },
       })
 
@@ -512,7 +512,7 @@ export default function LoginScreen() {
                     <FontAwesome
                       name="envelope"
                       size={16}
-                      color={theme.colors.text}
+                      color={theme.colors.textAlt}
                       // style={themed($inputIcon)}
                     />
                     <Spacer width={spacing.xxs} />
@@ -536,7 +536,7 @@ export default function LoginScreen() {
                     <FontAwesome
                       name="lock"
                       size={16}
-                      color={theme.colors.text}
+                      color={theme.colors.textAlt}
                       // style={themed($inputIcon)}
                     />
                     <Spacer width={spacing.xxs} />
@@ -553,7 +553,7 @@ export default function LoginScreen() {
                     <TouchableOpacity
                       hitSlop={{top: 16, bottom: 16, left: 16, right: 16}}
                       onPress={togglePasswordVisibility}>
-                      <FontAwesome name={showPassword ? "eye" : "eye-slash"} size={18} color={theme.colors.text} />
+                      <FontAwesome name={showPassword ? "eye" : "eye-slash"} size={18} color={theme.colors.textAlt} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -626,7 +626,7 @@ export default function LoginScreen() {
                     <FontAwesome
                       name="envelope"
                       size={16}
-                      color={theme.colors.text}
+                      color={theme.colors.textAlt}
                       // style={themed($emailIcon)}
                     />
                   )}
@@ -858,13 +858,13 @@ const $pressedButton: ThemedStyle<ViewStyle> = ({colors}) => ({
 })
 
 const $buttonText: ThemedStyle<TextStyle> = ({colors}) => ({
-  color: colors.text,
+  color: colors.textAlt,
   fontSize: 16,
   fontWeight: "bold",
 })
 
 const $emailButtonText: ThemedStyle<TextStyle> = ({colors}) => ({
-  color: colors.text,
+  color: colors.textAlt,
   fontSize: 16,
 })
 

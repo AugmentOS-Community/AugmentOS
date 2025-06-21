@@ -145,7 +145,7 @@ const $chevronHitbox: ThemedStyle<ViewStyle> = () => ({
 
 const Tag = ({isActive, isForeground = false}: {isActive: boolean; isForeground?: boolean}) => {
   const {themed, theme} = useAppTheme()
-  const mColor = isActive ? "#7674FB" : theme.colors.textDim
+  const mColor = /*true ? "#7674FB" : */theme.colors.textDim
 
   if (isForeground) {
     return (

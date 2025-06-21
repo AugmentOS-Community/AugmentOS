@@ -7,7 +7,7 @@ interface NavigationHistoryContextType {
   goBack: () => void
   getHistory: () => string[]
   clearHistory: () => void
-  push: (path: string) => Promise<void>
+  push: (path: string, params?: any) => Promise<void>
   replace: (path: string, params?: any) => Promise<void>
 }
 
@@ -66,16 +66,15 @@ export function NavigationHistoryProvider({children}: {children: React.ReactNode
     }
   }
 
-  const push = (path: string): Promise<void> => {
-
+  const push = (path: string, params?: any): Promise<void> => {
     // if the path is the same as the last path, don't add it to the history
     if (historyRef.current[historyRef.current.length - 1] === path) {
       return Promise.resolve()
     }
-    
+
     historyRef.current.push(path)
 
-    router.push(path as any)
+    router.push({pathname: path as any, params: params as any})
     return Promise.resolve()
   }
 

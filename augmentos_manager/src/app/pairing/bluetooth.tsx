@@ -28,6 +28,8 @@ import showAlert from "@/utils/AlertUtils"
 import {router, useLocalSearchParams} from "expo-router"
 import {useAppTheme} from "@/utils/useAppTheme"
 import {Header, Screen, Text} from "@/components/ignite"
+import {PillButton} from "@/components/ignite/PillButton"
+import GlassesTroubleshootingModal from "@/components/misc/GlassesTroubleshootingModal"
 import {ThemedStyle} from "@/theme"
 import {useNavigationHistory} from "@/contexts/NavigationHistoryContext"
 
@@ -38,6 +40,7 @@ export default function SelectGlassesBluetoothScreen() {
   const {glassesModelName}: {glassesModelName: string} = useLocalSearchParams()
   const {theme, themed} = useAppTheme()
   const {goBack, push, clearHistory} = useNavigationHistory()
+  const [showTroubleshootingModal, setShowTroubleshootingModal] = useState(false)
   // Create a ref to track the current state of searchResults
   const searchResultsRef = useRef<string[]>(searchResults)
 
@@ -229,8 +232,23 @@ export default function SelectGlassesBluetoothScreen() {
   const glassesImage = useMemo(() => getGlassesImage(glassesModelName), [glassesModelName])
 
   return (
-    <Screen preset="fixed" style={{paddingHorizontal: theme.spacing.md}} safeAreaEdges={["bottom"]}>
-      <Header titleTx="pairing:scanningForGlasses" leftIcon="caretLeft" onLeftPress={handleForgetGlasses} />
+    <Screen
+      preset="fixed"
+      style={{paddingHorizontal: theme.spacing.md}}
+      safeAreaEdges={["bottom"]}
+      gradientColors={[theme.colors.altTabBarBackground1, theme.colors.altTabBarBackground2]}>
+      <Header 
+        leftIcon="caretLeft" 
+        onLeftPress={handleForgetGlasses}
+        RightActionComponent={
+          <PillButton
+            text="Help"
+            variant="secondary"
+            onPress={() => setShowTroubleshootingModal(true)}
+            buttonStyle={{marginRight: theme.spacing.md}}
+          />
+        }
+      />
       <View style={styles.contentContainer}>
         <PairingDeviceInfo glassesModelName={glassesModelName} />
       </View>
@@ -246,10 +264,10 @@ export default function SelectGlassesBluetoothScreen() {
                 onPress={() => {
                   triggerGlassesPairingGuide(glassesModelName, deviceName)
                 }}>
-                <Image source={glassesImage} style={styles.glassesImage} />
+                {/* <Image source={glassesImage} style={styles.glassesImage} /> */}
                 <View style={styles.settingTextContainer}>
                   <Text
-                    text={deviceName}
+                    text={`${glassesModelName}  ${deviceName}`}
                     style={[
                       styles.label,
                       {
@@ -264,16 +282,22 @@ export default function SelectGlassesBluetoothScreen() {
           </>
         )}
       </ScrollView>
+      
+      <GlassesTroubleshootingModal
+        isVisible={showTroubleshootingModal}
+        onClose={() => setShowTroubleshootingModal(false)}
+        glassesModelName={glassesModelName}
+      />
     </Screen>
   )
 }
 
-const $settingItem: ThemedStyle<ViewStyle> = ({colors}) => ({
+const $settingItem: ThemedStyle<ViewStyle> = ({colors, spacing}) => ({
   flexDirection: "row",
   alignItems: "center",
   justifyContent: "space-between",
   // Increased padding to give it a "bigger" look
-  paddingVertical: 25,
+  paddingVertical: spacing.sm,
   paddingHorizontal: 15,
 
   // Larger margin to separate each card
@@ -281,7 +305,8 @@ const $settingItem: ThemedStyle<ViewStyle> = ({colors}) => ({
 
   // Rounded corners
   borderRadius: 10,
-  borderWidth: 1,
+  borderWidth: spacing.xxxs,
+  borderColor: colors.border,
 
   // More subtle shadow for iOS
   shadowColor: "#000",
@@ -296,8 +321,10 @@ const $settingItem: ThemedStyle<ViewStyle> = ({colors}) => ({
 
 const styles = StyleSheet.create({
   contentContainer: {
-    alignItems: "center",
-    justifyContent: "center",
+    // alignItems: "center",
+    // justifyContent: "center",
+    height: 320,
+    // backgroundColor: "red",
   },
   container: {
     flex: 1,
@@ -338,7 +365,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   label: {
-    fontSize: 18, // bigger text size
+    fontSize: 16, // bigger text size
     fontWeight: "600",
     flexWrap: "wrap",
   },

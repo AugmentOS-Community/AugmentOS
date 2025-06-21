@@ -2,6 +2,15 @@ import { ActiveDisplay, Layout, DisplayRequest, DisplayManagerI, TpaToCloudMessa
 import { SYSTEM_DASHBOARD_PACKAGE_NAME } from '../core/app.service';
 import { Logger } from 'pino';
 import { WebSocket } from 'ws';
+import axios from 'axios';
+
+
+const CLOUD_PUBLIC_HOST_NAME = "https://" + process.env.CLOUD_PUBLIC_HOST_NAME;
+
+// Extend DisplayRequest to include optional priority flag
+interface DisplayRequestWithPriority extends DisplayRequest {
+  priority?: boolean;
+}
 import UserSession from '../session/UserSession';
 
 interface DisplayState {
@@ -43,6 +52,8 @@ class DisplayManager {
   private userSession: UserSession;
   private mainApp: string = ""; // systemApps.captions.packageName; // Hardcode captions as core app
   private logger: Logger; // child logger for this service & user session.
+  private onboardingActive: boolean = false;
+  private onboardingEndTime: number = 0;
 
   /**
    * Returns the user ID safely, providing a fallback value if it's undefined
@@ -73,6 +84,9 @@ class DisplayManager {
     this.logger.info({}, `[${userId}] DisplayManager initialized`);
   }
 
+  /**
+   * Check onboarding status and show onboarding instructions if needed before normal boot
+   */
   public handleAppStart(packageName: string): void {
 
     // const app = this.userSession.installedApps.find(app => app.packageName === packageName);
@@ -95,8 +109,6 @@ class DisplayManager {
 
       // Get the package name of the currently displayed content
       const currentDisplayPackage = this.displayState.currentDisplay.displayRequest.packageName;
-
-      // Check if the display is still valid/active using our enhanced check
       const displayIsValid = this.hasRemainingDuration(this.displayState.currentDisplay);
 
       // Only save the display if:
@@ -117,7 +129,7 @@ class DisplayManager {
     this.bootingApps.add(packageName);
     this.updateBootScreen();
 
-    setTimeout(() => {
+    setTimeout(async () => {
       this.logger.info({ packageName }, `[${this.getUserId()}] Boot complete for app ${packageName}`);
       this.bootingApps.delete(packageName);
       if (this.bootingApps.size === 0) {
@@ -125,8 +137,88 @@ class DisplayManager {
         this.clearDisplay('main');
         // Process any queued display requests
         this.processBootQueue();
+
+        // Onboarding logic: only for non-system apps, after boot
+        const userEmail = this.userSession.userId; // Assuming userId is email
+        if (userEmail && packageName !== SYSTEM_DASHBOARD_PACKAGE_NAME) {
+          try {
+            const onboardingStatus = await this.getOnboardingStatus(userEmail, packageName);
+            // console.log('4343 onboardingStatus', onboardingStatus);
+            if (!onboardingStatus) {
+              const instructions = await this.getOnboardingInstructions(packageName);
+              // console.log('4343 instructions', instructions);
+              if (instructions) {
+                // Show onboarding instructions as a display
+                const onboardingDisplay: DisplayRequest = {
+                  type: TpaToCloudMessageType.DISPLAY_REQUEST,
+                  view: ViewType.MAIN,
+                  packageName,
+                  layout: {
+                    layoutType: LayoutType.TEXT_WALL,
+                    text: instructions
+                  },
+                  timestamp: new Date(),
+                  durationMs: 15000 // Show for 10 seconds or until user action
+                };
+                this.onboardingActive = true;
+                this.onboardingEndTime = Date.now() + 5000;
+                this.sendDisplay(onboardingDisplay);
+                this.logger.info({ packageName }, `[${this.getUserId()}] Showing onboarding instructions for ${packageName}`);
+                setTimeout(() => {
+                  this.onboardingActive = false;
+                }, 5000);
+                // console.log('4343 userEmail', userEmail);
+                // console.log('4343 packageName', packageName);
+                await this.completeOnboarding(userEmail, packageName);
+              }
+            }
+          } catch (err) {
+            this.logger.error({ err }, `[${this.getUserId()}] Error handling onboarding for ${packageName}`);
+          }
+        }
       }
     }, this.BOOT_DURATION);
+  }
+
+  /**
+   * Helper: Get onboarding status for user and app
+   */
+  private async getOnboardingStatus(email: string, packageName: string): Promise<boolean> {
+    try {
+      const response = await axios.get(`${CLOUD_PUBLIC_HOST_NAME}/api/onboarding/status`, { params: { email, packageName } });
+      // console.log('4343 response', response);
+      return !!response.data.hasCompletedOnboarding;
+    } catch (err) {
+      this.logger.error({ err }, `[${this.getUserId()}] Error fetching onboarding status`);
+      return false;
+    }
+  }
+
+  /**
+   * Helper: Get onboarding instructions for app
+   */
+  private async getOnboardingInstructions(packageName: string): Promise<string | null> {
+    try {
+      const response = await axios.get(`${CLOUD_PUBLIC_HOST_NAME}/api/onboarding/instructions`, { params: { packageName } });
+      return response.data.instructions || null;
+    } catch (err) {
+      this.logger.error({ err }, `[${this.getUserId()}] Error fetching onboarding instructions`);
+      return null;
+    }
+  }
+
+  /**
+   * Helper: Mark onboarding as complete for user and app
+   */
+  private async completeOnboarding(email: string, packageName: string): Promise<boolean> {
+    try {
+      const response = await axios.post(`${CLOUD_PUBLIC_HOST_NAME}/api/onboarding/complete`, { email, packageName });
+      // console.log('#$%^4343 response', response);
+      return !!response.data.success;
+    } catch (err) {
+      this.logger.error({ err }, `[${this.getUserId()}] Error completing onboarding`);
+      return false;
+    }
   }
 
   /**
@@ -342,34 +434,43 @@ class DisplayManager {
   }
 
   private showDisplay(activeDisplay: ActiveDisplay): boolean {
+    const displayRequest = activeDisplay.displayRequest as DisplayRequestWithPriority;
+    // Block all non-onboarding displays if onboardingActive and within 5 seconds
+    if (this.onboardingActive && Date.now() < this.onboardingEndTime) {
+      // Only allow onboarding display to show
+      if (!(displayRequest.layout && displayRequest.layout.layoutType === LayoutType.REFERENCE_CARD && displayRequest.layout.title === 'Welcome')) {
+        this.logger.info({ packageName: displayRequest.packageName }, `[${this.getUserId()}] 🚫 Onboarding active, ignoring display request`);
+        return false;
+      }
+    }
     // Check throttle
-    if (Date.now() - this.lastDisplayTime < this.THROTTLE_DELAY && !activeDisplay.displayRequest.forceDisplay) {
-      this.logger.info({ packageName: activeDisplay.displayRequest.packageName }, `[${this.getUserId()}] ⏳ Throttled display request, queuing`);
+    if (Date.now() - this.lastDisplayTime < this.THROTTLE_DELAY && !displayRequest.forceDisplay) {
+      this.logger.info({ packageName: displayRequest.packageName }, `[${this.getUserId()}] ⏳ Throttled display request, queuing`);
       // Add to throttle queue, indexed by package name
       this.enqueueThrottledDisplay(activeDisplay);
       return true; // Return true to indicate request was accepted
     }
 
-    const success = this.sendToWebSocket(activeDisplay.displayRequest, this.userSession?.websocket);
+    const success = this.sendToWebSocket(displayRequest, this.userSession?.websocket);
     if (success) {
       this.displayState.currentDisplay = activeDisplay;
       this.lastDisplayTime = Date.now();
 
       // If core app successfully displays while background app has lock but isn't showing anything,
       // release the background app's lock
-      if (activeDisplay.displayRequest.packageName === this.mainApp &&
+      if (displayRequest.packageName === this.mainApp &&
         this.displayState.backgroundLock &&
         this.displayState.currentDisplay?.displayRequest.packageName !== this.displayState.backgroundLock.packageName) {
-        this.logger.info({ packageName: activeDisplay.displayRequest.packageName, lockHolder: this.displayState.backgroundLock.packageName }, `[${this.getUserId()}] 🔓 Releasing background lock as core app took display: ${this.displayState.backgroundLock.packageName}`);
+        this.logger.info({ packageName: displayRequest.packageName, lockHolder: this.displayState.backgroundLock.packageName }, `[${this.getUserId()}] 🔓 Releasing background lock as core app took display: ${this.displayState.backgroundLock.packageName}`);
         this.displayState.backgroundLock = null;
       }
 
       // Update lastActiveTime if this is the lock holder
-      if (this.displayState.backgroundLock?.packageName === activeDisplay.displayRequest.packageName) {
+      if (this.displayState.backgroundLock?.packageName === displayRequest.packageName) {
         this.displayState.backgroundLock.lastActiveTime = Date.now();
       }
 
-      this.logger.info({ packageName: activeDisplay.displayRequest.packageName }, `[${this.getUserId()}] ✅ Display sent successfully: ${activeDisplay.displayRequest.packageName}`);
+      this.logger.info({ packageName: displayRequest.packageName }, `[${this.getUserId()}] ✅ Display sent successfully: ${displayRequest.packageName}`);
 
       // Set expiry timeout if duration specified
       if (activeDisplay.expiresAt) {

@@ -112,9 +112,12 @@ const palette = {
   iosSwitchTrack: "#D1D1D6", // iOS switch track color (off state)
   iosBackground: "#f9f9f9", // Light gray background color
 
-  // Tab bar gradient colors (light theme - less aggressive orange)
-  tabBarGradientStart: "#F5E6D3", // Very light peachy orange for light theme tab bar start
-  tabBarGradientEnd: "#FEFCFA", // Almost white with hint of warmth for light theme tab bar end
+  // Tab bar gradient colors (light theme - plain white, no gradient)
+  tabBarGradientStart: "#FFFFFF", // White for light theme (no gradient effect)
+  tabBarGradientEnd: "#FFFFFF", // White for light theme (no gradient effect)
+
+  altTabBarGradientStart: "#F5E6D3",
+  altTabBarGradientEnd: "#FEFCFA",
 
   // Button gradient colors
   buttonGradientStart: "#4340D3", // Purple-blue for button gradient start
@@ -153,6 +156,9 @@ export const colors = {
    * Secondary text information.
    */
   textDim: palette.neutral700,
+
+  // basically WoB or BoW for light theme
+  textAlt: palette.neutral200,
   /**
    * The default color of the screen background.
    */
@@ -190,7 +196,7 @@ export const colors = {
   loginGradientEnd: palette.neutral100, // White
 
   // Semantic color mappings for common UI elements
-  buttonPrimary: palette.blue500,
+  buttonPrimary: palette.buttonPillPrimary,
   buttonSecondary: palette.blue500,
   buttonDisabled: palette.lightGray,
   buttonDanger: palette.angry500,
@@ -206,9 +212,9 @@ export const colors = {
   // Switch/toggle colors
   switchTrackOff: "#9E9E9E", // Darker gray for OFF track
   switchTrackOn: "#5A57FF", // Brighter purple-blue for switch track when on
-  switchThumb: palette.gray350,
-  switchThumbOn: palette.neutral100, // White thumb for ON state
-  switchThumbOff: palette.gray350, // More noticeable gray handle for OFF state
+  switchThumb: palette.gray600,
+  switchThumbOn: palette.gray700, // Dark gray thumb for ON state (better contrast on light bg)
+  switchThumbOff: palette.gray600, // Medium gray handle for OFF state
 
   // Gallery specific colors
   galleryBackground: palette.lightGalleryBg,
@@ -230,6 +236,12 @@ export const colors = {
   // Tab bar gradients
   tabBarBackground1: palette.tabBarGradientStart,
   tabBarBackground2: palette.tabBarGradientEnd,
+  
+  // Tab bar solid background (for native tabs)
+  tabBarBackground: palette.neutral100,
+
+  altTabBarBackground1: palette.altTabBarGradientStart,
+  altTabBarBackground2: palette.altTabBarGradientEnd,
 
   // Fullscreen and modal backgrounds
   fullscreenBackground: palette.neutral900, // Black for fullscreen camera
@@ -265,6 +277,7 @@ export const colors = {
   // Warning background
   warningBackground: palette.warningBackground,
   warningBackgroundDestructive: "rgba(254, 152, 235, 0.4)", // Pink warning background with 40% opacity
+  warningBorderDestructive: "rgba(254, 152, 235, 0.16)", // Faded pink border (40% of background opacity)
 
   // Input border highlight
   inputBorderHighlight: palette.inputBorderHighlight,
@@ -278,6 +291,8 @@ export const colors = {
   // Checkmark color
   checkmark: palette.blue500, // Bright blue for checkmarks in light theme
 
-  // Slider thumb color
-  sliderThumb: palette.gray350, // Match toggle switch knob color
+  // Slider colors
+  sliderThumb: palette.gray700, // Dark gray for better contrast on light background
+  sliderTrackActive: palette.primary300, // Default track color for light theme
+  sliderTrackInactive: palette.neutral300, // Default inactive track color for light theme
 } as const

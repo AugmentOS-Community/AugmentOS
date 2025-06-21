@@ -62,7 +62,7 @@ const Header: React.FC<HeaderProps> = ({isDarkTheme, navigation}) => {
     // Show explanation alert before navigating to privacy settings
     showAlert(
       "Additional Features Available",
-      "Enhance your AugmentOS experience by enabling additional permissions.",
+      "Enhance your MentraOS experience by enabling additional permissions.",
       [
         {
           text: "Go to Settings",
@@ -83,7 +83,7 @@ const Header: React.FC<HeaderProps> = ({isDarkTheme, navigation}) => {
 
   return (
     <View style={styles.headerContainer}>
-      <Text text="AugmentOS" style={[styles.title, {color: textColor}]} numberOfLines={1} />
+      <Text text="MentraOS" style={[styles.title, {color: textColor}]} numberOfLines={1} />
 
       {(!hasNotificationListenerPermission || !hasCalendarPermission) && (
         <TouchableOpacity style={styles.alertIconContainer} onPress={handleNotificationAlert}>

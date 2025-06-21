@@ -33,25 +33,28 @@ AugmentOS Manager is a React Native app built with Expo and expo-router for file
 ### From Scratch (Android)
 ```bash
 pnpm install
-pnpm expo prebuild
+pnpm expo prebuild  # NEVER use --clean or --clear flags! We use custom native code
 pnpm android
 ```
 
 ### From Scratch (iOS)
 ```bash
 pnpm install
-pnpm expo prebuild
+pnpm expo prebuild  # NEVER use --clean or --clear flags! We use custom native code
 cd ios && pod install && cd ..
 open ios/AOS.xcworkspace
 # Install dev build on device using Xcode
 pnpm start
 ```
 
+### IMPORTANT: Never Use --clean or --clear with prebuild
+**DO NOT** use `pnpm expo prebuild --clean` or `pnpm expo prebuild --clear` as these commands will delete custom native code modifications. This project makes heavy use of native Android and iOS code that must be preserved.
+
 ### Cache Issues Fix
 If experiencing build issues after UI refresh:
 ```bash
 pnpm install
-pnpm expo prebuild
+pnpm expo prebuild  # NEVER use --clean or --clear flags!
 rm -rf android/build android/.gradle node_modules .expo .bundle android/app/build android/app/src/main/assets
 pnpm install
 ./fix-react-native-symlinks.sh 

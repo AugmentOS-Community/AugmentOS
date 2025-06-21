@@ -12,7 +12,7 @@ declare global {
 }
 import webSocketService from '../services/websocket/websocket.service';
 import sessionService from '../services/session/session.service';
-import appService from '../services/core/app.service';
+import appService, { isUninstallable } from '../services/core/app.service';
 import { User } from '../models/user.model';
 import App, { AppI } from '../models/app.model';
 import jwt, { JwtPayload } from 'jsonwebtoken';
@@ -36,12 +36,14 @@ interface AppWithDeveloperProfile extends AppI {
 interface EnhancedAppI extends AppI {
   is_running?: boolean;
   is_foreground?: boolean;
+  lastActiveAt?: Date;
 }
 
 // Enhanced app with both developer profile and running state
 interface EnhancedAppWithDeveloperProfile extends AppWithDeveloperProfile {
   is_running?: boolean;
   is_foreground?: boolean;
+  lastActiveAt?: Date;
 }
 
 // This is annyoing to change in the env files everywhere for each region so we set it here.
@@ -324,7 +326,9 @@ async function getAllApps(req: Request, res: Response) {
         });
       }
 
-      const enhancedApps = enhanceAppsWithSessionState(apps, userSession);
+      // Get user data for last active timestamps
+      const user = await User.findByEmail(userId);
+      const enhancedApps = enhanceAppsWithSessionState(apps, userSession, user);
       return res.json({
         success: true,
         data: enhancedApps
@@ -355,7 +359,9 @@ async function getAllApps(req: Request, res: Response) {
     const apps = await appService.getAllApps(tokenUserId);
     // const userSessions = sessionService.getSessionsForUser(tokenUserId);
     const userSession: UserSession = (req as any).userSession;
-    const enhancedApps = enhanceAppsWithSessionState(apps, userSession);
+    // Get user data for last active timestamps
+    const user = await User.findByEmail(tokenUserId);
+    const enhancedApps = enhanceAppsWithSessionState(apps, userSession, user);
     res.json({
       success: true,
       data: enhancedApps
@@ -495,6 +501,9 @@ async function getAppByPackage(req: Request, res: Response) {
       appObj.developerProfile = orgProfile.profile;
       appObj.orgName = orgProfile.name;
     }
+
+    // Add uninstallable property for store frontend
+    (appObj as any).uninstallable = isUninstallable(packageName);
 
     res.json({
       success: true,
@@ -1190,12 +1199,12 @@ router.get('/:packageName', getAppByPackage);
 router.post('/:packageName/start', unifiedAuthMiddleware, startApp);
 router.post('/:packageName/stop', unifiedAuthMiddleware, stopApp);
 
-// Helper to enhance apps with running/foreground state
+// Helper to enhance apps with running/foreground state and activity data
 /**
- * Enhances a list of apps (SDK AppI or local AppI) with running/foreground state.
+ * Enhances a list of apps (SDK AppI or local AppI) with running/foreground state and last active timestamp.
  * Accepts AppI[] from either @augmentos/sdk or local model.
  */
-function enhanceAppsWithSessionState(apps: AppI[], userSession: UserSession): EnhancedAppI[] {
+function enhanceAppsWithSessionState(apps: AppI[], userSession: UserSession, user?: any): EnhancedAppI[] {
   const plainApps = apps.map(app => {
     return (app as any).toObject?.() || app;
   });
@@ -1211,6 +1220,15 @@ function enhanceAppsWithSessionState(apps: AppI[], userSession: UserSession): En
     if (enhancedApp.is_running) {
       enhancedApp.is_foreground = app.tpaType === TpaType.STANDARD;;
     }
+
+    // Add last active timestamp if user data is available
+    if (user && user.installedApps) {
+      const installedApp = user.installedApps.find((installed: any) => installed.packageName === app.packageName);
+      if (installedApp && installedApp.lastActiveAt) {
+        enhancedApp.lastActiveAt = installedApp.lastActiveAt;
+      }
+    }
+
     return enhancedApp;
   });
 }

@@ -30,7 +30,7 @@
   <uses-permission android:name="android.permission.WRITE_CALENDAR"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
   <uses-permission android:name="android.permission.WRITE_MEDIA_VIDEO"/>
-  <uses-permission android:name="com.augmentos.augmentos.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"/>
+  <uses-permission android:name="com.mentra.mentra.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"/>
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
@@ -38,12 +38,12 @@
       <data android:scheme="https"/>
     </intent>
   </queries>
-  <permission android:name="com.augmentos.augmentos.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"/>
+  <permission android:name="com.mentra.mentra.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"/>
   <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:theme="@style/AppTheme" android:supportsRtl="true">
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
-    <service android:name="com.augmentos.augmentos.NotificationService" android:label="@string/app_name" android:exported="false" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+    <service android:name="com.mentra.mentra.NotificationService" android:label="@string/app_name" android:exported="false" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
       <intent-filter>
         <action android:name="android.service.notification.NotificationListenerService"/>
       </intent-filter>
@@ -59,8 +59,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="com.augmentos"/>
-        <data android:scheme="com.augmentos.augmentos"/>
+        <data android:scheme="com.mentra"/>
+        <data android:scheme="com.mentra.mentra"/>
       </intent-filter>
     </activity>
   </application>

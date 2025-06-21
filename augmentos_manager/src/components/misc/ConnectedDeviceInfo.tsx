@@ -95,8 +95,8 @@ export const ConnectDeviceButton = () => {
       <Button
         textStyle={[{marginLeft: spacing.xxl}]}
         textAlignment="left"
-        LeftAccessory={() => <SolarLineIconsSet4 color={theme.isDark ? "white" : "black"} />}
-        RightAccessory={() => <ChevronRight color={theme.isDark ? "white" : "black"} />}
+        LeftAccessory={() => <SolarLineIconsSet4 color={theme.colors.textAlt} />}
+        RightAccessory={() => <ChevronRight color={theme.colors.textAlt} />}
         onPress={() => {
           router.push("/pairing/select-glasses-model")
         }}
@@ -110,7 +110,7 @@ export const ConnectDeviceButton = () => {
       <Button
         textStyle={[{marginLeft: spacing.xxl}]}
         textAlignment="left"
-        LeftAccessory={() => <ActivityIndicator size="small" color={theme.colors.text} style={{marginLeft: 5}} />}
+        LeftAccessory={() => <ActivityIndicator size="small" color={theme.colors.textAlt} style={{marginLeft: 5}} />}
         onPress={handleConnectOrDisconnect}
         tx="home:connectingGlasses"
       />
@@ -122,8 +122,8 @@ export const ConnectDeviceButton = () => {
       <Button
         textStyle={[{marginLeft: spacing.xxl}]}
         textAlignment="left"
-        LeftAccessory={() => <SolarLineIconsSet4 color={theme.colors.text} />}
-        RightAccessory={() => <ChevronRight color={theme.colors.text} />}
+        LeftAccessory={() => <SolarLineIconsSet4 color={theme.colors.textAlt} />}
+        RightAccessory={() => <ChevronRight color={theme.colors.textAlt} />}
         onPress={handleConnectOrDisconnect}
         tx="home:connectGlasses"
         disabled={isCheckingConnectivity}

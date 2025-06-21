@@ -186,14 +186,14 @@ export default function DataExportPage() {
   )
 }
 
-const $container: ThemedStyle<ViewStyle> = ({colors}) => ({
+const $container: ThemedStyle<ViewStyle> = ({colors, spacing}) => ({
   backgroundColor: colors.background,
   flex: 1,
+  paddingHorizontal: spacing.md,
 })
 
-const $contentContainer: ThemedStyle<ViewStyle> = ({spacing}) => ({
+const $contentContainer: ThemedStyle<ViewStyle> = ({}) => ({
   flex: 1,
-  paddingHorizontal: spacing.md,
 })
 
 const $loadingContainer: ThemedStyle<ViewStyle> = ({}) => ({
@@ -207,11 +207,11 @@ const $loadingText: ThemedStyle<TextStyle> = ({colors}) => ({
   textAlign: "center",
 })
 
-const $summaryContainer: ThemedStyle<ViewStyle> = ({colors, spacing}) => ({
-  backgroundColor: colors.palette.neutral100,
-  borderRadius: 8,
+const $summaryContainer: ThemedStyle<ViewStyle> = ({colors, spacing, borderRadius}) => ({
+  backgroundColor: colors.background,
+  borderRadius: borderRadius.md,
   padding: spacing.md,
-  borderWidth: 1,
+  borderWidth: spacing.xxxs,
   borderColor: colors.border,
 })
 
@@ -237,11 +237,11 @@ const $button: ThemedStyle<ViewStyle> = ({}) => ({
   flex: 1,
 })
 
-const $jsonContainer: ThemedStyle<ViewStyle> = ({colors, spacing}) => ({
+const $jsonContainer: ThemedStyle<ViewStyle> = ({colors, spacing, borderRadius}) => ({
   flex: 1,
-  backgroundColor: colors.palette.neutral100,
-  borderRadius: 8,
-  borderWidth: 1,
+  backgroundColor: colors.background,
+  borderRadius: borderRadius.md,
+  borderWidth: spacing.xxxs,
   borderColor: colors.border,
   overflow: "hidden",
 })

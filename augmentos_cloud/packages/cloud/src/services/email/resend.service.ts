@@ -214,6 +214,160 @@ export class ResendEmailService {
       </html>
     `;
   }
+
+  /**
+   * Sends an account deletion verification email
+   * @param recipientEmail - Email address of the user requesting deletion
+   * @param verificationCode - 6-character verification code
+   * @returns Promise with the result of the email sending operation
+   */
+  async sendAccountDeletionVerification(
+    recipientEmail: string,
+    verificationCode: string
+  ): Promise<{ id?: string; error?: any }> {
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: this.defaultSender,
+        to: [recipientEmail],
+        subject: 'Confirm Account Deletion - AugmentOS',
+        html: this.generateDeletionEmailHtml(verificationCode),
+      });
+
+      if (error) {
+        console.error('[resend.service] Failed to send deletion verification email:', error);
+        return { error };
+      }
+
+      console.log('[resend.service] Deletion verification email sent successfully:', data?.id);
+      return { id: data?.id };
+    } catch (error) {
+      console.error('[resend.service] Error sending deletion verification email:', error);
+      return { error };
+    }
+  }
+
+  /**
+   * Generates HTML content for account deletion verification email
+   * @param verificationCode - 6-character verification code
+   * @returns HTML string for the email body
+   */
+  private generateDeletionEmailHtml(verificationCode: string): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Confirm Account Deletion - AugmentOS</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+              background-color: #f8f9fa;
+            }
+
+            .container {
+              background-color: white;
+              border-radius: 12px;
+              border: 1px solid #e1e4e8;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+              overflow: hidden;
+            }
+
+            .header {
+              background-color: #dc3545;
+              color: white;
+              text-align: center;
+              padding: 30px 20px;
+            }
+
+            .header h1 {
+              margin: 0;
+              font-size: 28px;
+              font-weight: 600;
+              letter-spacing: 0.5px;
+            }
+
+            .content {
+              padding: 30px;
+            }
+
+            p {
+              margin: 16px 0;
+              font-size: 16px;
+            }
+
+            .verification-code {
+              background-color: #f8f9fa;
+              border: 2px solid #dc3545;
+              border-radius: 8px;
+              text-align: center;
+              padding: 20px;
+              margin: 25px 0;
+              font-size: 32px;
+              font-weight: bold;
+              color: #dc3545;
+              letter-spacing: 4px;
+              font-family: monospace;
+            }
+
+            .warning {
+              background-color: #fff3cd;
+              border: 1px solid #ffeaa7;
+              border-radius: 6px;
+              padding: 15px;
+              margin: 20px 0;
+              color: #856404;
+            }
+
+            .footer {
+              background-color: #f8f9fa;
+              padding: 20px;
+              text-align: center;
+              font-size: 14px;
+              color: #6c757d;
+              border-top: 1px solid #e1e4e8;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🗑️ Account Deletion Request</h1>
+            </div>
+
+            <div class="content">
+              <p><strong>You have requested to delete your AugmentOS account.</strong></p>
+
+              <div class="warning">
+                <strong>⚠️ Warning:</strong> This action is permanent and cannot be undone. All your data, including photos, settings, and app configurations will be permanently deleted.
+              </div>
+
+              <p>To confirm the deletion of your account, please use this verification code:</p>
+
+              <div class="verification-code">
+                ${verificationCode}
+              </div>
+
+              <p><strong>This code will expire in 24 hours.</strong></p>
+
+              <p>If you did not request this account deletion, please ignore this email. Your account will remain safe and no action will be taken.</p>
+
+              <p>If you're having issues with AugmentOS and considering deletion, please reach out to our support team at <a href="mailto:support@augmentos.org">support@augmentos.org</a> - we'd love to help!</p>
+            </div>
+
+            <div class="footer">
+              &copy; ${new Date().getFullYear()} Mentra Labs.
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
 }
 
 // Create singleton instance

@@ -17,7 +17,7 @@ rootProject.name = "AugmentOS ASG Client"
 include ':app'
 
 include ':AugmentOSLib'
-project(':AugmentOSLib').projectDir = new File(rootProject.projectDir, '../augmentos_android_library/AugmentOSLib')
+project(':AugmentOSLib').projectDir = new File(rootProject.projectDir, '../mentraos_android_library/AugmentOSLib')
 
 include ':SmartGlassesManager'
 project(':SmartGlassesManager').projectDir = new File(rootProject.projectDir, '../SmartGlassesManager/SGM_android/SmartGlassesManager')

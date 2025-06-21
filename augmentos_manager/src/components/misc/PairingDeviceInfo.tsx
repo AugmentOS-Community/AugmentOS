@@ -5,7 +5,9 @@ import {Button} from "@/components/ignite"
 import {ThemedStyle} from "@/theme"
 import {useAppTheme} from "@/utils/useAppTheme"
 import {useStatus} from "@/contexts/AugmentOSStatusProvider"
-import {getGlassesImage} from "@/utils/getGlassesImage"
+import {getGlassesImage, getGlassesOpenImage} from "@/utils/getGlassesImage"
+import {translate} from "@/i18n"
+import {Spacer} from "@/components/misc/Spacer"
 
 interface PairingDeviceInfoProps {
   glassesModelName: string
@@ -52,45 +54,45 @@ const PairingDeviceInfo: React.FC<PairingDeviceInfoProps> = ({glassesModelName})
 
   return (
     <View style={themed($deviceInfoContainer)}>
-      <View style={themed($disconnectedContent)}>
-        <Image source={getGlassesImage(glassesModelName)} style={themed($glassesImage)} />
-        <Text style={themed($connectText)}>{`Searching for ${glassesModelName}`}</Text>
-        <ActivityIndicator size="small" color={theme.colors.palette.primary300} />
-      </View>
+      <Text style={themed($connectText)}>{translate("pairing:scanningForGlassesModel", {model: glassesModelName})}</Text>
+      <Spacer height={theme.spacing.md} />
+      <Text style={themed($subText)}>{translate("pairing:scanningForGlasses2")}</Text>
+      <Spacer height={theme.spacing.lg} />
+      <ActivityIndicator size="large" color={theme.colors.text} />
+      <Spacer height={theme.spacing.lg} />
+      <Image source={getGlassesOpenImage(glassesModelName)} style={themed($glassesImage)} />
     </View>
   )
 }
 
 // Define themed styles using ThemedStyle type
 const $deviceInfoContainer: ThemedStyle<ViewStyle> = ({colors}) => ({
-  paddingBottom: 4,
-  paddingTop: 16,
-  borderRadius: 16,
-  width: "100%",
-  minHeight: 180,
-  justifyContent: "center",
-  marginTop: 16,
-  backgroundColor: colors.background,
-})
-
-const $disconnectedContent: ThemedStyle<ViewStyle> = () => ({
   flex: 1,
+  flexDirection: "column",
   justifyContent: "center",
   alignItems: "center",
 })
 
 const $glassesImage: ThemedStyle<ImageStyle> = () => ({
-  width: "80%",
-  height: "40%",
+  // width: "100%",
+  // height: "40%",
+  // maxWidth: 300,
+  maxHeight: 160,
+  width: "100%",
   resizeMode: "contain",
 })
 
 const $connectText: ThemedStyle<TextStyle> = ({colors}) => ({
-  fontSize: 14,
+  fontSize: 17,
   fontWeight: "bold",
-  marginBottom: 10,
-  marginTop: 36,
   fontFamily: "Montserrat-Bold",
+  color: colors.text,
+})
+
+const $subText: ThemedStyle<TextStyle> = ({colors}) => ({
+  fontSize: 15,
+  fontWeight: "normal",
+  fontFamily: "Montserrat-Regular",
   color: colors.text,
 })
 

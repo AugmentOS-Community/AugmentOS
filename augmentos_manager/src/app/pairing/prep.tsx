@@ -13,6 +13,7 @@ import {Screen} from "@/components/ignite/Screen"
 import coreCommunicator from "@/bridge/CoreCommunicator"
 import {translate} from "@/i18n"
 import {useNavigationHistory} from "@/contexts/NavigationHistoryContext"
+import {LinearGradient} from "expo-linear-gradient"
 
 // Alert handling is now done directly in PermissionsUtils.tsx
 
@@ -130,7 +131,7 @@ export default function PairingPrepScreen() {
         console.log("DEBUG: Running iOS connectivity check early")
         const requirementsCheck = await coreCommunicator.checkConnectivityRequirements()
         if (!requirementsCheck.isReady) {
-          // Show alert about missing requirements  
+          // Show alert about missing requirements
           showAlert(
             translate("pairing:connectionIssueTitle"),
             requirementsCheck.message || translate("pairing:connectionIssueMessage"),
@@ -192,7 +193,7 @@ export default function PairingPrepScreen() {
     if (needsBluetoothPermissions && Platform.OS === "android") {
       const requirementsCheck = await coreCommunicator.checkConnectivityRequirements()
       if (!requirementsCheck.isReady) {
-        // Show alert about missing requirements  
+        // Show alert about missing requirements
         showAlert(
           translate("pairing:connectionIssueTitle"),
           requirementsCheck.message || translate("pairing:connectionIssueMessage"),
@@ -205,12 +206,18 @@ export default function PairingPrepScreen() {
     console.log("needsBluetoothPermissions", needsBluetoothPermissions)
 
     // slight delay for bluetooth perms
-    router.push({pathname: "/pairing/bluetooth", params: {glassesModelName}})
+    push("/pairing/bluetooth", {glassesModelName})
+    // router.push({pathname: "/pairing/bluetooth", params: {glassesModelName}})
+
   }
 
   return (
-    <Screen preset="fixed" style={{paddingHorizontal: theme.spacing.md}} safeAreaEdges={["bottom"]}>
-      <Header titleTx="pairing:pairingGuide" leftIcon="caretLeft" onLeftPress={goBack} />
+    <Screen
+      preset="fixed"
+      style={{paddingHorizontal: theme.spacing.md}}
+      safeAreaEdges={["bottom"]}
+      gradientColors={[theme.colors.altTabBarBackground1, theme.colors.altTabBarBackground2]}>
+      <Header title={glassesModelName} leftIcon="caretLeft" onLeftPress={goBack} />
       <ScrollView style={{marginRight: -theme.spacing.md, paddingRight: theme.spacing.md}}>
         <View style={styles.contentContainer}>{getPairingGuide(glassesModelName)}</View>
       </ScrollView>

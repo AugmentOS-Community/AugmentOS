@@ -3,12 +3,12 @@
 import {useAppTheme} from "@/utils/useAppTheme"
 import React from "react"
 import {View, StyleSheet, Image, TouchableOpacity, Linking} from "react-native"
-import FontAwesome from "react-native-vector-icons/FontAwesome"
-import {Button, Text} from "@/components/ignite"
+import {Text} from "@/components/ignite"
 import {translate} from "@/i18n"
 import {showAlert} from "@/utils/AlertUtils"
 import {Spacer} from "./Spacer"
 import {GlassesFeatureList} from "@/components/glasses/GlassesFeatureList"
+import {MaterialCommunityIcons} from "@expo/vector-icons"
 
 // 2) Declare each guide component with the correct prop type
 export function EvenRealitiesG1PairingGuide() {
@@ -17,7 +17,6 @@ export function EvenRealitiesG1PairingGuide() {
 
   return (
     <View style={styles.guideContainer}>
-      <Text text="Even Realities G1" style={[styles.guideTitle, {color: textColor}]} />
       <Text
         text="1. Disconnect your G1 from within the Even Realities app, or uninstall the Even Realities app"
         style={[styles.guideStep, {color: textColor}]}
@@ -32,9 +31,21 @@ export function EvenRealitiesG1PairingGuide() {
         style={{...styles.guideImage, width: "60%", alignSelf: "center"}}
       />
 
-      <FontAwesome name="arrow-down" size={36} color={textColor} style={{alignSelf: "center", marginTop: -36}} />
+      {/* <FontAwesome name="arrow-down" size={36} color={textColor} style={{alignSelf: "center", marginTop: -36}} /> */}
 
+      <MaterialCommunityIcons
+        name="arrow-down"
+        size={36}
+        color={textColor}
+        style={{alignSelf: "center", marginTop: -36}}
+      />
+
+      {/* <Image source={require("../../../assets/guide/image_g1_case_closed.png")} style={styles.guideImage} /> */}
       <Image source={require("../../../assets/guide/image_g1_pair.png")} style={styles.guideImage} />
+
+      {/* <FontAwesome name="arrow-down" size={36} color={textColor} style={{alignSelf: "center", marginTop: -36}} /> */}
+
+      {/* <Image source={require("../../../assets/guide/image_g1_pair.png")} style={styles.guideImage} /> */}
     </View>
   )
 }
@@ -212,7 +223,8 @@ const styles = StyleSheet.create({
 
   guideContainer: {
     marginTop: 20,
-    width: "90%",
+    width: "100%",
+    alignSelf: "center",
   },
   guideTitle: {
     fontSize: 24,

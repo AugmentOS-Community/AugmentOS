@@ -8,6 +8,7 @@ import {
   Animated,
   Platform,
   ViewStyle,
+  TextStyle,
   ActivityIndicator,
   Easing,
 } from "react-native"
@@ -265,7 +266,7 @@ export default function InactiveAppList({
   }
   const startApp = async (packageName: string) => {
     if (!onboardingCompleted) {
-      if (packageName !== "com.augmentos.livecaptions" && packageName !== "cloud.augmentos.live-captions") {
+      if (packageName !== "com.augmentos.livecaptions" && packageName !== "com.mentra.livecaptions") {
         showAlert(
           translate("home:completeOnboardingTitle"),
           translate("home:completeOnboardingMessage"),
@@ -459,9 +460,9 @@ export default function InactiveAppList({
     availableApps.sort((a, b) => {
       // Check if either app is Live Captions
       const aIsLiveCaptions = a.packageName === "com.augmentos.livecaptions" || 
-                              a.packageName === "cloud.augmentos.live-captions"
+                              a.packageName === "com.mentra.livecaptions"
       const bIsLiveCaptions = b.packageName === "com.augmentos.livecaptions" || 
-                              b.packageName === "cloud.augmentos.live-captions"
+                              b.packageName === "com.mentra.livecaptions"
       
       // If a is Live Captions, it should come first
       if (aIsLiveCaptions && !bIsLiveCaptions) return -1
@@ -505,7 +506,7 @@ export default function InactiveAppList({
       {availableApps.map((app, index) => {
         // Check if this is the LiveCaptions app
         const isLiveCaptions =
-          app.packageName === "com.augmentos.livecaptions" || app.packageName === "cloud.augmentos.live-captions"
+          app.packageName === "com.augmentos.livecaptions" || app.packageName === "cloud.augmentos.live-captions"  || app.packageName === "com.mentra.livecaptions"
 
         // Only set ref for LiveCaptions app
         const ref = isLiveCaptions ? actualLiveCaptionsRef : null
@@ -541,14 +542,23 @@ export default function InactiveAppList({
         )
       })}
 
-      {/* Add "Get More Apps" link at the bottom */}
-      {availableApps.length > 0 && (
+      {/* Add "Get More Apps" link at the bottom - only on home page, not search */}
+      {availableApps.length > 0 && !isSearchPage && (
         <>
           <Spacer height={8} />
           <Divider variant="inset" />
           <Spacer height={8} />
           <AppListStoreLink />
         </>
+      )}
+
+      {/* Show "No apps found" message when searching returns no results */}
+      {isSearchPage && searchQuery && availableApps.length === 0 && (
+        <View style={themed($noAppsContainer)}>
+          <Text style={themed($noAppsText)}>
+            {translate("home:noAppsFoundForQuery", {query: searchQuery})}
+          </Text>
+        </View>
       )}
 
       {/* Add bottom padding for better scrolling experience */}
@@ -562,6 +572,19 @@ const $loadingContainer: ThemedStyle<ViewStyle> = () => ({
   justifyContent: "center",
   alignItems: "center",
   marginTop: 50,
+})
+
+const $noAppsContainer: ThemedStyle<ViewStyle> = ({spacing}) => ({
+  flex: 1,
+  justifyContent: "center",
+  alignItems: "center",
+  paddingVertical: spacing.xxl,
+})
+
+const $noAppsText: ThemedStyle<TextStyle> = ({colors, spacing}) => ({
+  fontSize: 16,
+  color: colors.textDim,
+  textAlign: "center",
 })
 
 const styles = StyleSheet.create({

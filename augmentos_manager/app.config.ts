@@ -22,8 +22,8 @@ module.exports = ({config}: ConfigContext): Partial<ExpoConfig> => {
     ...config,
     plugins: [...existingPlugins, require("./plugins/withSplashScreen").withSplashScreen],
     extra: {
-      AUGMENTOS_VERSION: process.env.AUGMENTOS_VERSION,
-      AUGMENTOS_APPSTORE_URL: process.env.AUGMENTOS_APPSTORE_URL,
+      MENTRAOS_VERSION: process.env.MENTRAOS_VERSION,
+      MENTRAOS_APPSTORE_URL: process.env.MENTRAOS_APPSTORE_URL,
     },
   }
 }

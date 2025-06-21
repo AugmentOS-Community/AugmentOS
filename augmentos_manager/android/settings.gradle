@@ -21,10 +21,10 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   }
 }
 
-rootProject.name = 'AugmentOS'
+rootProject.name = 'MentraOS'
 
 include ':AugmentOSLib'
-project(':AugmentOSLib').projectDir = new File(rootProject.projectDir, '../../augmentos_android_library/AugmentOSLib')
+project(':AugmentOSLib').projectDir = new File(rootProject.projectDir, '../../mentraos_android_library/AugmentOSLib')
 
 include ':augmentos_core'
 project(':augmentos_core').projectDir = new File(rootProject.projectDir, '../../augmentos_core/app')

@@ -62,12 +62,13 @@ const SliderSetting: React.FC<SliderSettingProps> = ({
             onSlidingComplete={handleValueSet} // Wrap the callback to round values
             minimumValue={min}
             maximumValue={max}
-            minimumTrackTintColor={theme.colors.palette.primary300}
-            maximumTrackTintColor={theme.colors.palette.neutral300}
+            minimumTrackTintColor={theme.colors.sliderTrackActive}
+            maximumTrackTintColor={theme.colors.sliderTrackInactive}
             thumbStyle={{
               width: 24,
               height: 24,
               backgroundColor: theme.colors.sliderThumb,
+              borderRadius: 12,
             }}
           />
         </View>
@@ -77,7 +78,7 @@ const SliderSetting: React.FC<SliderSettingProps> = ({
   )
 }
 
-const $container: ThemedStyle<ViewStyle> = ({colors, spacing}) => ({
+const $container: ThemedStyle<ViewStyle> = ({colors, spacing, borderRadius}) => ({
   flexDirection: "column",
   justifyContent: "flex-start",
   alignItems: "flex-start",
@@ -85,7 +86,9 @@ const $container: ThemedStyle<ViewStyle> = ({colors, spacing}) => ({
   backgroundColor: colors.background,
   paddingVertical: spacing.md,
   paddingHorizontal: spacing.lg,
-  borderRadius: spacing.sm,
+  borderRadius: borderRadius.md,
+  borderWidth: spacing.xxxs,
+  borderColor: colors.border,
 })
 
 const $textContainer: ThemedStyle<ViewStyle> = ({colors}) => ({

@@ -291,7 +291,7 @@ export const requestBackgroundLocationPermission = async (): Promise<boolean> =>
     return new Promise(resolve => {
       Alert.alert(
         "Background Location Permission",
-        "AugmentOS needs access to your location when the app is in the background " +
+        "MentraOS needs access to your location when the app is in the background " +
           "to provide continuous tracking and location-based features. " +
           'On the next screen, please select "Allow all the time".',
         [

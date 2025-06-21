@@ -34,7 +34,7 @@ export const AppStoreWebviewPrefetchProvider: React.FC<{children: React.ReactNod
     setWebviewLoading(true)
 
     try {
-      const baseUrl = Constants.expoConfig?.extra?.AUGMENTOS_APPSTORE_URL
+      const baseUrl = Constants.expoConfig?.extra?.MENTRAOS_APPSTORE_URL
       const backendComms = BackendServerComms.getInstance()
 
       // Check if core token exists before trying to generate webview tokens
@@ -74,7 +74,7 @@ export const AppStoreWebviewPrefetchProvider: React.FC<{children: React.ReactNod
     } catch (error) {
       console.error("AppStoreWebviewPrefetchProvider: Error during prefetch:", error)
       // fallback to base URL
-      const baseUrl = Constants.expoConfig?.extra?.AUGMENTOS_APPSTORE_URL
+      const baseUrl = Constants.expoConfig?.extra?.MENTRAOS_APPSTORE_URL
       const urlWithTheme = new URL(baseUrl)
       urlWithTheme.searchParams.append("theme", theme.isDark ? "dark" : "light")
       setAppStoreUrl(urlWithTheme.toString())

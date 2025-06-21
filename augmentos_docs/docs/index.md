@@ -6,11 +6,11 @@ slug: /
 
 import AugmentOSArchImage from '@site/src/components/ThemedImage';
 
-# Intro to the AugmentOS SDK Beta
+# Intro to the MentraOS SDK Beta
 
-## What is AugmentOS?
+## What is MentraOS?
 
-AugmentOS is a cloud operating system for smart glasses that handles the hard parts: connections, Bluetooth, streaming, and more. This lets you focus on creating great smart glasses apps.
+MentraOS is a cloud operating system for smart glasses that handles the hard parts: connections, Bluetooth, streaming, and more. This lets you focus on creating great smart glasses apps.
 
 <div style={{maxWidth: '515px', margin: '0 auto'}}>
   <AugmentOSArchImage width="100%" />
@@ -20,7 +20,7 @@ As a Cloud OS, you can write apps in JavaScript/TypeScript (with Python coming s
 
 ## Compatible Hardware
 
-You'll need [compatible smart glasses](https://augmentos.org/glasses/) to build with AugmentOS.
+You'll need [compatible smart glasses](https://mentra.glass/os#glasses) to build with MentraOS.
 
 ## Getting Started
 
@@ -29,11 +29,11 @@ You'll need [compatible smart glasses](https://augmentos.org/glasses/) to build 
 
 ## Deployment
 
-Developers can deploy finished apps to the [AugmentOS Store](https://store.augmentos.org) for users to discover and install.
+Developers can deploy finished apps to the [Mentra Store](https://apps.mentra.glass) for users to discover and install.
 
 ## Resources
 
-- [AugmentOS Website](https://augmentos.org)
+- [Mentra Website](https://mentra.glass)
 - [GitHub Repo](https://github.com/AugmentOS-Community/AugmentOS)
 - [Example App Repo](https://github.com/AugmentOS-Community/AugmentOS-Cloud-Example-App)
 - [Live-Captions Repo](https://github.com/AugmentOS-Community/LiveCaptionsOnSmartGlasses) - A more in-depth example with app settings support

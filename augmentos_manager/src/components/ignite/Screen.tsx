@@ -29,6 +29,12 @@ interface BaseScreenProps {
    * Style for the outer content container useful for padding & margin.
    */
   style?: StyleProp<ViewStyle>
+
+  /**
+   * Gradient colors
+   */
+  gradientColors?: [string, string]
+
   /**
    * Style for the inner content container useful for padding & margin.
    */
@@ -248,10 +254,12 @@ export function Screen(props: ScreenProps) {
   const $containerInsets = useSafeAreaInsetsStyle(safeAreaEdges)
   const {theme} = useAppTheme()
 
+  let gradientColors = props.gradientColors ?? [colors.tabBarBackground1, colors.tabBarBackground2]
+
   return (
     <View style={[$containerStyle, {backgroundColor: backgroundColor || colors.background} /*, $containerInsets*/]}>
       <LinearGradient
-        colors={theme.isDark ? ["#090A14", "#080D33"] : ["#FFF", "#FFF"]}
+        colors={gradientColors as [string, string]}
         style={{
           position: "absolute",
           left: 0,

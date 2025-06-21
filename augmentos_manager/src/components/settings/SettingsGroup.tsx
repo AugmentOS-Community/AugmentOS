@@ -13,9 +13,11 @@ export function SettingsGroup({children, style}: SettingsGroupProps) {
   return <View style={[themed($container), style]}>{children}</View>
 }
 
-const $container: ThemedStyle<ViewStyle> = ({colors, spacing}) => ({
+const $container: ThemedStyle<ViewStyle> = ({colors, spacing, borderRadius}) => ({
   backgroundColor: colors.background,
   paddingVertical: spacing.sm,
   paddingHorizontal: spacing.md,
-  borderRadius: spacing.sm,
+  borderRadius: borderRadius.md,
+  borderWidth: spacing.xxxs,
+  borderColor: colors.border,
 })

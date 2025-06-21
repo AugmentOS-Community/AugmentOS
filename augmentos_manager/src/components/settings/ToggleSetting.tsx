@@ -26,7 +26,7 @@ const ToggleSetting: React.FC<ToggleSettingProps> = ({label, subtitle, value, on
   )
 }
 
-const $container: ThemedStyle<ViewStyle> = ({colors, spacing}) => ({
+const $container: ThemedStyle<ViewStyle> = ({colors, spacing, borderRadius}) => ({
   flexDirection: "row",
   justifyContent: "space-between",
   alignItems: "center",
@@ -34,7 +34,7 @@ const $container: ThemedStyle<ViewStyle> = ({colors, spacing}) => ({
   backgroundColor: colors.background,
   paddingVertical: spacing.md,
   paddingHorizontal: spacing.lg,
-  borderRadius: spacing.sm,
+  borderRadius: borderRadius.md,
   borderWidth: spacing.xxxs,
   borderColor: colors.border,
 })

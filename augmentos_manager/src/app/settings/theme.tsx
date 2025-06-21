@@ -67,12 +67,14 @@ export default function ThemeSettingsPage() {
   )
 }
 
-const $settingsGroup: ThemedStyle<ViewStyle> = ({colors}) => ({
+const $settingsGroup: ThemedStyle<ViewStyle> = ({colors, spacing}) => ({
   backgroundColor: colors.background,
   paddingVertical: 12,
   paddingHorizontal: 16,
   borderRadius: 12,
   marginTop: 16,
+  borderWidth: spacing.xxxs,
+  borderColor: colors.border,
 })
 
 const $subtitle: ThemedStyle<TextStyle> = ({colors, spacing}) => ({

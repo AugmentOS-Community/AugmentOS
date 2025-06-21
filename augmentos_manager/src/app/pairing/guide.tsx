@@ -24,6 +24,7 @@ import {useAppTheme} from "@/utils/useAppTheme"
 import {Screen} from "@/components/ignite/Screen"
 import {ThemedStyle} from "@/theme"
 import {Header} from "@/components/ignite/Header"
+import {PillButton} from "@/components/ignite/PillButton"
 import {useNavigationHistory} from "@/contexts/NavigationHistoryContext"
 import showAlert from "@/utils/AlertUtils"
 
@@ -110,20 +111,21 @@ export default function GlassesPairingGuideScreen() {
   // Show help alert if showHelpAlert is true
   useEffect(() => {
     if (showHelpAlert) {
-      showAlert("Need Some Help?", `Having trouble pairing your ${glassesModelName}? Want some tips?`, [
-        {
-          text: "No, thanks.",
-          style: "cancel",
-          onPress: () => setShowHelpAlert(false),
-        },
-        {
-          text: "Help Me!",
-          onPress: () => {
-            setShowTroubleshootingModal(true)
-            setShowHelpAlert(false)
-          },
-        },
-      ])
+      // Commented out for now - can re-enable later if needed
+      // showAlert("Need Some Help?", `Having trouble pairing your ${glassesModelName}? Want some tips?`, [
+      //   {
+      //     text: "No, thanks.",
+      //     style: "cancel",
+      //     onPress: () => setShowHelpAlert(false),
+      //   },
+      //   {
+      //     text: "Help Me!",
+      //     onPress: () => {
+      //       setShowTroubleshootingModal(true)
+      //       setShowHelpAlert(false)
+      //     },
+      //   },
+      // ])
     }
   }, [showHelpAlert, glassesModelName])
 
@@ -144,7 +146,18 @@ export default function GlassesPairingGuideScreen() {
 
   return (
     <Screen preset="fixed" style={{paddingHorizontal: theme.spacing.md}}>
-      <Header leftIcon="caretLeft" onLeftPress={handleForgetGlasses} />
+      <Header 
+        leftIcon="caretLeft" 
+        onLeftPress={handleForgetGlasses} 
+        RightActionComponent={
+          <PillButton
+            text="Help"
+            variant="secondary"
+            onPress={() => setShowTroubleshootingModal(true)}
+            buttonStyle={{marginRight: theme.spacing.md}}
+          />
+        }
+      />
       {pairingInProgress ? (
         // Show the beautiful animated loader while pairing is in progress
         <GlassesPairingLoader glassesModelName={glassesModelName} />

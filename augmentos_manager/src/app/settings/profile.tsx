@@ -232,27 +232,27 @@ export default function ProfileSettingsPage() {
               />
             </View>
 
-            {userData.provider == "email" && (
+            <View style={{gap: theme.spacing.md, marginTop: theme.spacing.lg}}>
+              {userData.provider == "email" && (
+                <ActionButton
+                  label={translate("profileSettings:changePassword")}
+                  variant="default"
+                  onPress={handleChangePassword}
+                />
+              )}
+
               <ActionButton
-                label={translate("profileSettings:changePassword")}
+                label={translate("profileSettings:requestDataExport")}
                 variant="default"
-                onPress={handleChangePassword}
-                containerStyle={{marginBottom: theme.spacing.xs}}
+                onPress={handleRequestDataExport}
               />
-            )}
 
-            <ActionButton
-              label={translate("profileSettings:requestDataExport")}
-              variant="default"
-              onPress={handleRequestDataExport}
-              containerStyle={{marginBottom: theme.spacing.xs}}
-            />
-
-            <ActionButton
-              label={translate("profileSettings:deleteAccount")}
-              variant="destructive"
-              onPress={handleDeleteAccount}
-            />
+              <ActionButton
+                label={translate("profileSettings:deleteAccount")}
+                variant="destructive"
+                onPress={handleDeleteAccount}
+              />
+            </View>
           </>
         ) : (
           <Text tx="profileSettings:errorGettingUserInfo" />

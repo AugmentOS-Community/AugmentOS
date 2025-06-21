@@ -46,7 +46,9 @@ const SelectSetting: React.FC<SelectSettingProps> = ({label, value, options, onV
           styles.selectRow,
           {
             backgroundColor: theme.colors.background,
-            borderRadius: theme.spacing.sm,
+            borderRadius: theme.borderRadius.md,
+            borderWidth: theme.spacing.xxxs,
+            borderColor: theme.colors.border,
             paddingVertical: theme.spacing.md,
             paddingHorizontal: theme.spacing.lg - theme.spacing.xxs, // 20px
           },
@@ -76,9 +78,9 @@ const SelectSetting: React.FC<SelectSettingProps> = ({label, value, options, onV
                     {
                       backgroundColor: theme.colors.background,
                       borderColor: theme.colors.border,
-                      borderWidth: 1,
+                      borderWidth: theme.spacing.xxxs,
                       padding: theme.spacing.md,
-                      borderRadius: theme.spacing.sm,
+                      borderRadius: theme.borderRadius.md,
                       shadowRadius: theme.spacing.xs,
                     },
                   ]}>

@@ -212,28 +212,31 @@ const $baseViewStyle: ThemedStyle<ViewStyle> = ({spacing, colors, isDark}) => ({
   paddingVertical: spacing.sm,
   paddingHorizontal: spacing.sm,
   overflow: "hidden",
-  backgroundColor: colors.palette.primary200,
+  backgroundColor: colors.buttonPrimary,
   // Add subtle border for light theme
   borderWidth: isDark ? 0 : 1,
   borderColor: isDark ? undefined : colors.border,
 })
 
-const $baseTextStyle: ThemedStyle<TextStyle> = ({typography}) => ({
+const $baseTextStyle: ThemedStyle<TextStyle> = ({typography, colors}) => ({
   fontSize: 16,
   lineHeight: 20,
   textAlign: "center",
   flexShrink: 1,
   flexGrow: 0,
   zIndex: 2,
+  color: colors.textAlt,
 })
 
-const $rightAccessoryStyle: ThemedStyle<ViewStyle> = ({spacing}) => ({
+const $rightAccessoryStyle: ThemedStyle<ViewStyle> = ({spacing, colors}) => ({
   marginStart: spacing.xs,
   zIndex: 1,
+  color: colors.textAlt,
 })
-const $leftAccessoryStyle: ThemedStyle<ViewStyle> = ({spacing}) => ({
+const $leftAccessoryStyle: ThemedStyle<ViewStyle> = ({spacing, colors}) => ({
   marginEnd: spacing.xs,
   zIndex: 1,
+  color: colors.textAlt,
 })
 
 const $viewPresets: Record<Presets, ThemedStyleArray<ViewStyle>> = {

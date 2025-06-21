@@ -28,10 +28,15 @@ const BasicDialog = ({
   onRightPress,
 }: BasicDialogProps) => {
   const {
-    theme: {isDark},
+    theme: {isDark, borderRadius, spacing, colors},
   } = useAppTheme()
   return (
-    <View style={[styles.basicDialog, styles.basicDialogFlexBox, {backgroundColor: isDark ? "#141834" : "white"}]}>
+    <View style={[styles.basicDialog, styles.basicDialogFlexBox, {
+      backgroundColor: isDark ? "#141834" : "white", 
+      borderRadius: borderRadius.md,
+      borderWidth: spacing.xxxs,
+      borderColor: colors.border,
+    }]}>
       <View style={[styles.titleDescription, styles.basicDialogFlexBox]}>
         {icon}
         {title && (
@@ -87,7 +92,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   basicDialog: {
-    borderRadius: 28,
     elevation: 4,
     justifyContent: "center",
     maxWidth: "100%",

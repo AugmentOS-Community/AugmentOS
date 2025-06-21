@@ -14,21 +14,27 @@ export const getAppImage = (app: AppInfo): ImageSourcePropType => {
     case "com.mentra.adhdaid":
       return require("../assets/app-icons/ADHD-aid.png")
     case "com.augmentos.live-translation":
+    case "com.mentra.livetranslation":
     case "com.augmentos.livetranslation":
       return require("../assets/app-icons/translation.png")
     case "com.example.placeholder":
     case "com.augmentos.screenmirror":
       return require("../assets/app-icons/screen-mirror.png")
+    case "com.mentra.livecaptions":
     case "com.augmentos.livecaptions":
       return require("../assets/app-icons/captions.png")
+    case "com.mentra.miraai":
     case "com.augmentos.miraai":
       return require("../assets/app-icons/mira-ai.png")
     case "com.google.android.apps.maps":
+    case "com.mentra.navigation":
     case "com.augmentos.navigation":
       return require("../assets/app-icons/navigation.png")
+    case "com.mentra.teleprompter":
     case "com.augmentos.teleprompter":
       return require("../assets/app-icons/teleprompter.png")
     case "com.augmentos.notify":
+    case "com.mentra.notify":
       return require("../assets/app-icons/phone-notifications.png")
   }
 
