@@ -17,6 +17,9 @@ import {
   AppConnectionInit,
   AppSubscriptionUpdate,
   PhotoRequest,
+  AudioPlayRequest,
+  AudioPlayResponse,
+  AudioStopRequest,
   AppToCloudMessageType,
   CloudToAppMessageType,
 
@@ -37,6 +40,7 @@ import {
   isSettingsUpdate,
   isDashboardModeChanged,
   isDashboardAlwaysOnChanged,
+  isAudioPlayResponse,
 
   // Other types
   AppSettings,
@@ -152,6 +156,11 @@ export class AppSession {
   private subscriptionSettingsHandler?: (settings: AppSettings) => ExtendedStreamType[];
   /** Settings that should trigger subscription updates when changed */
   private subscriptionUpdateTriggers: string[] = [];
+  /** Map to store pending audio play request promises */
+  private pendingAudioRequests = new Map<string, {
+    resolve: (value: { success: boolean; error?: string; duration?: number }) => void;
+    reject: (reason?: any) => void;
+  }>();
   /** Pending user discovery requests waiting for responses */
   private pendingUserDiscoveryRequests = new Map<string, {
     resolve: (userList: any) => void,
@@ -702,11 +711,126 @@ export class AppSession {
     // Use the resource tracker to clean up everything
     this.resources.dispose();
 
+    // Clean up pending requests by rejecting them
+    this.pendingAudioRequests.forEach((request, requestId) => {
+      request.reject(new Error('Session disconnected'));
+    });
+    this.pendingAudioRequests.clear();
+
     // Clean up additional resources not handled by the tracker
     this.ws = null;
     this.sessionId = null;
     this.subscriptions.clear();
     this.reconnectAttempts = 0;
+  }
+
+  /**
+   * 🔊 Play audio on the connected glasses
+   * @param options - Audio playback configuration
+   * @returns Promise that resolves with playback result
+   *
+   * @example
+   * ```typescript
+   * // Play audio from URL
+   * const result = await session.playAudio({
+   *   audioUrl: 'https://example.com/sound.mp3',
+   *   volume: 0.8
+   * });
+   *
+
+   * ```
+   */
+  playAudio(options: {
+    /** URL to audio file for download and play */
+    audioUrl: string;
+    /** Volume level 0.0-1.0, defaults to 1.0 */
+    volume?: number;
+    /** Whether to stop other audio playback, defaults to true */
+    stopOtherAudio?: boolean;
+  }): Promise<{ success: boolean; error?: string; duration?: number }> {
+
+    return new Promise((resolve, reject) => {
+      try {
+        // Validate input
+        if (!options.audioUrl) {
+          reject(new Error('audioUrl must be provided'));
+          return;
+        }
+
+        // Generate unique request ID
+        const requestId = `audio_req_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+        // Store promise resolvers for when we get the response
+        this.pendingAudioRequests.set(requestId, { resolve, reject });
+
+        // Create audio play request message
+        const message: AudioPlayRequest = {
+          type: AppToCloudMessageType.AUDIO_PLAY_REQUEST,
+          packageName: this.config.packageName,
+          sessionId: this.sessionId!,
+          requestId,
+          timestamp: new Date(),
+          audioUrl: options.audioUrl,
+          volume: options.volume ?? 1.0,
+          stopOtherAudio: options.stopOtherAudio ?? true
+        };
+
+        // Check WebSocket connection before sending
+        if (!this.ws || this.ws.readyState !== 1) {
+          this.pendingAudioRequests.delete(requestId);
+          reject(new Error('WebSocket connection not established'));
+          return;
+        }
+
+        // Send request to cloud
+        this.send(message);
+
+        // Set timeout to avoid hanging promises
+        const timeoutMs = 60000; // 60 seconds
+        this.resources.setTimeout(() => {
+          if (this.pendingAudioRequests.has(requestId)) {
+            this.pendingAudioRequests.get(requestId)!.reject(new Error('Audio play request timed out'));
+            this.pendingAudioRequests.delete(requestId);
+          }
+        }, timeoutMs);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        reject(new Error(`Failed to play audio: ${errorMessage}`));
+      }
+    });
+  }
+
+  /**
+   * 🔇 Stop audio playback on the connected glasses
+   *
+   * @example
+   * ```typescript
+   * // Stop all currently playing audio
+   * session.stopAudio();
+   * ```
+   */
+  stopAudio(): void {
+    try {
+      // Create audio stop request message
+      const message: AudioStopRequest = {
+        type: AppToCloudMessageType.AUDIO_STOP_REQUEST,
+        packageName: this.config.packageName,
+        sessionId: this.sessionId!,
+        timestamp: new Date()
+      };
+
+      // Check WebSocket connection before sending
+      if (!this.ws || this.ws.readyState !== 1) {
+        this.logger.warn('Cannot stop audio: WebSocket connection not established');
+        return;
+      }
+
+      // Send request to cloud (one-way, no response expected)
+      this.send(message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to stop audio: ${errorMessage}`);
+    }
   }
 
   /**
@@ -892,6 +1016,8 @@ export class AppSession {
    */
   private handleMessage(message: CloudToAppMessage): void {
     try {
+
+
       // Validate message before processing
       if (!this.validateMessage(message)) {
         this.events.emit('error', new Error('Invalid message format received'));
@@ -1136,6 +1262,27 @@ export class AppSession {
             });
           });
         }
+                                else if (isAudioPlayResponse(message)) {
+          // Handle audio play response
+          const response = message as AudioPlayResponse;
+
+          const pendingRequest = this.pendingAudioRequests.get(response.requestId);
+
+          if (pendingRequest) {
+            // Resolve the promise with the response data
+            pendingRequest.resolve({
+              success: response.success,
+              error: response.error,
+              duration: response.duration
+            });
+
+            // Clean up
+            this.pendingAudioRequests.delete(response.requestId);
+
+          } else {
+            this.logger.warn(`🔊 [AppSession] Received audio play response for unknown request ID: ${response.requestId}`);
+          }
+        }
         else if (isPhotoResponse(message)) {
           // Legacy photo response handling - now photos come directly via webhook
           // This branch can be removed in the future as all photos now go through /photo-upload
@@ -1143,19 +1290,7 @@ export class AppSession {
         }
         // Handle unrecognized message types gracefully
         else {
-          console.log(`Unrecognized message type: ${(message as any).type}. Full message details:`, {
-            messageType: (message as any).type,
-            fullMessage: message,
-            messageKeys: Object.keys(message || {}),
-            messageStringified: JSON.stringify(message, null, 2)
-          });
-          // Log all message object details for debugging
-          this.logger.warn(`Unrecognized message type: ${(message as any).type}. Full message details:`, {
-            messageType: (message as any).type,
-            fullMessage: message,
-            messageKeys: Object.keys(message || {}),
-            messageStringified: JSON.stringify(message, null, 2)
-          });
+          this.logger.warn(`Unrecognized message type: ${(message as any).type}`);
           this.events.emit('error', new Error(`Unrecognized message type: ${(message as any).type}`));
         }
       } catch (processingError: unknown) {

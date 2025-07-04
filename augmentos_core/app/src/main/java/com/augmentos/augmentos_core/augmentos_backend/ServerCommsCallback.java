@@ -48,4 +48,12 @@ public interface ServerCommsCallback {
     void onAppStarted(String packageName);
     void onAppStopped(String packageName);
     void onSettingsUpdate(JSONObject settings);
+
+    /**
+     * Called when the server requests audio to be played
+     *
+     * @param audioRequest The complete audio play request message with all parameters
+     */
+    void onAudioPlayRequest(JSONObject audioRequest);
+    void onAudioStopRequest(JSONObject audioStopRequest);
 }

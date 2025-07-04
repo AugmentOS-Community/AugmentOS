@@ -775,6 +775,19 @@ public class ServerComms {
                 }
                 break;
 
+            case "audio_play_request":
+                if (serverCommsCallback != null) {
+                    serverCommsCallback.onAudioPlayRequest(msg);
+                }
+                break;
+
+            case "audio_stop_request":
+                Log.d(TAG, "🔇 Received audio stop request from cloud");
+                if (serverCommsCallback != null) {
+                    serverCommsCallback.onAudioStopRequest(msg);
+                }
+                break;
+
             default:
                 Log.w(TAG, "Unknown message type: " + type + " / full: " + msg.toString());
                 break;
@@ -961,6 +974,32 @@ public class ServerComms {
             Log.d(TAG, "Sent VPS coordinates: " + vpsJson.toString());
         } catch (Exception e) {
             Log.e(TAG, "Error sending VPS coordinates JSON", e);
+        }
+    }
+
+    /**
+     * Sends audio play response back to the cloud via WebSocket.
+     */
+    public void sendAudioPlayResponse(JSONObject audioResponse) {
+        try {
+            // Create the message in the expected format for the cloud
+            JSONObject message = new JSONObject();
+            message.put("type", "audio_play_response");
+            message.put("requestId", audioResponse.getString("requestId"));
+            message.put("success", audioResponse.getBoolean("success"));
+
+            if (audioResponse.has("error") && !audioResponse.isNull("error")) {
+                message.put("error", audioResponse.getString("error"));
+            }
+
+            if (audioResponse.has("duration") && !audioResponse.isNull("duration")) {
+                message.put("duration", audioResponse.get("duration"));
+            }
+
+            wsManager.sendText(message.toString());
+            Log.d(TAG, "Sent audio play response: " + message.toString());
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending audio play response", e);
         }
     }
 }

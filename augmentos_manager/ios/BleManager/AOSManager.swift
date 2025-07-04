@@ -23,6 +23,15 @@ struct ViewState {
 // This class handles logic for managing devices and connections to AugmentOS servers
 @objc(AOSManager) class AOSManager: NSObject, ServerCommsCallback, MicCallback {
 
+  private static var instance: AOSManager?
+
+  static func getInstance() -> AOSManager {
+    if instance == nil {
+      instance = AOSManager()
+    }
+    return instance!
+  }
+
   private var coreToken: String = ""
   private var coreTokenOwner: String = ""
 
@@ -189,9 +198,69 @@ struct ViewState {
     serverComms.stopApp(packageName: packageName)
   }
 
+  // MARK: - Audio Bridge Methods
+
+    @objc func playAudio(
+    _ requestId: String,
+    audioUrl: String,
+    volume: Float,
+    stopOtherAudio: Bool
+  ) {
+    print("AOSManager: playAudio bridge called for requestId: \(requestId)")
+
+    let audioManager = AudioManager.getInstance()
+    audioManager.playAudio(
+      requestId: requestId,
+      audioUrl: audioUrl,
+      volume: volume,
+      stopOtherAudio: stopOtherAudio
+    )
+  }
+
+  @objc func stopAudio(_ requestId: String) {
+    print("AOSManager: stopAudio bridge called for requestId: \(requestId)")
+
+    let audioManager = AudioManager.getInstance()
+    audioManager.stopAudio(requestId: requestId)
+  }
+
+  @objc func stopAllAudio() {
+    print("AOSManager: stopAllAudio bridge called")
+
+    let audioManager = AudioManager.getInstance()
+    audioManager.stopAllAudio()
+  }
+
+  /**
+   * Send audio play response back to React Native through ServerComms
+   */
+  func sendAudioPlayResponse(requestId: String, success: Bool, error: String? = nil, duration: Double? = nil) {
+    print("AOSManager: Sending audio play response for requestId: \(requestId), success: \(success)")
+
+    let message: [String: Any] = [
+      "command": "audio_play_response",
+      "params": [
+        "requestId": requestId,
+        "success": success,
+        "error": error as Any,
+        "duration": duration as Any
+      ].compactMapValues { $0 }
+    ]
+
+    do {
+      let jsonData = try JSONSerialization.data(withJSONObject: message)
+      if let jsonString = String(data: jsonData, encoding: .utf8) {
+        serverComms.sendMessageToServer(message: jsonString)
+        print("AOSManager: Sent audio play response to server")
+      }
+    } catch {
+      print("AOSManager: Failed to serialize audio play response: \(error)")
+    }
+  }
+
   func onConnectionAck() {
     handleRequestStatus()
-    
+
     let isoDatetime = ServerComms.getCurrentIsoDatetime()
     serverComms.sendUserDatetimeToBackend(userId: serverComms.userid, isoDatetime: isoDatetime)
   }
@@ -468,7 +537,7 @@ struct ViewState {
       if (self.isUpdatingScreen) {
         return
       }
-      
+
       // Execute immediately
       executeSendCurrentState(isDashboard)
 

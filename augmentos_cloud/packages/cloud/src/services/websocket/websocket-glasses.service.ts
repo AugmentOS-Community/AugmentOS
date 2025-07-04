@@ -6,7 +6,7 @@
 import WebSocket from 'ws';
 import { IncomingMessage } from 'http';
 import {
-  AugmentosSettingsUpdateRequest,
+  MentraosSettingsUpdateRequest,
   CalendarEvent,
   CloudToGlassesMessage,
   CloudToGlassesMessageType,
@@ -237,8 +237,8 @@ export class GlassesWebSocketService {
           await this.handleRequestSettings(userSession, message as RequestSettings);
           break;
 
-        case GlassesToCloudMessageType.AUGMENTOS_SETTINGS_UPDATE_REQUEST:
-          await this.handleAugmentOSSettingsUpdateRequest(userSession, message as AugmentosSettingsUpdateRequest);
+        case GlassesToCloudMessageType.MENTRAOS_SETTINGS_UPDATE_REQUEST:
+          await this.handleAugmentOSSettingsUpdateRequest(userSession, message as MentraosSettingsUpdateRequest);
           break;
 
         case GlassesToCloudMessageType.CORE_STATUS_UPDATE: {
@@ -356,6 +356,12 @@ export class GlassesWebSocketService {
         case GlassesToCloudMessageType.PHOTO_RESPONSE:
           // Delegate to PhotoManager
           userSession.photoManager.handlePhotoResponse(message as PhotoResponse);
+          break;
+
+        case GlassesToCloudMessageType.AUDIO_PLAY_RESPONSE:
+          userSession.logger.debug({ service: SERVICE_NAME, message }, `Audio play response received from glasses/core`);
+          // Forward audio play response to Apps - we need to find the specific app that made the request
+          sessionService.relayAudioPlayResponseToApp(userSession, message);
           break;
 
         case GlassesToCloudMessageType.HEAD_POSITION:
@@ -590,7 +596,7 @@ export class GlassesWebSocketService {
    * @param userSession User session
    * @param message Settings update message
    */
-  private async handleAugmentOSSettingsUpdateRequest(userSession: UserSession, message: AugmentosSettingsUpdateRequest): Promise<void> {
+  private async handleAugmentOSSettingsUpdateRequest(userSession: UserSession, message: MentraosSettingsUpdateRequest): Promise<void> {
     userSession.logger.info({ service: SERVICE_NAME, message }, `handleAugmentOSSettingsUpdateRequest for user ${userSession.userId}`);
 
     try {

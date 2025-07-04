@@ -12,6 +12,7 @@ import BleManager from "react-native-ble-manager"
 import BackendServerComms from "../backend_comms/BackendServerComms"
 import {showAlert} from "@/utils/AlertUtils"
 import {translate} from "@/i18n/translate"
+import AudioPlayService, { AudioPlayResponse } from "../services/AudioPlayService"
 
 // For checking if location services are enabled
 const {ServiceStarter} = NativeModules
@@ -30,7 +31,7 @@ export class CoreCommunicator extends EventEmitter {
   async isBluetoothEnabled(): Promise<boolean> {
     try {
       console.log("Checking Bluetooth state...")
-      
+
       try {
         const state = await BleManager.checkState()
         console.log("Bluetooth state:", state)
@@ -42,7 +43,7 @@ export class CoreCommunicator extends EventEmitter {
         return isEnabled
       } catch (stateError) {
         console.log("BleManager not initialized, trying with initialization...")
-        
+
         // If that fails, initialize and try again
         try {
           await BleManager.start({showAlert: false})
@@ -187,6 +188,11 @@ export class CoreCommunicator extends EventEmitter {
     // Initialize message event listener
     this.initializeMessageEventListener()
 
+    // Set up audio play response callback
+    AudioPlayService.setResponseCallback((response: AudioPlayResponse) => {
+      this.sendAudioPlayResponse(response);
+    });
+
     // set the backend server url
     const backendServerUrl = await BackendServerComms.getInstance().getServerUrl()
     await this.sendData({
@@ -288,6 +294,18 @@ export class CoreCommunicator extends EventEmitter {
       } else if (data.type === "app_stopped" && data.packageName) {
         console.log("APP_STOPPED_EVENT", data.packageName)
         GlobalEventEmitter.emit("APP_STOPPED_EVENT", data.packageName)
+      } else if (data.type === "audio_play_request") {
+        AudioPlayService.handleAudioPlayRequest(data).then(() => {
+          // Audio play request completed successfully
+        }).catch(error => {
+          console.error("Failed to handle audio play request:", error)
+        })
+      } else if (data.type === "audio_stop_request") {
+        AudioPlayService.stopAllAudio().then(() => {
+          console.log("Audio stop request processed successfully")
+        }).catch(error => {
+          console.error("Failed to handle audio stop request:", error)
+        })
       }
     } catch (e) {
       console.error("Error parsing data from Core:", e)
@@ -698,6 +716,23 @@ export class CoreCommunicator extends EventEmitter {
         enabled: enabled,
       },
     })
+  }
+
+  /**
+   * Sends audio play response back to Core
+   */
+  private async sendAudioPlayResponse(response: AudioPlayResponse) {
+    console.log(`CoreCommunicator: Sending audio play response for requestId: ${response.requestId}, success: ${response.success}`);
+
+    await this.sendData({
+      command: "audio_play_response",
+      params: {
+        requestId: response.requestId,
+        success: response.success,
+        error: response.error,
+        duration: response.duration
+      }
+    });
   }
 }
 

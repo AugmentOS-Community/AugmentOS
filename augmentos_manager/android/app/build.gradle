@@ -118,7 +118,7 @@ android {
         release {
             storeFile file('../credentials/upload-keystore.jks')
             storePassword = releaseStorePassword
-            keyAlias = releaseKeyAlias  
+            keyAlias = releaseKeyAlias
             keyPassword = releaseKeyPassword
         }
     }
@@ -181,6 +181,11 @@ dependencies {
     // Google Play Services for location settings dialog
     implementation 'com.google.android.gms:play-services-location:21.0.1'
     implementation 'com.google.android.gms:play-services-base:18.2.0'
+
+    // Media3 ExoPlayer dependencies for audio playback
+    implementation "androidx.media3:media3-exoplayer:1.2.1"
+    implementation "androidx.media3:media3-common:1.2.1"
+    implementation "androidx.media3:media3-ui:1.2.1"
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

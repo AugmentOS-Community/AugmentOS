@@ -197,6 +197,17 @@ export interface CustomMessage extends BaseMessage {
 }
 
 /**
+ * Audio play response to App
+ */
+export interface AudioPlayResponse extends BaseMessage {
+  type: CloudToAppMessageType.AUDIO_PLAY_RESPONSE;
+  requestId: string;
+  success: boolean;
+  error?: string; // Error message (if failed)
+  duration?: number; // Duration of audio in milliseconds (if successful)
+}
+
+/**
  * Union type for all messages from cloud to Apps
  */
 export type CloudToAppMessage =
@@ -225,7 +236,8 @@ export type CloudToAppMessage =
   | AppDirectMessageResponse
   | RtmpStreamStatus
   | PhotoResponse
-  | PermissionError;
+  | PermissionError
+  | AudioPlayResponse;
 
 //===========================================================
 // Type guards
@@ -269,6 +281,10 @@ export function isRtmpStreamStatus(message: CloudToAppMessage): message is RtmpS
 
 export function isPhotoResponse(message: CloudToAppMessage): message is PhotoResponse {
   return message.type === GlassesToCloudMessageType.PHOTO_RESPONSE;
+}
+
+export function isAudioPlayResponse(message: CloudToAppMessage): message is AudioPlayResponse {
+  return message.type === CloudToAppMessageType.AUDIO_PLAY_RESPONSE;
 }
 
 // New type guards for App-to-App communication

@@ -483,6 +483,19 @@ public class AugmentosBlePeripheral {
         sendDataToAugmentOsManager(data.toString());
     }
 
+    public void sendAudioStopRequest(JSONObject audioStopParams) {
+        Log.d(TAG, "Forwarding audio stop request to manager: " + audioStopParams.toString());
+        JSONObject message = new JSONObject();
+        try {
+            message.put("command", "audio_stop_request");
+            message.put("params", audioStopParams);
+        } catch (JSONException e) {
+            Log.e(TAG, "Failed to create audio stop request message", e);
+            return;
+        }
+        sendDataToAugmentOsManager(message.toString());
+    }
+
     public void sendGlassesBluetoothDiscoverResultToManager(String modelName, String deviceName) {
         Log.d(TAG, "sendGlassesSearchResultsToManager");
         JSONObject data = new JSONObject();

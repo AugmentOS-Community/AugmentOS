@@ -73,6 +73,7 @@ class MainApplication : Application(), ReactApplication {
             packages.add(RNViewShotPackage());
             packages.add(CreateThumbnailPackage());
             packages.add(SettingsNavigationPackage()); // Settings Navigation Package
+            packages.add(AudioManagerPackage()); // Audio Manager Package
             return packages
           }
 

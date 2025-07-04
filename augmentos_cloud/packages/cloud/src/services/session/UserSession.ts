@@ -76,6 +76,9 @@ export class UserSession {
   // Heartbeat for glasses connection
   private glassesHeartbeatInterval?: NodeJS.Timeout;
 
+  // Audio play request tracking - maps requestId to packageName
+  public audioPlayRequestMapping: Map<string, string> = new Map();
+
   // Other state
   public userDatetime?: string;
 
@@ -245,9 +248,9 @@ export class UserSession {
         startTime: this.startTime.toISOString()
       });
     } catch (error) {
-      this.logger.error('Error tracking disconnected event:', error); 
+      this.logger.error('Error tracking disconnected event:', error);
     }
-    
+
     // Clean up all resources
     if (this.appManager) this.appManager.dispose();
     if (this.audioManager) this.audioManager.dispose();
@@ -280,6 +283,9 @@ export class UserSession {
     this.loadingApps.clear();
     this.bufferedAudio = [];
     this.recentAudioBuffer = [];
+
+    // Clear audio play request mappings
+    this.audioPlayRequestMapping.clear();
 
     // Remove from session storage
     SessionStorage.getInstance().delete(this.userId);

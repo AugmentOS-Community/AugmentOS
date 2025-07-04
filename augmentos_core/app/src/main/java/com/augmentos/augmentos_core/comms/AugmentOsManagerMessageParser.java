@@ -174,15 +174,15 @@ public class AugmentOsManagerMessageParser {
                     boolean updatingScreen = commandObject.getJSONObject("params").getBoolean("enabled");
                     callback.setUpdatingScreen(updatingScreen);
                     break;
-                    
-                    
+
+
                 case "send_wifi_credentials":
                     String ssid = commandObject.getJSONObject("params").getString("ssid");
                     String password = commandObject.getJSONObject("params").getString("password");
                     // Log.d(TAG, "@#@ GOT A COMMAND TO SEND WIFI CREDENTIALS, SSID: " + ssid + ", PASSWORD: " + password);
                     callback.setGlassesWifiCredentials(ssid, password);
                     break;
-                    
+
                 case "request_wifi_scan":
                     callback.requestWifiScan();
                     break;
@@ -190,6 +190,16 @@ public class AugmentOsManagerMessageParser {
                 case "set_preferred_mic":
                     String mic = commandObject.getJSONObject("params").getString("mic");
                     callback.setPreferredMic(mic);
+                    break;
+
+                case "audio_play_response":
+                    JSONObject audioResponse = commandObject.getJSONObject("params");
+                    callback.onAudioPlayResponse(audioResponse);
+                    break;
+
+                case "audio_stop_request":
+                    JSONObject audioStopParams = commandObject.getJSONObject("params");
+                    callback.onAudioStopRequest(audioStopParams);
                     break;
 
                 default:

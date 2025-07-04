@@ -22,6 +22,7 @@ export {
   SettingsUpdate as AppSettingsUpdate,  // Alias to avoid conflict with cloud-to-glasses SettingsUpdate
   DataStream,
   CloudToAppMessage,
+  AudioPlayResponse,
   TranslationData,
   ToolCall,
   StandardConnectionError,
@@ -38,6 +39,7 @@ export {
   isSettingsUpdate,
   isDataStream,
   isAudioChunk,
+  isAudioPlayResponse,
   isDashboardModeChanged,
   isDashboardAlwaysOnChanged,
   // Re-export the cloud-to-app versions of these type guards since they're the ones
@@ -113,6 +115,8 @@ export {
   MicrophoneStateChange,
   CloudToGlassesMessage,
   PhotoRequestToGlasses,
+  AudioPlayRequestToGlasses,
+  AudioStopRequestToGlasses,
   SettingsUpdate,
   StartRtmpStream,
   StopRtmpStream,
@@ -123,6 +127,8 @@ export {
 export {
   AppConnectionInit,
   AppSubscriptionUpdate,
+  AudioPlayRequest,
+  AudioStopRequest,
   RtmpStreamRequest,
   RtmpStreamStopRequest,
   AppToCloudMessage,
@@ -156,6 +162,8 @@ export {
   isDisplayEvent,
   isAppStateChange,
   isPhotoRequest,
+  isAudioPlayRequestToGlasses,
+  isAudioStopRequestToGlasses,
   isSettingsUpdate as isSettingsUpdateToGlasses,
   isStartRtmpStream,
   isStopRtmpStream,
@@ -166,6 +174,8 @@ export {
   isAppConnectionInit,
   isAppSubscriptionUpdate,
   isDisplayRequest,
+  isAudioPlayRequest,
+  isAudioStopRequest,
   isRtmpStreamRequest,
   isRtmpStreamStopRequest,
   isPhotoRequest as isPhotoRequestFromApp

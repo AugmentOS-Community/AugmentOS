@@ -1742,6 +1742,63 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
                     Log.e(TAG, "Error parsing settings update", e);
                 }
             }
+
+                        @Override
+            public void onAudioPlayRequest(JSONObject audioRequest) {
+                // Extract the audio request parameters
+                String requestId = audioRequest.optString("requestId", "");
+                String packageName = audioRequest.optString("packageName", "");
+                String audioUrl = audioRequest.optString("audioUrl", null);
+                double volume = audioRequest.optDouble("volume", 1.0);
+                boolean stopOtherAudio = audioRequest.optBoolean("stopOtherAudio", true);
+
+                // Send the audio request as a message to the AugmentOS Manager via BLE
+                if (blePeripheral != null) {
+                    // Create a message with the audio play request type
+                    try {
+                        JSONObject message = new JSONObject();
+                        message.put("type", "audio_play_request");
+                        message.put("requestId", requestId);
+                        message.put("packageName", packageName);
+
+                        if (audioUrl != null) {
+                            message.put("audioUrl", audioUrl);
+                        }
+                        message.put("volume", volume);
+                        message.put("stopOtherAudio", stopOtherAudio);
+
+                        // Send to AugmentOS Manager
+                        blePeripheral.sendDataToAugmentOsManager(message.toString());
+
+                    } catch (JSONException e) {
+                        Log.e(TAG, "Error creating audio request message for manager", e);
+                    }
+                }
+            }
+
+            @Override
+            public void onAudioStopRequest(JSONObject audioStopRequest) {
+                // Extract the audio stop request parameters
+                String sessionId = audioStopRequest.optString("sessionId", "");
+                String appId = audioStopRequest.optString("appId", "");
+
+                // Send the audio stop request as a message to the AugmentOS Manager via BLE
+                if (blePeripheral != null) {
+                    try {
+                        JSONObject message = new JSONObject();
+                        message.put("type", "audio_stop_request");
+                        message.put("sessionId", sessionId);
+                        message.put("appId", appId);
+
+                        // Send to AugmentOS Manager
+                        blePeripheral.sendDataToAugmentOsManager(message.toString());
+                        Log.d(TAG, "🔇 Forwarded audio stop request to manager from app: " + appId);
+
+                    } catch (JSONException e) {
+                        Log.e(TAG, "Error creating audio stop request message for manager", e);
+                    }
+                }
+            }
         });
     }
 
@@ -2486,5 +2543,28 @@ public class AugmentosService extends LifecycleService implements AugmentOsActio
         this.glassesAndroidVersion = event.getAndroidVersion();
         Log.d("AugmentOsService", "Glasses version info: " + glassesAppVersion + " " + glassesBuildNumber + " " + glassesDeviceModel + " " + glassesAndroidVersion);
         sendStatusToAugmentOsManager();
+    }
+
+    @Override
+    public void onAudioPlayResponse(JSONObject audioResponse) {
+        Log.d(TAG, "Received audio play response from manager: " + audioResponse.toString());
+
+        try {
+            // Forward the audio play response to the cloud
+            ServerComms.getInstance().sendAudioPlayResponse(audioResponse);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to forward audio play response to cloud", e);
+        }
+    }
+
+    @Override
+    public void onAudioStopRequest(JSONObject audioStopParams) {
+        Log.d(TAG, "Received audio stop request from cloud: " + audioStopParams.toString());
+
+        // Forward the audio stop request to the manager if connected
+        if (blePeripheral != null) {
+            blePeripheral.sendAudioStopRequest(audioStopParams);
+        }
     }
 }
