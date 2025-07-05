@@ -5,7 +5,7 @@ import {useAppTheme} from "@/utils/useAppTheme"
 import {ThemedStyle} from "@/theme"
 import {Header} from "../ignite/Header"
 import {router} from "expo-router"
-import {getGlassesImage} from "@/utils/getGlassesImage"
+import {getGlassesImage, getEvenRealitiesG1Image} from "@/utils/getGlassesImage"
 import { translate } from "@/i18n"
 
 interface GlassesPairingLoaderProps {
@@ -86,7 +86,14 @@ const GlassesPairingLoader: React.FC<GlassesPairingLoaderProps> = ({glassesModel
   const phoneImage = Platform.OS === "ios" 
     ? require("../../../assets/guide/iphone.png")
     : require("../../../assets/guide/android.png")
-  const glassesImage = getGlassesImage(glassesModelName)
+  
+  // Use dynamic image for Even Realities G1 based on style and color
+  let glassesImage = getGlassesImage(glassesModelName)
+  if (glassesModelName && (glassesModelName === "Even Realities G1" || glassesModelName === "evenrealities_g1" || glassesModelName === "g1")) {
+    // For pairing, we don't have style/color info yet, so use defaults
+    // If battery level is available in props or context, pass it; otherwise, pass undefined
+    glassesImage = getEvenRealitiesG1Image("Round", "Grey", "folded", "l", theme.isDark, undefined)
+  }
 
   return (
     <View style={{flex: 1}}>

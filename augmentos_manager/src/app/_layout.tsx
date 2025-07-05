@@ -8,6 +8,7 @@ import {loadDateFnsLocale} from "@/utils/formatDate"
 import {useThemeProvider} from "@/utils/useAppTheme"
 import {AllProviders} from "@/utils/AllProviders"
 import BackgroundGradient from "@/components/misc/BackgroundGradient"
+import MessageBanner from "@/components/misc/MessageBanner"
 import Toast, {SuccessToast, BaseToast, ErrorToast} from "react-native-toast-message"
 import {View} from "react-native"
 import {Text} from "@/components/ignite"
@@ -97,6 +98,7 @@ export default function Root() {
                 animation: "none",
               }}
             />
+            <MessageBanner />
             <Toast config={toastConfig} />
           </BackgroundGradient>
         </View>

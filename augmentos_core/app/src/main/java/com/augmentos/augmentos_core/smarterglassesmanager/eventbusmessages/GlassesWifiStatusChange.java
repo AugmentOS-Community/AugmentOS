@@ -12,18 +12,21 @@ public class GlassesWifiStatusChange {
     // Additional info about current WiFi status if available
     public final boolean isWifiConnected;
     public final String currentSsid;
+    public final String localIpAddress;
     
     /**
-     * Create a new GlassesNeedWifiCredentialsEvent
+     * Create a new GlassesWifiStatusChange
      * 
      * @param deviceModel The glasses model name
      * @param isWifiConnected Current WiFi connection state if known
      * @param currentSsid Current SSID if connected
+     * @param localIpAddress Local IP address of the glasses on the network
      */
     public GlassesWifiStatusChange(String deviceModel,
-                                   boolean isWifiConnected, String currentSsid) {
+                                   boolean isWifiConnected, String currentSsid, String localIpAddress) {
         this.deviceModel = deviceModel;
         this.isWifiConnected = isWifiConnected;
         this.currentSsid = currentSsid;
+        this.localIpAddress = localIpAddress != null ? localIpAddress : "";
     }
 }

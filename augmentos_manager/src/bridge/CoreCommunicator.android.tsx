@@ -250,7 +250,8 @@ export class CoreCommunicator extends EventEmitter {
         // console.log("Received glasses_wifi_status_change event from Core", data.glasses_wifi_status_change)
         GlobalEventEmitter.emit("GLASSES_WIFI_STATUS_CHANGE", {
           connected: data.glasses_wifi_status_change.connected,
-          ssid: data.glasses_wifi_status_change.ssid
+          ssid: data.glasses_wifi_status_change.ssid,
+          local_ip: data.glasses_wifi_status_change.local_ip
         })
       } else if ("glasses_display_event" in data) {
         GlobalEventEmitter.emit("GLASSES_DISPLAY_EVENT", data.glasses_display_event)

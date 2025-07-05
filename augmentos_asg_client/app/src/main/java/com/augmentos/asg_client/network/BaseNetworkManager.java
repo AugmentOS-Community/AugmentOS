@@ -12,6 +12,7 @@ import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -533,6 +534,42 @@ public abstract class BaseNetworkManager implements INetworkManager {
             Log.d(TAG, "Sent general WiFi enable broadcast");
         } catch (Exception e) {
             Log.e(TAG, "Error sending WiFi enable broadcast", e);
+        }
+    }
+
+    /**
+     * Get the local IP address of the device on the current network
+     * @return the local IP address as a string, or empty string if not available
+     */
+    @Override
+    public String getLocalIpAddress() {
+        try {
+            // First check if we're connected to WiFi
+            if (!isConnectedToWifi()) {
+                return "";
+            }
+            
+            WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+            if (wifiManager == null) {
+                return "";
+            }
+            
+            // Get the IP address from WifiManager
+            int ipAddress = wifiManager.getConnectionInfo().getIpAddress();
+            
+            // Convert to readable format
+            if (ipAddress != 0) {
+                return String.format(Locale.getDefault(), "%d.%d.%d.%d",
+                        (ipAddress & 0xff),
+                        (ipAddress >> 8 & 0xff),
+                        (ipAddress >> 16 & 0xff),
+                        (ipAddress >> 24 & 0xff));
+            }
+            
+            return "";
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting local IP address", e);
+            return "";
         }
     }
 

@@ -36,6 +36,7 @@ import {loadSetting} from "@/utils/SettingsHelper"
 import {SETTINGS_KEYS} from "@/consts"
 import {isDeveloperBuildOrTestflight} from "@/utils/buildDetection"
 import {SvgXml} from "react-native-svg"
+import OtaProgressSection from "./OtaProgressSection"
 
 // Icon components defined directly in this file to avoid path resolution issues
 interface CaseIconProps {
@@ -421,6 +422,12 @@ export default function DeviceSettings() {
                 <Text style={{color: theme.colors.textDim}}>{status.glasses_info.glasses_build_number}</Text>
               </View>
             )}
+            {status.glasses_info.glasses_wifi_local_ip && status.glasses_info.glasses_wifi_local_ip !== "" && (
+              <View style={{flexDirection: "row", justifyContent: "space-between", paddingVertical: 4}}>
+                <Text style={{color: theme.colors.text}}>Local IP Address</Text>
+                <Text style={{color: theme.colors.textDim}}>{status.glasses_info.glasses_wifi_local_ip}</Text>
+              </View>
+            )}
             {/* {status.glasses_info.glasses_device_model && (
             <View style={{flexDirection: "row", justifyContent: "space-between", paddingVertical: 4}}>
               <Text style={{color: theme.colors.text}}>Device Model</Text>
@@ -436,13 +443,18 @@ export default function DeviceSettings() {
           </View>
         )}
 
+      {/* OTA Progress Section - Only show for Mentra Live glasses */}
+      {status.glasses_info?.model_name?.toLowerCase().includes("mentra live") && (
+        <OtaProgressSection otaProgress={status.ota_progress} />
+      )}
+
       <RouteButton
         label={translate("settings:dashboardSettings")}
         subtitle={translate("settings:dashboardDescription")}
         onPress={() => push("/settings/dashboard")}
       />
 
-      {devMode && (
+      {devMode && status.core_info.default_wearable && glassesFeatures[status.core_info.default_wearable]?.binocular && (
         <RouteButton
           label={translate("settings:screenSettings")}
           subtitle={translate("settings:screenDescription")}

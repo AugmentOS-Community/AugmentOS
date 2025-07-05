@@ -4,7 +4,7 @@ import {useFocusEffect} from "@react-navigation/native"
 import {Button, Icon} from "@/components/ignite"
 import coreCommunicator from "@/bridge/CoreCommunicator"
 import {useStatus} from "@/contexts/AugmentOSStatusProvider"
-import {getGlassesClosedImage, getGlassesImage, getGlassesOpenImage} from "@/utils/getGlassesImage"
+import {getGlassesClosedImage, getGlassesImage, getGlassesOpenImage, getEvenRealitiesG1Image} from "@/utils/getGlassesImage"
 import GlobalEventEmitter from "@/utils/GlobalEventEmitter"
 import {router} from "expo-router"
 import {useAppTheme} from "@/utils/useAppTheme"
@@ -166,8 +166,6 @@ export const ConnectedGlasses: React.FC<ConnectedGlassesProps> = ({showTitle}) =
   const scaleAnim = useRef(new Animated.Value(0.8)).current
   const {themed, theme} = useAppTheme()
 
-  const [glassesImage, setGlassesImage] = useState(getGlassesImage(status.core_info.default_wearable))
-
   useFocusEffect(
     useCallback(() => {
       // Reset animations to initial values
@@ -191,21 +189,40 @@ export const ConnectedGlasses: React.FC<ConnectedGlassesProps> = ({showTitle}) =
     }, [status.core_info.default_wearable, status.core_info.puck_connected, fadeAnim]),
   )
 
-  useEffect(() => {
+  // Calculate glasses image on every render to prevent flashing
+  const getCurrentGlassesImage = () => {
     const wearable = status.core_info.default_wearable
     let image = getGlassesImage(wearable)
 
-    // if the glasses have not been removed from the case, show the case open or closed image
-    if (!status.glasses_info?.case_removed) {
-      if (status.glasses_info?.case_open) {
-        image = getGlassesOpenImage(wearable)
-      } else {
-        image = getGlassesClosedImage(wearable)
+    // For Even Realities G1, use dynamic image based on style and color
+    if (wearable && (wearable === "Even Realities G1" || wearable === "evenrealities_g1" || wearable === "g1")) {
+      const style = status.glasses_info?.glasses_style
+      const color = status.glasses_info?.glasses_color
+      
+      // Determine the state based on case status
+      let state = "folded"
+      if (!status.glasses_info?.case_removed) {
+        if (status.glasses_info?.case_open) {
+          state = "case_open"
+        } else {
+          state = "case_close"
+        }
+      }
+      
+      image = getEvenRealitiesG1Image(style, color, state, "l", theme.isDark, status.glasses_info?.case_battery_level)
+    } else {
+      // For other glasses, use the existing logic
+      if (!status.glasses_info?.case_removed) {
+        if (status.glasses_info?.case_open) {
+          image = getGlassesOpenImage(wearable)
+        } else {
+          image = getGlassesClosedImage(wearable)
+        }
       }
     }
 
-    setGlassesImage(image)
-  }, [status.glasses_info])
+    return image
+  }
 
   // no glasses paired
   if (!status.core_info.default_wearable) {
@@ -219,7 +236,7 @@ export const ConnectedGlasses: React.FC<ConnectedGlassesProps> = ({showTitle}) =
   return (
     <View style={styles.connectedContent}>
       {/* <Text>{status.glasses_info?.case_charging ? "Charging" : "Not charging"}</Text> */}
-      <Animated.Image source={glassesImage} style={[styles.glassesImage, {opacity: fadeAnim}]} />
+      <Animated.Image source={getCurrentGlassesImage()} style={[styles.glassesImage, {opacity: fadeAnim}]} />
     </View>
   )
 }
@@ -235,15 +252,33 @@ export function SplitDeviceInfo() {
     return null
   }
 
-  const glassesImage = getGlassesImage(wearable)
+  let glassesImage = getGlassesImage(wearable)
   let caseImage = null
 
-  // Only show case image if glasses are actually connected (not just paired)
-  if (status.glasses_info?.model_name && !status.glasses_info?.case_removed) {
-    if (status.glasses_info?.case_open) {
-      caseImage = getGlassesOpenImage(wearable)
-    } else {
-      caseImage = getGlassesClosedImage(wearable)
+  // For Even Realities G1, use dynamic image based on style and color
+  if (wearable && (wearable === "Even Realities G1" || wearable === "evenrealities_g1" || wearable === "g1")) {
+    const style = status.glasses_info?.glasses_style
+    const color = status.glasses_info?.glasses_color
+    
+    // Determine the state based on case status
+    let state = "folded"
+    if (!status.glasses_info?.case_removed) {
+      if (status.glasses_info?.case_open) {
+        state = "case_open"
+      } else {
+        state = "case_close"
+      }
+    }
+    
+    glassesImage = getEvenRealitiesG1Image(style, color, state, "l", theme.isDark, status.glasses_info?.case_battery_level)
+  } else {
+    // Only show case image if glasses are actually connected (not just paired)
+    if (status.glasses_info?.model_name && !status.glasses_info?.case_removed) {
+      if (status.glasses_info?.case_open) {
+        caseImage = getGlassesOpenImage(wearable)
+      } else {
+        caseImage = getGlassesClosedImage(wearable)
+      }
     }
   }
 

@@ -45,6 +45,7 @@ dependencies {
     implementation libs.activity
     implementation libs.constraintlayout
     implementation libs.work.runtime
+    implementation 'org.greenrobot:eventbus:3.3.1'
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core

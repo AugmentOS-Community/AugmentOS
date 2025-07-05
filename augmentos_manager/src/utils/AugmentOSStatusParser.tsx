@@ -1,11 +1,33 @@
 import {MOCK_CONNECTION} from "@/consts"
 
+export interface OtaDownloadProgress {
+  status: string
+  progress: number
+  bytes_downloaded: number
+  total_bytes: number
+  error_message?: string
+  timestamp: number
+}
+
+export interface OtaInstallationProgress {
+  status: string
+  apk_path?: string
+  error_message?: string
+  timestamp: number
+}
+
+export interface OtaProgress {
+  download?: OtaDownloadProgress
+  installation?: OtaInstallationProgress
+}
+
 export interface Glasses {
   model_name: string
   battery_level: number
   glasses_use_wifi: boolean
   glasses_wifi_connected: boolean
   glasses_wifi_ssid: string
+  glasses_wifi_local_ip: string
   case_removed: boolean
   case_open: boolean
   case_charging: boolean
@@ -14,6 +36,9 @@ export interface Glasses {
   glasses_build_number?: string
   glasses_device_model?: string
   glasses_android_version?: string
+  glasses_serial_number?: string
+  glasses_style?: string
+  glasses_color?: string
 }
 
 interface GlassesSettings {
@@ -70,6 +95,7 @@ export interface AugmentOSMainStatus {
   gsm: GSMConnection | null
   auth: CoreAuthInfo
   force_update: boolean
+  ota_progress?: OtaProgress
 }
 
 export class AugmentOSParser {
@@ -137,10 +163,14 @@ export class AugmentOSParser {
       glasses_use_wifi: false,
       glasses_wifi_connected: false,
       glasses_wifi_ssid: "",
+      glasses_wifi_local_ip: "",
       case_removed: true,
       case_open: true,
       case_charging: false,
       case_battery_level: 0,
+      glasses_serial_number: "ER-G1-2024-001234",
+      glasses_style: "Round",
+      glasses_color: "Green",
     },
     glasses_settings: {
       brightness: 87,
@@ -168,6 +198,7 @@ export class AugmentOSParser {
       const coreInfo = status.core_info ?? {}
       const glassesInfo = status.connected_glasses ?? {}
       const authInfo = status.auth ?? {}
+      const otaProgress = status.ota_progress ?? {}
 
       // First determine if we have connected glasses in the status
       const hasConnectedGlasses = status.connected_glasses && status.connected_glasses.model_name
@@ -202,6 +233,7 @@ export class AugmentOSParser {
               glasses_use_wifi: glassesInfo.glasses_use_wifi || false,
               glasses_wifi_connected: glassesInfo.glasses_wifi_connected || false,
               glasses_wifi_ssid: glassesInfo.glasses_wifi_ssid || "",
+              glasses_wifi_local_ip: glassesInfo.glasses_wifi_local_ip || "",
               case_removed: glassesInfo.case_removed ?? true,
               case_open: glassesInfo.case_open ?? true,
               case_charging: glassesInfo.case_charging ?? false,
@@ -210,6 +242,9 @@ export class AugmentOSParser {
               glasses_build_number: glassesInfo.glasses_build_number,
               glasses_device_model: glassesInfo.glasses_device_model,
               glasses_android_version: glassesInfo.glasses_android_version,
+              glasses_serial_number: glassesInfo.glasses_serial_number,
+              glasses_style: glassesInfo.glasses_style,
+              glasses_color: glassesInfo.glasses_color,
             }
           : null,
         glasses_settings: {
@@ -231,6 +266,13 @@ export class AugmentOSParser {
         // causes us to jump back to the home screen whenever
         // a setting is changed. I don't know why this works.
         // Somebody look at this please.
+        ota_progress:
+          otaProgress.download || otaProgress.installation
+            ? {
+                download: otaProgress.download,
+                installation: otaProgress.installation,
+              }
+            : undefined,
       }
     }
     return AugmentOSParser.defaultStatus

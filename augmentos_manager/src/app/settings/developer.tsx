@@ -281,7 +281,7 @@ export default function DeveloperSettingsScreen() {
               <PillButton
                 text="Dev Nicolo"
                 variant="icon"
-                onPress={() => setCustomUrlInput("https://dev.augmentos.org:443")}
+                onPress={() => setCustomUrlInput("https://devold.augmentos.org:443")}
                 buttonStyle={styles.button}
               />
               <PillButton

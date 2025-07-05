@@ -26,6 +26,8 @@ import ToggleSetting from "@/components/settings/ToggleSetting"
 import {translate} from "@/i18n/translate"
 import {Spacer} from "@/components/misc/Spacer"
 import RouteButton from "@/components/ui/RouteButton"
+import { stat } from "react-native-fs"
+import { glassesFeatures } from "@/config/glassesFeatures"
 
 export default function DashboardSettingsScreen() {
   const {status} = useStatus()
@@ -243,12 +245,13 @@ export default function DashboardSettingsScreen() {
             )}
           </TouchableOpacity>
         </View> */}
-
-        <RouteButton
-          label={translate("settings:adjustHeadAngleLabel")}
-          subtitle={translate("settings:adjustHeadAngleSubtitle")}
-          onPress={() => setHeadUpAngleComponentVisible(true)}
-        />
+        { status.core_info.default_wearable && glassesFeatures[status.core_info.default_wearable]?.imu && (
+          <RouteButton
+            label={translate("settings:adjustHeadAngleLabel")}
+            subtitle={translate("settings:adjustHeadAngleSubtitle")}
+            onPress={() => setHeadUpAngleComponentVisible(true)}
+          />
+        )}
 
         {renderContentPicker()}
         {headUpAngle !== null && (

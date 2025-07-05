@@ -1,8 +1,8 @@
 import React, {useEffect, useState, useRef} from "react"
 import {View, StyleSheet, TouchableOpacity, Animated} from "react-native"
 import {Text} from "@/components/ignite"
-import {MOCK_CONNECTION} from "../consts"
-import GlobalEventEmitter from "../logic/GlobalEventEmitter"
+import {MOCK_CONNECTION} from "@/consts"
+import GlobalEventEmitter from "@/utils/GlobalEventEmitter"
 import {SafeAreaView, useSafeAreaInsets} from "react-native-safe-area-context"
 
 export default function MessageBanner() {

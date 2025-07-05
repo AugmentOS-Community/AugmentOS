@@ -211,9 +211,6 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
     private volatile long lastSendTimestamp = 0;
     private long lc3DecoderPtr = 0;
 
-    // Store manufacturer data for left device during scanning
-    private Map<String, byte[]> leftDeviceManufacturerDataMap = new HashMap<>();
-
     public EvenRealitiesG1SGC(Context context, SmartGlassesDevice smartGlassesDevice) {
         super();
         this.context = context;
@@ -683,8 +680,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
                 isLeftConnected = true;
                 Log.d(TAG, "PROC_QUEUE - left side setup complete");
                 
-                // Decode manufacturer data for left device after successful connection
-                decodeLeftDeviceManufacturerData(gatt.getDevice());
+                // Manufacturer data decoding moved to connection start
             } else {
                 isRightConnected = true;
                 //Log.d(TAG, "PROC_QUEUE - right side setup complete");
@@ -877,6 +873,7 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
 
         return leftId != null && leftId.equals(rightId);
     }
+
     public String parsePairingIdFromDeviceName(String input) {
         if (input == null || input.isEmpty()) return null;
         // Regular expression to match the number after "G1_"
@@ -1065,43 +1062,30 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
 
             // Capture manufacturer data for left device during scanning
             if (name != null && name.contains("_L_") && result.getScanRecord() != null) {
-                // Only capture manufacturer data for devices that match our preferred ID
-                if (preferredG1DeviceId != null && name.contains(preferredG1DeviceId + "_")) {
-                    // Try to get manufacturer data from scan record
-                    byte[] manufacturerData = result.getScanRecord().getManufacturerSpecificData(0x0000); // Common manufacturer ID
-                    if (manufacturerData != null) {
-                        leftDeviceManufacturerDataMap.put(device.getAddress(), manufacturerData);
-                        Log.d(TAG, "Captured Left Device Manufacturer Data for preferred device: " + bytesToHex(manufacturerData));
-                        
-                        // Try to decode serial number from manufacturer data
-                        String decodedSerial = decodeSerialFromManufacturerData(manufacturerData);
-                        if (decodedSerial != null) {
-                            Log.d(TAG, "LEFT DEVICE DECODED SERIAL NUMBER: " + decodedSerial);
-                            String[] decoded = decodeEvenG1SerialNumber(decodedSerial);
-                            Log.d(TAG, "LEFT DEVICE Style: " + decoded[0] + ", Color: " + decoded[1]);
-                        }
+                SparseArray<byte[]> allManufacturerData = result.getScanRecord().getManufacturerSpecificData();
+                for (int i = 0; i < allManufacturerData.size(); i++) {
+                    String parsedDeviceName = parsePairingIdFromDeviceName(name);
+                    if (parsedDeviceName != null) {
+                        Log.d(TAG, "Parsed Device Name: " + parsedDeviceName);
                     }
+
+                    int manufacturerId = allManufacturerData.keyAt(i);
+                    byte[] data = allManufacturerData.valueAt(i);
+                    Log.d(TAG, "Left Device Manufacturer ID " + manufacturerId + ": " + bytesToHex(data));
                     
-                    // Also try all manufacturer data
-                    SparseArray<byte[]> allManufacturerData = result.getScanRecord().getManufacturerSpecificData();
-                    for (int i = 0; i < allManufacturerData.size(); i++) {
-                        int manufacturerId = allManufacturerData.keyAt(i);
-                        byte[] data = allManufacturerData.valueAt(i);
-                        Log.d(TAG, "Left Device Manufacturer ID " + manufacturerId + ": " + bytesToHex(data));
-                        
-                        // Try to decode serial number from this manufacturer data
-                        String decodedSerial = decodeSerialFromManufacturerData(data);
-                        if (decodedSerial != null) {
-                            Log.d(TAG, "LEFT DEVICE DECODED SERIAL NUMBER from ID " + manufacturerId + ": " + decodedSerial);
-                            String[] decoded = decodeEvenG1SerialNumber(decodedSerial);
-                            Log.d(TAG, "LEFT DEVICE Style: " + decoded[0] + ", Color: " + decoded[1]);
-                            leftDeviceManufacturerDataMap.put(device.getAddress(), data); // Store the successful one
-                            break;
+                    // Try to decode serial number from this manufacturer data
+                    String decodedSerial = decodeSerialFromManufacturerData(data);
+                    if (decodedSerial != null) {
+                        Log.d(TAG, "LEFT DEVICE DECODED SERIAL NUMBER from ID " + manufacturerId + ": " + decodedSerial);
+                        String[] decoded = decodeEvenG1SerialNumber(decodedSerial);
+                        Log.d(TAG, "LEFT DEVICE Style: " + decoded[0] + ", Color: " + decoded[1]);
+
+                        if (preferredG1DeviceId != null && preferredG1DeviceId.equals(parsedDeviceName)) {
+                            EventBus.getDefault().post(new GlassesSerialNumberEvent(decodedSerial, decoded[0], decoded[1]));
                         }
+                        break;
                     }
-                } else {
-                    Log.d(TAG, "Skipping manufacturer data capture for non-preferred left device: " + name);
-                }
+                } 
             }
 
 //            Log.d(TAG, "PREFERRED ID: " + preferredG1DeviceId);
@@ -1284,7 +1268,6 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         preferredG1DeviceId = getPreferredG1DeviceId(context);
 
         if(!bluetoothAdapter.isEnabled()) {
-
             return;
         }
 
@@ -1315,9 +1298,6 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         isScanning = true;
         scanner.startScan(filters, settings, modernScanCallback);
         Log.d(TAG, "CALL START SCAN - Started scanning for devices...");
-        
-        // Reset manufacturer data for fresh scan
-        leftDeviceManufacturerDataMap.clear();
         
         // Ensure scanning state is immediately communicated to UI
         connectionState = SmartGlassesConnectionState.SCANNING;
@@ -3129,41 +3109,6 @@ public class EvenRealitiesG1SGC extends SmartGlassesCommunicator {
         } catch (Exception e) {
             Log.e(TAG, "Error decoding manufacturer data: " + e.getMessage());
             return null;
-        }
-    }
-
-    /**
-     * Decodes manufacturer data for the left device after successful connection
-     * @param leftDevice The left Bluetooth device
-     */
-    private void decodeLeftDeviceManufacturerData(BluetoothDevice leftDevice) {
-        if (leftDevice == null) {
-            Log.e(TAG, "Left device is null, cannot decode manufacturer data");
-            return;
-        }
-        
-        Log.d(TAG, "=== Decoding Left Device Manufacturer Data ===");
-        Log.d(TAG, "Device Name: " + leftDevice.getName());
-        Log.d(TAG, "Device Address: " + leftDevice.getAddress());
-        
-        // Use the stored manufacturer data from scanning
-        if (leftDeviceManufacturerDataMap.containsKey(leftDevice.getAddress())) {
-            Log.d(TAG, "Using stored Left Device Manufacturer Data: " + bytesToHex(leftDeviceManufacturerDataMap.get(leftDevice.getAddress())));
-            
-            // Try to decode serial number from manufacturer data
-            String decodedSerial = decodeSerialFromManufacturerData(leftDeviceManufacturerDataMap.get(leftDevice.getAddress()));
-            if (decodedSerial != null) {
-                Log.d(TAG, "LEFT DEVICE DECODED SERIAL NUMBER: " + decodedSerial);
-                String[] decoded = decodeEvenG1SerialNumber(decodedSerial);
-                Log.d(TAG, "LEFT DEVICE Style: " + decoded[0] + ", Color: " + decoded[1]);
-                
-                // BROADCAST THE SERIAL NUMBER EVENT
-                EventBus.getDefault().post(new GlassesSerialNumberEvent(decodedSerial, decoded[0], decoded[1]));
-            } else {
-                Log.d(TAG, "Could not decode serial number from stored manufacturer data");
-            }
-        } else {
-            Log.d(TAG, "No stored manufacturer data available for left device: " + leftDevice.getAddress());
         }
     }
 }

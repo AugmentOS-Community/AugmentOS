@@ -20,6 +20,12 @@ import android.net.NetworkRequest;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
+import com.augmentos.otaupdater.events.BatteryStatusEvent;
+import com.augmentos.otaupdater.events.DownloadProgressEvent;
+import com.augmentos.otaupdater.events.InstallationProgressEvent;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -49,6 +55,10 @@ public class OtaHelper {
     public OtaHelper(Context context) {
         this.context = context.getApplicationContext(); // Use application context to avoid memory leaks
         handler = new Handler(Looper.getMainLooper());
+        
+        // Register for EventBus to receive battery status updates
+        EventBus.getDefault().register(this);
+        
         // Schedule initial check after 15 seconds
         handler.postDelayed(() -> {
             Log.d(TAG, "Performing initial OTA check after 15 seconds");
@@ -68,6 +78,12 @@ public class OtaHelper {
         }
         stopPeriodicChecks();
         unregisterNetworkCallback();
+        
+        // Unregister from EventBus
+        if (EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().unregister(this);
+        }
+        
         context = null;
     }
 
@@ -192,6 +208,12 @@ public class OtaHelper {
             Log.e(TAG, "No WiFi connection available. Skipping OTA check.");
             return;
         }
+        
+        // Check battery status before proceeding with OTA update
+        if (!isBatterySufficientForUpdates()) {
+            Log.w(TAG, "🚨 Battery insufficient for OTA updates - skipping version check");
+            return;
+        }
 
         // Check if version check is already in progress
         if (isCheckingVersion) {
@@ -293,6 +315,9 @@ public class OtaHelper {
             int lastProgress = 0;
 
             Log.d(TAG, "Download started, file size: " + fileSize + " bytes");
+            
+            // Emit download started event
+            EventBus.getDefault().post(DownloadProgressEvent.createStarted(fileSize));
 
             while ((len = in.read(buffer)) > 0) {
                 out.write(buffer, 0, len);
@@ -301,9 +326,11 @@ public class OtaHelper {
                 // Calculate progress percentage
                 int progress = fileSize > 0 ? (int) (total * 100 / fileSize) : 0;
 
-                // Log progress at 10% intervals
-                if (progress >= lastProgress + 10 || progress == 100) {
+                // Log progress at 5% intervals and emit progress events
+                if (progress >= lastProgress + 5 || progress == 100) {
                     Log.d(TAG, "Download progress: " + progress + "% (" + total + "/" + fileSize + " bytes)");
+                    // Emit progress event
+                    EventBus.getDefault().post(new DownloadProgressEvent(DownloadProgressEvent.DownloadStatus.PROGRESS, progress, total, fileSize));
                     lastProgress = progress;
                 }
             }
@@ -312,6 +339,10 @@ public class OtaHelper {
             in.close();
 
             Log.d(TAG, "APK downloaded to: " + apkFile.getAbsolutePath());
+            
+            // Emit download finished event
+            EventBus.getDefault().post(DownloadProgressEvent.createFinished(fileSize));
+            
             // Immediately check hash after download
             boolean hashOk = verifyApkFile(apkFile.getAbsolutePath(), json);
             Log.d(TAG, "SHA256 verification result: " + hashOk);
@@ -324,10 +355,14 @@ public class OtaHelper {
                     boolean deleted = apkFile.delete();
                     Log.d(TAG, "SHA256 mismatch – APK deleted: " + deleted);
                 }
+                // Emit download failed event due to hash mismatch
+                EventBus.getDefault().post(new DownloadProgressEvent(DownloadProgressEvent.DownloadStatus.FAILED, "SHA256 hash verification failed"));
                 return false;
             }
         } catch (Exception e) {
             Log.e(TAG, "OTA failed", e);
+            // Emit download failed event due to exception
+            EventBus.getDefault().post(new DownloadProgressEvent(DownloadProgressEvent.DownloadStatus.FAILED, "Download failed: " + e.getMessage()));
             return false;
         }
     }
@@ -396,6 +431,9 @@ public class OtaHelper {
 //            }
             Log.d(TAG, "Starting installation process for APK at: " + apkPath);
             
+            // Emit installation started event
+            EventBus.getDefault().post(new InstallationProgressEvent(InstallationProgressEvent.InstallationStatus.STARTED, apkPath));
+            
             Intent intent = new Intent("com.xy.xsetting.action");
             intent.setPackage("com.android.systemui");
             intent.putExtra("cmd", "install");
@@ -407,6 +445,8 @@ public class OtaHelper {
             File apkFile = new File(apkPath);
             if (!apkFile.exists()) {
                 Log.e(TAG, "Installation failed: APK file not found at " + apkPath);
+                // Emit installation failed event
+                EventBus.getDefault().post(new InstallationProgressEvent(InstallationProgressEvent.InstallationStatus.FAILED, apkPath, "APK file not found"));
                 sendUpdateCompletedBroadcast(context);
                 return;
             }
@@ -414,6 +454,8 @@ public class OtaHelper {
             // Verify APK is readable
             if (!apkFile.canRead()) {
                 Log.e(TAG, "Installation failed: Cannot read APK file at " + apkPath);
+                // Emit installation failed event
+                EventBus.getDefault().post(new InstallationProgressEvent(InstallationProgressEvent.InstallationStatus.FAILED, apkPath, "Cannot read APK file"));
                 sendUpdateCompletedBroadcast(context);
                 return;
             }
@@ -432,14 +474,20 @@ public class OtaHelper {
             // This is necessary because the system doesn't notify us when installation is complete
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 Log.i(TAG, "Installation timer elapsed - sending completion broadcast");
+                // Emit installation finished event
+                EventBus.getDefault().post(new InstallationProgressEvent(InstallationProgressEvent.InstallationStatus.FINISHED, apkPath));
                 sendUpdateCompletedBroadcast(context);
             }, 10000); // Wait 60 seconds for installation to complete
         } catch (SecurityException e) {
             Log.e(TAG, "Security exception while sending install broadcast", e);
+            // Emit installation failed event
+            EventBus.getDefault().post(new InstallationProgressEvent(InstallationProgressEvent.InstallationStatus.FAILED, apkPath, "Security exception: " + e.getMessage()));
             // Make sure to send completion broadcast on error
             sendUpdateCompletedBroadcast(context);
         } catch (Exception e) {
             Log.e(TAG, "Failed to send install broadcast", e);
+            // Emit installation failed event
+            EventBus.getDefault().post(new InstallationProgressEvent(InstallationProgressEvent.InstallationStatus.FAILED, apkPath, "Installation failed: " + e.getMessage()));
             // Make sure to send completion broadcast on error
             sendUpdateCompletedBroadcast(context);
         }
@@ -609,5 +657,78 @@ public class OtaHelper {
                 Log.e(TAG, "Failed to send fallback update completion broadcast", ex);
             }
         }
+    }
+    
+    // Battery status tracking variables
+    private int glassesBatteryLevel = -1; // -1 means unknown
+    private boolean glassesCharging = false;
+    private long lastBatteryUpdateTime = 0;
+    private boolean batteryCheckInProgress = false;
+    private boolean lastBatteryCheckResult = true; // Default to allowing updates
+    
+    /**
+     * EventBus subscriber for battery status updates from MainActivity
+     * @param event Battery status event containing level, charging status, and timestamp
+     */
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onBatteryStatusEvent(BatteryStatusEvent event) {
+        Log.i(TAG, "🔋 Received BatteryStatusEvent: " + event);
+        
+        // Update local battery status variables
+        glassesBatteryLevel = event.getBatteryLevel();
+        glassesCharging = event.isCharging();
+        lastBatteryUpdateTime = event.getTimestamp();
+        
+        // Update the battery check result based on current status
+        lastBatteryCheckResult = isBatterySufficientForUpdates();
+        
+        // Mark battery check as complete
+        batteryCheckInProgress = false;
+        
+        Log.i(TAG, "💾 Updated OtaHelper battery status - Level: " + glassesBatteryLevel + 
+              "%, Charging: " + glassesCharging + ", Sufficient: " + lastBatteryCheckResult);
+    }
+    
+    /**
+     * Check if battery level is sufficient for OTA updates
+     * This method uses the locally stored battery status from EventBus events
+     * @return true if battery is sufficient, false if too low
+     */
+    private boolean isBatterySufficientForUpdates() {
+        // If we don't have battery info, allow updates (fail-safe)
+        if (glassesBatteryLevel == -1) {
+            Log.w(TAG, "⚠️ No battery information available - allowing updates as fail-safe");
+            return true;
+        }
+        
+        // Block updates if battery < 5% and not charging
+        if (glassesBatteryLevel < 5) {
+            Log.w(TAG, "🚨 Battery insufficient for OTA updates: " + glassesBatteryLevel + 
+                  "% - blocking updates");
+            return false;
+        }
+        
+        Log.i(TAG, "✅ Battery sufficient for OTA updates: " + glassesBatteryLevel + 
+              "%");
+        return true;
+    }
+    
+    /**
+     * Get current battery status as formatted string
+     * @return formatted battery status string
+     */
+    public String getBatteryStatusString() {
+        if (glassesBatteryLevel == -1) {
+            return "Unknown";
+        }
+        return glassesBatteryLevel + "% " + (glassesCharging ? "(charging)" : "(not charging)");
+    }
+    
+    /**
+     * Get the last battery update time
+     * @return timestamp of last battery update, or 0 if never updated
+     */
+    public long getLastBatteryUpdateTime() {
+        return lastBatteryUpdateTime;
     }
 }

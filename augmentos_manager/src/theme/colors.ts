@@ -84,7 +84,7 @@ const palette = {
   charcoal: "#333333",
 
   // Success colors
-  success100: "#E8F5E8",
+  success100: "#22C55E",
   success500: "#4CAF50",
 
   // Warning colors

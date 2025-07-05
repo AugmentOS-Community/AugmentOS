@@ -5,7 +5,7 @@ import {Button} from "@/components/ignite"
 import {ThemedStyle} from "@/theme"
 import {useAppTheme} from "@/utils/useAppTheme"
 import {useStatus} from "@/contexts/AugmentOSStatusProvider"
-import {getGlassesImage, getGlassesOpenImage} from "@/utils/getGlassesImage"
+import {getGlassesImage, getGlassesOpenImage, getEvenRealitiesG1Image} from "@/utils/getGlassesImage"
 import {translate} from "@/i18n"
 import {Spacer} from "@/components/misc/Spacer"
 import Animated, {

@@ -46,4 +46,7 @@ public class Constants {
 
     // Update handling
     public static final long UPDATE_TIMEOUT_MS = 5 * 60 * 1000;      // 5 minutes timeout for updates
+    
+    // Battery status actions
+    public static final String ACTION_GLASSES_BATTERY_STATUS = "com.augmentos.otaupdater.ACTION_GLASSES_BATTERY_STATUS";
 }

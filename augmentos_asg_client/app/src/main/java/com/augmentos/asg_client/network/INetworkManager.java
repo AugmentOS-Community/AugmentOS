@@ -79,6 +79,12 @@ public interface INetworkManager {
     List<String> scanWifiNetworks();
     
     /**
+     * Get the local IP address of the device on the current network
+     * @return the local IP address as a string, or empty string if not available
+     */
+    String getLocalIpAddress();
+    
+    /**
      * Cleanup resources when the manager is no longer needed
      */
     void shutdown();
